@@ -7,6 +7,7 @@ require (
 	github.com/Tnze/go-mc v1.17.0
 	github.com/alexedwards/scs/pgxstore v0.0.0-20211102093144-4fbbc167f2c1
 	github.com/alexedwards/scs/v2 v2.4.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0

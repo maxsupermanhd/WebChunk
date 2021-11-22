@@ -31,7 +31,7 @@ func main() {
 	for _, d := range de {
 		p := filepath.Join(basedir, d.Name())
 		var rx, rz int
-		if _, err := fmt.Sscanf(d.Name(), "r.%d.%d.mca", &rx, &rz); err != nil {
+		if _, err := fmt.Sscanf(d.Name(), "r.%d.%d.mca", &rz, &rx); err != nil {
 			log.Printf("Error parsing file name of %s: %v, ignoring", d.Name(), err)
 			continue
 		}

@@ -1,0 +1,34 @@
+{{define "chunkinfo"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<style>#map {height: 500px;width: 500px;margin-left: auto; margin-right: auto}</style>
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+			integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+			crossorigin=""/>
+		<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+			integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+			crossorigin=""></script>
+		<meta content="Welp, that's a website" property="og:title">
+		<meta content="Index page - it has some useful info on it" property="og:description">
+		<meta content="https://wz2100-autohost.net/" property="og:url">
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+		<script src="https://github.com/chartjs/chartjs-plugin-zoom/releases/download/v1.1.1/chartjs-plugin-zoom.min.js"></script>
+		<title>{{.Server.Name}} - {{.Dim.Alias}}</title>
+	</head>
+	<body>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-p34f1UUtsS3wqzfto5wAAmdvj+osOnFyQFpp4Ua3gs/ZVWx6oOypYoCJhGGScy+8" crossorigin="anonymous"></script>
+		<div class="px-4 py-5 container">
+			<h2>Server ({{.Server.ID}}) <code>{{.Server.Name}}</code></h2>
+			<small>IP: <code>{{.Server.IP}}</code></small>
+			<h3>Dimension <code>{{.Dim.Alias}}</code> <small>({{.Dim.Name}})</small></h3>
+			<hr>
+			<pre>{{.Chunk}}</pre>
+			<hr>
+			<pre>{{.PrettyChunk}}</pre>
+		</div>
+	</body>
+</html>
+{{end}}

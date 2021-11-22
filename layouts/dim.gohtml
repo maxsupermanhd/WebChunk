@@ -3,7 +3,10 @@
 <html translate="no">
 	<head>
 		{{template "head"}}
-		<style>#map {height: 500px;width: 500px;}</style>
+		<style>
+		#map {height: 500px;width: 500px;margin-left: auto; margin-right: auto}
+		img.leaflet-tile {image-rendering: pixelated;}
+		</style>
 		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
 			integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
 			crossorigin=""/>
@@ -28,18 +31,44 @@
 		</div>
 		<div id="map"></div>
 		<script>
+		L.CursorHandler = L.Handler.extend({
+		    addHooks: function () {
+		        this._popup = new L.Popup();
+		        this._map.on('mouseover', this._open, this);
+		        this._map.on('mousemove', this._update, this);
+		        this._map.on('mouseout', this._close, this);
+		    },
+		    removeHooks: function () {
+		        this._map.off('mouseover', this._open, this);
+		        this._map.off('mousemove', this._update, this);
+		        this._map.off('mouseout', this._close, this);
+		    },
+		    _open: function (e) {
+		        this._update(e);
+		        this._popup.openOn(this._map);
+		    },
+		    _close: function () {
+		        this._map.closePopup(this._popup);
+		    },
+		    _update: function (e) {
+		        this._popup.setLatLng(e.latlng)
+		            .setContent(e.latlng.toString()+'<br>'+e.layerPoint.toString());
+		    }
+		});
+		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
 		var mymap = L.map('map', {
+			cursor: true,
 			crs: L.CRS.Simple
 		}).setView([0, 0], 10);
 		L.tileLayer('/servers/{{.Server.ID}}/dimensions/{{.Dim.ID}}/terrain/{x}/{y}/jpeg', {
 			maxNativeZoom: 10,
 			minNativeZoom: 10,
-			maxZoom: 15,
-			minZoom: 5,
+			maxZoom: 22,
+			minZoom: 0,
 			tileSize: 32,
 			zoomOffset: 0,
 		}).addTo(mymap);
-		var circle = L.circle([0, 0], {
+		var circle = L.square([0, 0], {
 			color: 'red',
 			fillColor: '#f03',
 			fillOpacity: 0.5,

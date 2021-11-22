@@ -5,11 +5,13 @@ import (
 	"context"
 	_ "embed"
 	"encoding/gob"
+	"html/template"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	_ "sync"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/Tnze/go-mc/data/block"
 	"github.com/Tnze/go-mc/save"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
 )
@@ -37,6 +40,84 @@ func getChunkData(did, cx, cz int) (save.Column, error) {
 	}
 	perr := c.Load(d)
 	return c, perr
+}
+
+func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
+	c := []save.Column{}
+	rows, derr := dbpool.Query(context.Background(), `
+		select data
+		from chunks
+		where dim = $1 AND x < $2 AND x >= $3 AND z < $4 AND z >= $5
+		limit 1;`, did, cx0, cz0, cx1, cz1)
+	if derr != nil {
+		if derr != pgx.ErrNoRows {
+			log.Print(derr.Error())
+		}
+		return c, derr
+	}
+	var perr error
+	for rows.Next() {
+		var d []byte
+		rows.Scan(&d)
+		var cc save.Column
+		perr = cc.Load(d)
+		if perr != nil {
+			continue
+		}
+		c = append(c, cc)
+	}
+	return c, perr
+}
+
+func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	dids := params["did"]
+	did, err := strconv.Atoi(dids)
+	if err != nil {
+		plainmsg(w, r, 2, "Bad dim id: "+err.Error())
+		return
+	}
+	cxs := params["cx"]
+	cx, err := strconv.Atoi(cxs)
+	if err != nil {
+		plainmsg(w, r, 2, "Bad cx id: "+err.Error())
+		return
+	}
+	czs := params["cz"]
+	cz, err := strconv.Atoi(czs)
+	if err != nil {
+		plainmsg(w, r, 2, "Bad cz id: "+err.Error())
+		return
+	}
+	css := params["cs"]
+	cs, err := strconv.Atoi(css)
+	if err != nil {
+		plainmsg(w, r, 2, "Bad s id: "+err.Error())
+		return
+	}
+	cc, err := getChunksRegion(did, cx, cz, cx+int(math.Pow(2, float64(cs))), cz+int(math.Pow(2, float64(cs))))
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	_ = cc
+}
+
+func drawRegion(d, s, x, z int) (img *image.RGBA, err error) {
+	// cc, err := getChunksRegion(d, x, z, x+int(math.Pow(2, float64(s))), z+int(math.Pow(2, float64(s))))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// img = image.NewRGBA(image.Rect(0, 0, 16*int(math.Pow(2, float64(s))), 16*int(math.Pow(2, float64(s)))))
+	// for i, c := range cc {
+		// draw.Draw(
+		// 	img, image.Rect(0, 0, 16, 16),
+		// 	layerImg, image.Pt(0, 0),
+		// 	draw.Over,
+		// )
+		// drawColumn
+	// }
+	return nil, nil
 }
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
@@ -150,4 +231,48 @@ func terrainJpegHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeImage(w, drawColumn(&c))
 	w.WriteHeader(http.StatusOK)
+}
+
+func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	sids := params["sid"]
+	sid, err := strconv.Atoi(sids)
+	if err != nil {
+		plainmsg(w, r, 2, "Bad server id: "+err.Error())
+		return
+	}
+	dids := params["did"]
+	did, err := strconv.Atoi(dids)
+	if err != nil {
+		plainmsg(w, r, 2, "Bad dim id: "+err.Error())
+		return
+	}
+	server, derr := getServerByID(sid)
+	if derr != nil {
+		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		return
+	}
+	dim, derr := getDimensionByID(did)
+	if derr != nil {
+		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		return
+	}
+	cxs := params["cx"]
+	cx, err := strconv.Atoi(cxs)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	czs := params["cz"]
+	cz, err := strconv.Atoi(czs)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	c, err := getChunkData(did, cz, cx)
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"Server": server, "Dim": dim, "Chunk": c, "PrettyChunk": template.HTML(spew.Sdump(c))})
 }
