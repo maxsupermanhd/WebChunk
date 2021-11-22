@@ -1,0 +1,30 @@
+{{define "server"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<meta content="Welp, that's a website" property="og:title">
+		<meta content="Index page - it has some useful info on it" property="og:description">
+		<meta content="https://wz2100-autohost.net/" property="og:url">
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+		<script src="https://github.com/chartjs/chartjs-plugin-zoom/releases/download/v1.1.1/chartjs-plugin-zoom.min.js"></script>
+		<title>({{.Server.ID}}) {{.Server.Name}}</title>
+	</head>
+	<body>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-p34f1UUtsS3wqzfto5wAAmdvj+osOnFyQFpp4Ua3gs/ZVWx6oOypYoCJhGGScy+8" crossorigin="anonymous"></script>
+		<div class="px-4 py-5 container">
+			<h2>Server ({{.Server.ID}}) <code>{{.Server.Name}}</code></h2>
+			<small>IP: <code>{{.Server.IP}}</code></small>
+			<p>
+				Available dimensions:
+				<ul>
+					{{range $i, $s := .Dims}}
+					<li><a href="/servers/{{$.Server.ID}}/dimensions/{{$s.ID}}">{{$s.Alias}} ({{$s.Name}})</a></li>
+					{{end}}
+				</ul>
+			</p>
+		</div>
+	</body>
+</html>
+{{end}}
