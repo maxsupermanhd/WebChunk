@@ -15,6 +15,7 @@ require (
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/joho/godotenv v1.4.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/shirou/gopsutil v3.21.10+incompatible
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect

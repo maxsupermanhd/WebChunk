@@ -22,6 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
+	"github.com/nfnt/resize"
 )
 
 func getChunkData(did, cx, cz int) (save.Column, error) {
@@ -43,12 +44,13 @@ func getChunkData(did, cx, cz int) (save.Column, error) {
 }
 
 func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
+	log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
 	c := []save.Column{}
 	rows, derr := dbpool.Query(context.Background(), `
 		select data
 		from chunks
-		where dim = $1 AND x < $2 AND x >= $3 AND z < $4 AND z >= $5
-		limit 1;`, did, cx0, cz0, cx1, cz1)
+		where dim = $1 AND x >= $2 AND z >= $3 AND x < $4 AND z < $5
+		`, did, cx0, cz0, cx1, cz1)
 	if derr != nil {
 		if derr != pgx.ErrNoRows {
 			log.Print(derr.Error())
@@ -62,6 +64,7 @@ func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
 		var cc save.Column
 		perr = cc.Load(d)
 		if perr != nil {
+			log.Print(perr.Error())
 			continue
 		}
 		c = append(c, cc)
@@ -95,29 +98,34 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, 2, "Bad s id: "+err.Error())
 		return
 	}
-	cc, err := getChunksRegion(did, cx, cz, cx+int(math.Pow(2, float64(cs))), cz+int(math.Pow(2, float64(cs))))
+	scale := int(math.Pow(2, float64(cs)))
+	imagesize := 512
+	cc, err := getChunksRegion(did, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
-		w.WriteHeader(http.StatusNoContent)
+		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
 		return
 	}
-	_ = cc
-}
-
-func drawRegion(d, s, x, z int) (img *image.RGBA, err error) {
-	// cc, err := getChunksRegion(d, x, z, x+int(math.Pow(2, float64(s))), z+int(math.Pow(2, float64(s))))
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// img = image.NewRGBA(image.Rect(0, 0, 16*int(math.Pow(2, float64(s))), 16*int(math.Pow(2, float64(s)))))
-	// for i, c := range cc {
-		// draw.Draw(
-		// 	img, image.Rect(0, 0, 16, 16),
-		// 	layerImg, image.Pt(0, 0),
-		// 	draw.Over,
-		// )
-		// drawColumn
-	// }
-	return nil, nil
+	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
+	imagescale := int(imagesize / scale)
+	// log.Print("Scale ", scale)
+	// log.Print("Image scale ", imagescale, imagesize-imagescale)
+	offsetx := cx * scale
+	offsety := cz * scale
+	// log.Print("Offsets ", offsetx, offsety)
+	for _, c := range cc {
+		placex := int(c.Level.PosX) - offsety
+		placey := int(c.Level.PosZ) - offsetx
+		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
+		// c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
+		tile := resize.Resize(uint(imagescale), uint(imagescale), drawColumn(&c), resize.NearestNeighbor)
+		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
+			tile, image.Pt(0, 0), draw.Over)
+		// draw.Draw(img, image.Rect(0, 0, imagesize, imagesize),
+		// 	tile, image.Pt(placex*int(imagescale), placey*int(imagescale)),
+		// 	draw.Src)
+	}
+	writeImage(w, img)
+	w.WriteHeader(http.StatusOK)
 }
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
@@ -125,20 +133,7 @@ func drawColumn(column *save.Column) (img *image.RGBA) {
 	c := column.Level.Sections
 	for _, s := range c {
 		drawSection(&s, img)
-		// wg.Done()
 	}
-	// c := make(chan *save.Chunk)
-	// var wg sync.WaitGroup
-	// for i := 0; i < 2; i++ {
-	// 	go func() {
-	// 	}()
-	// }
-	// defer close(c)
-	// wg.Add(len(s))
-	// for i := range s {
-	// 	c <- &s[i]
-	// }
-	// wg.Wait()
 	return
 }
 

@@ -1,3 +1,4 @@
 .env
 prod
-webchunk.log
+*.log
+*.log.gz

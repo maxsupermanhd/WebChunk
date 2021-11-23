@@ -4,7 +4,7 @@
 	<head>
 		{{template "head"}}
 		<style>
-		#map {height: 500px;width: 500px;margin-left: auto; margin-right: auto}
+		#map {height: 700px;width: 1200px;margin-left: auto; margin-right: auto}
 		img.leaflet-tile {image-rendering: pixelated;}
 		</style>
 		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
@@ -59,14 +59,15 @@
 		var mymap = L.map('map', {
 			cursor: true,
 			crs: L.CRS.Simple
-		}).setView([0, 0], 10);
-		L.tileLayer('/servers/{{.Server.ID}}/dimensions/{{.Dim.ID}}/terrain/{x}/{y}/jpeg', {
-			maxNativeZoom: 10,
-			minNativeZoom: 10,
-			maxZoom: 22,
+		}).setView([0, 0], 3);
+		L.tileLayer('/servers/{{.Server.ID}}/dimensions/{{.Dim.ID}}/tiles/{z}/{y}/{x}/jpeg', {
+			maxNativeZoom: 4,
+			minNativeZoom: 0,
+			maxZoom: 4,
 			minZoom: 0,
-			tileSize: 32,
+			tileSize: 512,
 			zoomOffset: 0,
+			zoomReverse: true
 		}).addTo(mymap);
 		var circle = L.square([0, 0], {
 			color: 'red',

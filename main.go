@@ -85,11 +85,11 @@ func faviconHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
-	// r := params.Request
-	// ip := r.Header.Get("CF-Connecting-IP")
-	// geo := r.Header.Get("CF-IPCountry")
-	// ua := r.Header.Get("user-agent")
-	// log.Println("["+geo+" "+ip+"]", r.Method, params.StatusCode, r.RequestURI, "["+ua+"]")
+	r := params.Request
+	ip := r.Header.Get("CF-Connecting-IP")
+	geo := r.Header.Get("CF-IPCountry")
+	ua := r.Header.Get("user-agent")
+	log.Println("["+geo+" "+ip+"]", r.Method, params.StatusCode, r.RequestURI, "["+ua+"]")
 }
 
 func main() {
@@ -185,7 +185,7 @@ func main() {
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:-?[0-9]+}", dimensionHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainJpegHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/info", terrainInfoHandler)
-	// router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/tiles/{cz:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainScaleJpegHandler)
+	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainScaleJpegHandler)
 
 	router0 := sessionManager.LoadAndSave(router)
 	router1 := handlers.ProxyHeaders(router0)
