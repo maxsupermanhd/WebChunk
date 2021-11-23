@@ -236,8 +236,8 @@ func terrainJpegHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	writeImage(w, drawColumn(&c))
 	w.WriteHeader(http.StatusOK)
+	writeImage(w, drawColumn(&c))
 }
 
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {

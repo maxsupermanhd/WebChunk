@@ -45,8 +45,8 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 	if tag.RowsAffected() != 1 {
 		log.Print("Rows affected ", tag.RowsAffected())
 	}
-	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of dimension %d submitted. Thank you for your contribution!\n", col.Level.PosX, col.Level.PosZ, did)))
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of dimension %d submitted. Thank you for your contribution!\n", col.Level.PosX, col.Level.PosZ, did)))
 	return
 }
 
@@ -124,7 +124,7 @@ func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	region.Close()
-	w.Write([]byte(fmt.Sprintf("Region submitted. Thank you for your contribution!\n")))
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Region submitted. Thank you for your contribution!\n")))
 	return
 }
