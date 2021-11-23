@@ -124,7 +124,7 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 	offsety := cz * scale
 	// log.Print("Offsets ", offsetx, offsety)
 	// log.Print("Chunks ", len(cc))
-	for i, c := range cc {
+	for _, c := range cc {
 		placex := int(c.Level.PosX) - offsetx
 		placey := int(c.Level.PosZ) - offsety
 		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
