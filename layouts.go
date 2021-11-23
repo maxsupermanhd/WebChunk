@@ -20,7 +20,7 @@ func basicLayoutLookupRespond(page string, w http.ResponseWriter, r *http.Reques
 			log.Println("Basic respond got parameters interface of wrong type")
 		}
 		m["NavWhere"] = page
-		sessionAppendUser(r, &m)
+		// sessionAppendUser(r, &m)
 		w.Header().Set("Server", "WebChunk webserver "+CommitHash)
 		w.Header().Set("Cache-Control", "no-cache")
 		err := in.Execute(w, m)
