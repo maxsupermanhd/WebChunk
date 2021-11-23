@@ -14,7 +14,6 @@ import (
 	_ "strconv"
 	"time"
 
-	"github.com/alexedwards/scs/pgxstore"
 	scs "github.com/alexedwards/scs/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
@@ -167,12 +166,12 @@ func main() {
 	}
 	defer dbpool.Close()
 
-	log.Println("Starting session manager")
-	sessionManager = scs.New()
-	store := pgxstore.New(dbpool)
-	sessionManager.Store = store
-	sessionManager.Lifetime = 14 * 24 * time.Hour
-	defer store.StopCleanup()
+	// log.Println("Starting session manager")
+	// sessionManager = scs.New()
+	// store := pgxstore.New(dbpool)
+	// sessionManager.Store = store
+	// sessionManager.Lifetime = 14 * 24 * time.Hour
+	// defer store.StopCleanup()
 
 	log.Println("Adding routes")
 	router := mux.NewRouter()
@@ -191,8 +190,8 @@ func main() {
 	router.HandleFunc("/api/submit/chunk/{did:-?[0-9]+}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{did:-?[0-9]+}", apiAddRegionHandler)
 
-	router0 := sessionManager.LoadAndSave(router)
-	router1 := handlers.ProxyHeaders(router0)
+	// router0 := sessionManager.LoadAndSave(router)
+	router1 := handlers.ProxyHeaders(router)
 	//	router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router1, customLogger)
 	// router4 := handlers.RecoveryHandler()(router3)
