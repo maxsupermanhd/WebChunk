@@ -136,8 +136,8 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 		// 	tile, image.Pt(placex*int(imagescale), placey*int(imagescale)),
 		// 	draw.Src)
 	}
-	writeImage(w, img)
 	w.WriteHeader(http.StatusOK)
+	writeImage(w, img)
 }
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
