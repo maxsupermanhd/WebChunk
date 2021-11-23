@@ -118,17 +118,17 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
 	imagescale := int(imagesize / scale)
-	log.Print("Scale ", scale)
-	log.Print("Image scale ", imagescale, imagesize-imagescale)
+	// log.Print("Scale ", scale)
+	// log.Print("Image scale ", imagescale, imagesize-imagescale)
 	offsetx := cx * scale
 	offsety := cz * scale
-	log.Print("Offsets ", offsetx, offsety)
-	log.Print("Chunks ", len(cc))
+	// log.Print("Offsets ", offsetx, offsety)
+	// log.Print("Chunks ", len(cc))
 	for i, c := range cc {
 		placex := int(c.Level.PosX) - offsetx
 		placey := int(c.Level.PosZ) - offsety
-		log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
-			c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
+		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
+		// c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
 		tile := resize.Resize(uint(imagescale), uint(imagescale), drawColumn(&c), resize.NearestNeighbor)
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)
