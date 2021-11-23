@@ -46,10 +46,21 @@ func getChunkData(did, cx, cz int) (save.Column, error) {
 func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
 	log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
 	c := []save.Column{}
+	// rows, derr := dbpool.Query(context.Background(), `
+	// 	select data
+	// 	from chunks
+	// 	where dim = $1 AND x >= $2 AND z >= $3 AND x < $4 AND z < $5
+	// 	`, did, cx0, cz0, cx1, cz1)
 	rows, derr := dbpool.Query(context.Background(), `
+		with grp as
+		 (
+			select x, z, data, created_at, dim,
+				rank() over (partition by x, z order by x, z, created_at desc) r
+			from chunks
+		)
 		select data
-		from chunks
-		where dim = $1 AND x >= $2 AND z >= $3 AND x < $4 AND z < $5
+		from grp
+		where dim = $1 AND x >= $2 AND z >= $3 AND x < $4 AND z < $5 AND r = 1
 		`, did, cx0, cz0, cx1, cz1)
 	if derr != nil {
 		if derr != pgx.ErrNoRows {
@@ -107,16 +118,17 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
 	imagescale := int(imagesize / scale)
-	// log.Print("Scale ", scale)
-	// log.Print("Image scale ", imagescale, imagesize-imagescale)
+	log.Print("Scale ", scale)
+	log.Print("Image scale ", imagescale, imagesize-imagescale)
 	offsetx := cx * scale
 	offsety := cz * scale
-	// log.Print("Offsets ", offsetx, offsety)
-	for _, c := range cc {
-		placex := int(c.Level.PosX) - offsety
-		placey := int(c.Level.PosZ) - offsetx
-		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
-		// c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
+	log.Print("Offsets ", offsetx, offsety)
+	log.Print("Chunks ", len(cc))
+	for i, c := range cc {
+		placex := int(c.Level.PosX) - offsetx
+		placey := int(c.Level.PosZ) - offsety
+		log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
+			c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
 		tile := resize.Resize(uint(imagescale), uint(imagescale), drawColumn(&c), resize.NearestNeighbor)
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)

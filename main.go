@@ -180,12 +180,16 @@ func main() {
 	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	router.HandleFunc("/favicon.ico", faviconHandler)
 	router.HandleFunc("/robots.txt", robotsHandler)
+
 	router.HandleFunc("/", indexHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}", serverHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:-?[0-9]+}", dimensionHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainJpegHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/info", terrainInfoHandler)
 	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainScaleJpegHandler)
+
+	router.HandleFunc("/api/submit/chunk/{did:-?[0-9]+}", apiAddChunkHandler)
+	router.HandleFunc("/api/submit/region/{did:-?[0-9]+}", apiAddRegionHandler)
 
 	router0 := sessionManager.LoadAndSave(router)
 	router1 := handlers.ProxyHeaders(router0)
