@@ -15,10 +15,13 @@
 			crossorigin=""></script>
 		<meta content="Welp, that's a website" property="og:title">
 		<meta content="Index page - it has some useful info on it" property="og:description">
-		<meta content="https://wz2100-autohost.net/" property="og:url">
+		<!-- <meta content="https://wz2100-autohost.net/" property="og:url"> -->
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-		<script src="https://github.com/chartjs/chartjs-plugin-zoom/releases/download/v1.1.1/chartjs-plugin-zoom.min.js"></script>
+		<!-- <script src="https://github.com/chartjs/chartjs-plugin-zoom/releases/download/v1.1.1/chartjs-plugin-zoom.min.js"></script> -->
+		<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
+		<link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' rel='stylesheet' />
+
 		<title>{{.Server.Name}} - {{.Dim.Alias}}</title>
 	</head>
 	<body>
@@ -58,7 +61,8 @@
 		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
 		var mymap = L.map('map', {
 			cursor: true,
-			crs: L.CRS.Simple
+			crs: L.CRS.Simple,
+			fullscreenControl: true
 		}).setView([0, 0], 3);
 		L.tileLayer('/servers/{{.Server.ID}}/dimensions/{{.Dim.ID}}/tiles/{z}/{y}/{x}/jpeg', {
 			maxNativeZoom: 4,
@@ -66,15 +70,17 @@
 			maxZoom: 4,
 			minZoom: 0,
 			tileSize: 512,
-			zoomOffset: 0,
-			zoomReverse: true
+			zoomReverse: true,
+			zoomSnap: 0.25,
+			attribution: '&copy; McWebChunk Contributors',
 		}).addTo(mymap);
-		var circle = L.square([0, 0], {
-			color: 'red',
-			fillColor: '#f03',
-			fillOpacity: 0.5,
-			radius: 0.05
-		}).addTo(mymap);
+		// var circle = L.square([0, 0], {
+		// 	color: 'red',
+		// 	fillColor: '#f03',
+		// 	fillOpacity: 0.5,
+		// 	radius: 100
+		// }).addTo(mymap);
+		L.control.scale().addTo(mymap);
 		</script>
 	</body>
 </html>
