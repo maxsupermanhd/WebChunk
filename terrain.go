@@ -292,18 +292,18 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	cxs := params["cx"]
 	cx, err := strconv.Atoi(cxs)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		plainmsg(w, r, 2, "Chunk X coordinate is shit: "+err.Error())
 		return
 	}
 	czs := params["cz"]
 	cz, err := strconv.Atoi(czs)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		plainmsg(w, r, 2, "Chunk Z coordinate is shit: "+err.Error())
 		return
 	}
 	c, err := getChunkData(dname, sname, cz, cx)
 	if err != nil {
-		w.WriteHeader(http.StatusNoContent)
+		plainmsg(w, r, 2, "Chunk query error: "+derr.Error())
 		return
 	}
 	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"Server": server, "Dim": dim, "Chunk": c, "PrettyChunk": template.HTML(spew.Sdump(c))})
