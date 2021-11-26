@@ -10,6 +10,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
+	"image/png"
 	"log"
 	"math"
 	"net/http"
@@ -25,14 +26,24 @@ import (
 	"github.com/nfnt/resize"
 )
 
-func getChunkData(did, cx, cz int) (save.Column, error) {
+func getChunkData(dname, sname string, cx, cz int) (save.Column, error) {
 	var c save.Column
 	var d []byte
 	derr := dbpool.QueryRow(context.Background(), `
+		with grp as
+		 (
+			select x, z, data, created_at, dim, id,
+				rank() over (partition by x, z order by x, z, created_at desc) r
+			from chunks
+		)
 		select data
-		from chunks
-		where dim = $1 AND x = $2 AND z = $3
-		limit 1;`, did, cx, cz).Scan(&d)
+		from grp
+		where x = $1 AND z = $2 AND r = 1 AND
+			dim = (select dimensions.id 
+			 from dimensions 
+			 join servers on servers.id = dimensions.server 
+			 where servers.name = $3 and dimensions.name = $4)
+		limit 1;`, cx, cz, sname, dname).Scan(&d)
 	if derr != nil {
 		if derr != pgx.ErrNoRows {
 			log.Print(derr.Error())
@@ -83,10 +94,15 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column
 	return c, perr
 }
 
-func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
+func terrainScaleImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	dname := params["dim"]
 	sname := params["server"]
+	fname := params["format"]
+	if fname != "jpeg" && fname != "png" {
+		plainmsg(w, r, 2, "Bad encoding")
+		return
+	}
 	cxs := params["cx"]
 	cx, err := strconv.Atoi(cxs)
 	if err != nil {
@@ -133,7 +149,12 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 		// 	draw.Src)
 	}
 	w.WriteHeader(http.StatusOK)
-	writeImage(w, img)
+	switch fname {
+	case "jpeg":
+		writeImageJpeg(w, img)
+	case "png":
+		writeImagePng(w, img)
+	}
 }
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
@@ -195,7 +216,7 @@ func drawSection(s *save.Chunk, img *image.RGBA) {
 	return
 }
 
-func writeImage(w http.ResponseWriter, img *image.RGBA) {
+func writeImageJpeg(w http.ResponseWriter, img *image.RGBA) {
 	buffer := new(bytes.Buffer)
 	if err := jpeg.Encode(buffer, img, nil); err != nil {
 		log.Println("unable to encode image.")
@@ -207,11 +228,24 @@ func writeImage(w http.ResponseWriter, img *image.RGBA) {
 	}
 }
 
-func terrainJpegHandler(w http.ResponseWriter, r *http.Request) {
+func writeImagePng(w http.ResponseWriter, img *image.RGBA) {
+	buffer := new(bytes.Buffer)
+	if err := png.Encode(buffer, img); err != nil {
+		log.Println("unable to encode image.")
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
+	if _, err := w.Write(buffer.Bytes()); err != nil {
+		log.Println("unable to write image.")
+	}
+}
+
+func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	dids := params["did"]
-	did, err := strconv.Atoi(dids)
-	if err != nil {
+	dname := params["dim"]
+	sname := params["server"]
+	fname := params["format"]
+	if fname != "jpeg" && fname != "png" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -227,35 +261,30 @@ func terrainJpegHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	c, err := getChunkData(did, cz, cx)
+	c, err := getChunkData(dname, sname, cz, cx)
 	if err != nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	writeImage(w, drawColumn(&c))
+	switch fname {
+	case "jpeg":
+		writeImageJpeg(w, drawColumn(&c))
+	case "png":
+		writeImagePng(w, drawColumn(&c))
+	}
 }
 
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	sids := params["sid"]
-	sid, err := strconv.Atoi(sids)
-	if err != nil {
-		plainmsg(w, r, 2, "Bad server id: "+err.Error())
-		return
-	}
-	dids := params["did"]
-	did, err := strconv.Atoi(dids)
-	if err != nil {
-		plainmsg(w, r, 2, "Bad dim id: "+err.Error())
-		return
-	}
-	server, derr := getServerByID(sid)
+	sname := params["server"]
+	dname := params["dim"]
+	server, derr := getServerByName(sname)
 	if derr != nil {
 		plainmsg(w, r, 2, "Database query error: "+derr.Error())
 		return
 	}
-	dim, derr := getDimensionByID(did)
+	dim, derr := getDimensionByNames(sname, dname)
 	if derr != nil {
 		plainmsg(w, r, 2, "Database query error: "+derr.Error())
 		return
@@ -272,7 +301,7 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	c, err := getChunkData(did, cz, cx)
+	c, err := getChunkData(dname, sname, cz, cx)
 	if err != nil {
 		w.WriteHeader(http.StatusNoContent)
 		return

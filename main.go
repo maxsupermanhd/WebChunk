@@ -184,9 +184,9 @@ func main() {
 	router.HandleFunc("/", indexHandler)
 	router.HandleFunc("/servers/{server}", serverHandler)
 	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler)
-	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainJpegHandler)
+	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler)
 	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/info", terrainInfoHandler)
-	router.HandleFunc("/servers/{server}/{dim}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainScaleJpegHandler)
+	router.HandleFunc("/servers/{server}/{dim}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainScaleImageHandler)
 
 	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)
