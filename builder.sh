@@ -31,4 +31,4 @@ FLAG="$FLAG -X $TRG_PKG.GoVersion=$GoVersion"
 FLAG="$FLAG -X $TRG_PKG.GitTag=$GitTag"
 
 echo 'go build'
-go build -v -ldflags "$FLAG" -o prod
+go build -v -ldflags "$FLAG" -o webchunk

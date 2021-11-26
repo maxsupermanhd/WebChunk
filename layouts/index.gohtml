@@ -19,7 +19,7 @@
 				Available servers:
 				<ul>
 					{{range $i, $s := .Servers}}
-					<li><a href="/servers/{{$s.ID}}">{{$s.Name}}</a></li>
+					<li><a href="/servers/{{$s.Name}}">{{$s.Name}}{{if avail "IP" $s}} (<code>{{$s.IP}}</code>){{end}}</a></li>
 					{{end}}
 				</ul>
 			</p>

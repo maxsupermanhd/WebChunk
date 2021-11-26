@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Println("Error loading .env file")
 	}
-	sendThreadedHttpRegions(de)
+	sendThreadedHttpChunks(de)
 }
 
 func sendThreadedHttpRegions(de []fs.DirEntry) {
@@ -50,7 +50,7 @@ func sendThreadedHttpRegions(de []fs.DirEntry) {
 	for i := 0; i < threadscount; i++ {
 		go func(chan []byte) {
 			for data := range c {
-				res, err := http.Post("http://localhost:3001/api/submit/region/1", "binary/octet-stream", bytes.NewReader(data))
+				res, err := http.Post("https://spring-forge-eg-answered.trycloudflare.com/api/submit/region/1", "binary/octet-stream", bytes.NewReader(data))
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -146,7 +146,7 @@ func sendThreadedHttpChunks(de []fs.DirEntry) {
 	for i := 0; i < threadscount; i++ {
 		go func(chan []byte) {
 			for data := range c {
-				res, err := http.Post("http://localhost:3001/api/submit/chunk/1", "binary/octet-stream", bytes.NewReader(data))
+				res, err := http.Post("http://spring-forge-eg-answered.trycloudflare.com/api/submit/chunk/1", "binary/octet-stream", bytes.NewReader(data))
 				if err != nil {
 					log.Fatal(err)
 				}

@@ -43,14 +43,9 @@ func getChunkData(did, cx, cz int) (save.Column, error) {
 	return c, perr
 }
 
-func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
-	log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
+func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
+	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
 	c := []save.Column{}
-	// rows, derr := dbpool.Query(context.Background(), `
-	// 	select data
-	// 	from chunks
-	// 	where dim = $1 AND x >= $2 AND z >= $3 AND x < $4 AND z < $5
-	// 	`, did, cx0, cz0, cx1, cz1)
 	rows, derr := dbpool.Query(context.Background(), `
 		with grp as
 		 (
@@ -60,8 +55,12 @@ func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
 		)
 		select data
 		from grp
-		where dim = $1 AND x >= $2 AND z >= $3 AND x < $4 AND z < $5 AND r = 1
-		`, did, cx0, cz0, cx1, cz1)
+		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND
+			dim = (select dimensions.id 
+			 from dimensions 
+			 join servers on servers.id = dimensions.server 
+			 where servers.name = $5 and dimensions.name = $6)
+		`, cx0, cz0, cx1, cz1, sname, dname)
 	if derr != nil {
 		if derr != pgx.ErrNoRows {
 			log.Print(derr.Error())
@@ -85,12 +84,8 @@ func getChunksRegion(did, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
 
 func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	dids := params["did"]
-	did, err := strconv.Atoi(dids)
-	if err != nil {
-		plainmsg(w, r, 2, "Bad dim id: "+err.Error())
-		return
-	}
+	dname := params["dim"]
+	sname := params["server"]
 	cxs := params["cx"]
 	cx, err := strconv.Atoi(cxs)
 	if err != nil {
@@ -111,7 +106,7 @@ func terrainScaleJpegHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	scale := int(math.Pow(2, float64(cs)))
 	imagesize := 512
-	cc, err := getChunksRegion(did, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
+	cc, err := getChunksRegion(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
 		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
 		return

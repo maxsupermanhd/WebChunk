@@ -18,6 +18,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/natefinch/lumberjack"
@@ -181,14 +182,14 @@ func main() {
 	router.HandleFunc("/robots.txt", robotsHandler)
 
 	router.HandleFunc("/", indexHandler)
-	router.HandleFunc("/servers/{sid:[0-9]+}", serverHandler)
-	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:-?[0-9]+}", dimensionHandler)
-	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainJpegHandler)
-	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/info", terrainInfoHandler)
-	router.HandleFunc("/servers/{sid:[0-9]+}/dimensions/{did:[0-9]+}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainScaleJpegHandler)
+	router.HandleFunc("/servers/{server}", serverHandler)
+	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler)
+	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainJpegHandler)
+	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/info", terrainInfoHandler)
+	router.HandleFunc("/servers/{server}/{dim}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/jpeg", terrainScaleJpegHandler)
 
-	router.HandleFunc("/api/submit/chunk/{did:-?[0-9]+}", apiAddChunkHandler)
-	router.HandleFunc("/api/submit/region/{did:-?[0-9]+}", apiAddRegionHandler)
+	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
+	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)
 
 	// router0 := sessionManager.LoadAndSave(router)
 	router1 := handlers.ProxyHeaders(router)
@@ -224,12 +225,25 @@ func listServers() ([]ServerStruct, error) {
 
 func getServerByID(sid int) (ServerStruct, error) {
 	var server ServerStruct
-	server.ID = sid
 	derr := dbpool.QueryRow(context.Background(), `
 	select
-		json_build_object('name', name)::jsonb || json_build_object('ip', ip)::jsonb
+		json_build_object('id', id)::jsonb ||
+		json_build_object('name', name)::jsonb ||
+		json_build_object('ip', ip)::jsonb
 	from servers
 	where id = $1;`, sid).Scan(&server)
+	return server, derr
+}
+
+func getServerByName(servername string) (ServerStruct, error) {
+	var server ServerStruct
+	derr := dbpool.QueryRow(context.Background(), `
+	select
+		json_build_object('id', id)::jsonb ||
+		json_build_object('name', name)::jsonb ||
+		json_build_object('ip', ip)::jsonb
+	from servers
+	where name = $1;`, servername).Scan(&server)
 	return server, derr
 }
 
@@ -246,7 +260,21 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	basicLayoutLookupRespond("index", w, r, map[string]interface{}{"LoadAvg": load, "VirtMem": virtmem, "Uptime": uptimetime, "Servers": servers})
 }
 
-func listDimensionsByServer(sid int) ([]DimStruct, error) {
+func listDimensionsByServerName(server string) ([]DimStruct, error) {
+	var dims []DimStruct
+	derr := dbpool.QueryRow(context.Background(), `
+		select
+			json_agg(
+				json_build_object('id', dimensions.id)::jsonb ||
+				json_build_object('name', dimensions.name)::jsonb ||
+				json_build_object('alias', dimensions.alias)::jsonb)
+		from dimensions
+		join servers on dimensions.server = servers.id
+		where servers.name = $1`, server).Scan(&dims)
+	return dims, derr
+}
+
+func listDimensionsByServerID(sid int) ([]DimStruct, error) {
 	var dims []DimStruct
 	derr := dbpool.QueryRow(context.Background(), `
 		select
@@ -269,20 +297,31 @@ func getDimensionByID(did int) (DimStruct, error) {
 	return dim, derr
 }
 
+func getDimensionByNames(server, dimension string) (DimStruct, error) {
+	var dim DimStruct
+	derr := dbpool.QueryRow(context.Background(), `
+		select json_build_object('id', dimensions.id)::jsonb ||
+			json_build_object('name', dimensions.name)::jsonb ||
+			json_build_object('alias', dimensions.alias)::jsonb
+		from dimensions
+		join servers on dimensions.server = servers.id
+		where dimensions.name = $1 and servers.name = $2;`, dimension, server).Scan(&dim)
+	return dim, derr
+}
+
 func serverHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	sids := params["sid"]
-	sid, err := strconv.Atoi(sids)
-	if err != nil {
-		plainmsg(w, r, 2, "Bad server id: "+err.Error())
-		return
-	}
-	server, derr := getServerByID(sid)
+	sname := params["server"]
+	server, derr := getServerByName(sname)
 	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		if derr == pgx.ErrNoRows {
+			plainmsg(w, r, 2, "Server not found")
+		} else {
+			plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		}
 		return
 	}
-	dims, derr := listDimensionsByServer(sid)
+	dims, derr := listDimensionsByServerName(sname)
 	if derr != nil {
 		plainmsg(w, r, 2, "Database query error: "+derr.Error())
 		return
@@ -292,26 +331,24 @@ func serverHandler(w http.ResponseWriter, r *http.Request) {
 
 func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	sids := params["sid"]
-	sid, err := strconv.Atoi(sids)
-	if err != nil {
-		plainmsg(w, r, 2, "Bad server id: "+err.Error())
-		return
-	}
-	dids := params["did"]
-	did, err := strconv.Atoi(dids)
-	if err != nil {
-		plainmsg(w, r, 2, "Bad dim id: "+err.Error())
-		return
-	}
-	server, derr := getServerByID(sid)
+	sname := params["server"]
+	dimname := params["dim"]
+	server, derr := getServerByName(sname)
 	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		if derr == pgx.ErrNoRows {
+			plainmsg(w, r, 2, "Server not found")
+		} else {
+			plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		}
 		return
 	}
-	dim, derr := getDimensionByID(did)
+	dim, derr := getDimensionByNames(sname, dimname)
 	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		if derr == pgx.ErrNoRows {
+			plainmsg(w, r, 2, "Dimension not found")
+		} else {
+			plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		}
 		return
 	}
 	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "Server": server})
