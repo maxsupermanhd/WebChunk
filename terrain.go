@@ -49,11 +49,11 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column
 	rows, derr := dbpool.Query(context.Background(), `
 		with grp as
 		 (
-			select x, z, data, created_at, dim,
+			select x, z, data, created_at, dim, id,
 				rank() over (partition by x, z order by x, z, created_at desc) r
 			from chunks
 		)
-		select data
+		select data, id
 		from grp
 		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND
 			dim = (select dimensions.id 
@@ -70,11 +70,12 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column
 	var perr error
 	for rows.Next() {
 		var d []byte
-		rows.Scan(&d)
+		var cid int
+		rows.Scan(&d, &cid)
 		var cc save.Column
 		perr = cc.Load(d)
 		if perr != nil {
-			log.Print(perr.Error())
+			log.Printf("Chunk %d: %s", cid, perr.Error())
 			continue
 		}
 		c = append(c, cc)
