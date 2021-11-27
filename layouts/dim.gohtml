@@ -59,12 +59,7 @@
 		    }
 		});
 		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
-		var mymap = L.map('map', {
-			cursor: true,
-			crs: L.CRS.Simple,
-			fullscreenControl: true
-		}).setView([0, 0], 3);
-		L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/{z}/{x}/{y}/png', {
+		let terrainlayer = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/{z}/{x}/{y}/png', {
 			maxNativeZoom: 4,
 			minNativeZoom: 0,
 			maxZoom: 4,
@@ -72,8 +67,31 @@
 			tileSize: 512,
 			zoomReverse: true,
 			zoomSnap: 0.25,
-			attribution: '&copy; McWebChunk Contributors',
-		}).addTo(mymap);
+			attribution: '&copy; McWebChunk Contributors'});
+		let number = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/counttiles/{z}/{x}/{y}/png', {
+			maxNativeZoom: 4,
+			minNativeZoom: 0,
+			maxZoom: 4,
+			minZoom: 0,
+			tileSize: 512,
+			zoomReverse: true,
+			zoomSnap: 0.25,
+			attribution: '&copy; McWebChunk Contributors'});
+		let numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/counttilesheat/{z}/{x}/{y}/png', {
+			maxNativeZoom: 4,
+			minNativeZoom: 0,
+			maxZoom: 4,
+			minZoom: 0,
+			tileSize: 512,
+			zoomReverse: true,
+			zoomSnap: 0.25,
+			attribution: '&copy; McWebChunk Contributors'});
+		var mymap = L.map('map', {
+			cursor: true,
+			crs: L.CRS.Simple,
+			fullscreenControl: true,
+			layers: [terrainlayer, number, numberheat]
+		}).setView([0, 0], 3);
 		// var circle = L.square([0, 0], {
 		// 	color: 'red',
 		// 	fillColor: '#f03',
@@ -81,6 +99,7 @@
 		// 	radius: 100
 		// }).addTo(mymap);
 		L.control.scale().addTo(mymap);
+		L.control.layers({"Terrain": terrainlayer}, {"Chunk count heat": numberheat, "Chunk count": number}).addTo(mymap);
 		</script>
 	</body>
 </html>

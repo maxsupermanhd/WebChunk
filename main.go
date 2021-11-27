@@ -184,9 +184,11 @@ func main() {
 	router.HandleFunc("/", indexHandler)
 	router.HandleFunc("/servers/{server}", serverHandler)
 	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler)
-	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler)
 	router.HandleFunc("/servers/{server}/{dim}/chunkinfo/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler)
+	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler)
 	router.HandleFunc("/servers/{server}/{dim}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainScaleImageHandler)
+	router.HandleFunc("/servers/{server}/{dim}/counttiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainChunkCountScaleImageHandler)
+	router.HandleFunc("/servers/{server}/{dim}/counttilesheat/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainChunkCountHeatScaleImageHandler)
 
 	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)

@@ -37,7 +37,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	tag, err := dbpool.Exec(context.Background(), `
 		insert into chunks (x, z, data, dim)
-		values ($1, $2, $3
+		values ($1, $2, $3,
 			(select dimensions.id 
 			 from dimensions 
 			 join servers on servers.id = dimensions.server 
