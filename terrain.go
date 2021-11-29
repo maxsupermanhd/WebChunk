@@ -266,7 +266,7 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, 2, "Chunk Z coordinate is shit: "+err.Error())
 		return
 	}
-	c, err := getChunkData(dname, sname, cz, cx)
+	c, err := getChunkData(dname, sname, cx, cz)
 	if err != nil {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
