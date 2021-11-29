@@ -20,7 +20,7 @@
 				Available dimensions:
 				<ul>
 					{{range $i, $s := .Dims}}
-					<li><a href="/servers/{{$.Server.Name}}/{{$s.Name}}">{{$s.Name}}{{if avail $s "Alias"}} ({{$s.Alias}}){{end}}</a></li>
+					<li><a href="/servers/{{$.Server.Name}}/{{$s.Name}}">{{$s.Name}}{{if avail "Alias" $s}} ({{$s.Alias}}){{end}}</a></li>
 					{{end}}
 				</ul>
 			</p>
