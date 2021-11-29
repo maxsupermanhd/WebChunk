@@ -30,19 +30,14 @@ func getChunkData(dname, sname string, cx, cz int) (save.Column, error) {
 	var c save.Column
 	var d []byte
 	derr := dbpool.QueryRow(context.Background(), `
-		with grp as
-		 (
-			select x, z, data, created_at, dim, id,
-				rank() over (partition by x, z order by x, z, created_at desc) r
-			from chunks
-		)
 		select data
-		from grp
-		where x = $1 AND z = $2 AND r = 1 AND
+		from chunks
+		where x = $1 AND z = $2 AND
 			dim = (select dimensions.id 
 			 from dimensions 
 			 join servers on servers.id = dimensions.server 
 			 where servers.name = $3 and dimensions.name = $4)
+		order by created_at desc
 		limit 1;`, cx, cz, sname, dname).Scan(&d)
 	if derr != nil {
 		if derr != pgx.ErrNoRows {
