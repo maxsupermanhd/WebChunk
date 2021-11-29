@@ -64,7 +64,7 @@
 			minNativeZoom: 0,
 			maxZoom: 4,
 			minZoom: 0,
-			tileSize: 512,
+			tileSize: 256,
 			zoomReverse: true,
 			zoomSnap: 0.25,
 			attribution: '&copy; McWebChunk Contributors'});
@@ -73,7 +73,7 @@
 			minNativeZoom: 0,
 			maxZoom: 4,
 			minZoom: 0,
-			tileSize: 512,
+			tileSize: 256,
 			zoomReverse: true,
 			zoomSnap: 0.25,
 			attribution: '&copy; McWebChunk Contributors'});
@@ -82,15 +82,30 @@
 			minNativeZoom: 0,
 			maxZoom: 4,
 			minZoom: 0,
-			tileSize: 512,
+			tileSize: 256,
 			zoomReverse: true,
 			zoomSnap: 0.25,
 			attribution: '&copy; McWebChunk Contributors'});
+		
+		L.GridLayer.GridDebug = L.GridLayer.extend({
+			createTile: function (coords) {
+				const tile = document.createElement('div');
+				tile.style.outline = '1px solid green';
+				tile.style.fontWeight = 'bold';
+				tile.style.fontSize = '14pt';
+				tile.innerHTML = [4-coords.z, coords.x, coords.y].join('/');
+				return tile;
+			},
+		});
+		L.gridLayer.gridDebug = function (opts) {
+			return new L.GridLayer.GridDebug(opts);
+		};
+		let coordinatelayer = L.gridLayer.gridDebug();
 		var mymap = L.map('map', {
 			cursor: true,
 			crs: L.CRS.Simple,
 			fullscreenControl: true,
-			layers: [terrainlayer, number, numberheat]
+			layers: [terrainlayer, number, numberheat, coordinatelayer]
 		}).setView([0, 0], 3);
 		// var circle = L.square([0, 0], {
 		// 	color: 'red',
@@ -99,7 +114,7 @@
 		// 	radius: 100
 		// }).addTo(mymap);
 		L.control.scale().addTo(mymap);
-		L.control.layers({}, {"Terrain": terrainlayer, "Chunk count heat": numberheat, "Chunk count": number}).addTo(mymap);
+		L.control.layers({}, {"Terrain": terrainlayer, "Chunk count heat": numberheat, "Chunk count": number, "Coordinate grid": coordinatelayer}).addTo(mymap);
 		</script>
 	</body>
 </html>
