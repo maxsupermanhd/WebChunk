@@ -93,11 +93,6 @@ func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
 }
 
 func main() {
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.Println()
-	log.Println("WebChunk server is starting up...")
-	log.Printf("Built %s, Ver %s (%s)\n", BuildTime, GitTag, CommitHash)
-	log.Println()
 	rand.Seed(time.Now().UTC().UnixNano())
 	err := godotenv.Load()
 	if err != nil {
@@ -107,12 +102,13 @@ func main() {
 	if port == "" {
 		port = "3000"
 	}
-	log.SetOutput(&lumberjack.Logger{
+	log.SetOutput(io.MultiWriter(&lumberjack.Logger{
 		Filename: "webchunk.log",
 		MaxSize:  10,
 		Compress: true,
-	})
-
+	}, os.Stdout))
+	
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println()
 	log.Println("WebChunk web server is starting up...")
 	log.Printf("Built %s, Ver %s (%s)\n", BuildTime, GitTag, CommitHash)
