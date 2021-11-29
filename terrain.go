@@ -52,21 +52,21 @@ func getChunkData(dname, sname string, cx, cz int) (save.Column, error) {
 func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
 	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
 	c := []save.Column{}
+	dim, err := getDimensionByNames(sname, dname)
+	if err != nil {
+		return c, err
+	}
 	rows, derr := dbpool.Query(context.Background(), `
 		with grp as
 		 (
 			select x, z, data, created_at, dim, id,
 				rank() over (partition by x, z order by x, z, created_at desc) r
-			from chunks
+			from chunks where dim = $5
 		)
 		select data, id
 		from grp
-		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND
-			dim = (select dimensions.id 
-			 from dimensions 
-			 join servers on servers.id = dimensions.server 
-			 where servers.name = $5 and dimensions.name = $6)
-		`, cx0, cz0, cx1, cz1, sname, dname)
+		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND dim = $5
+		`, cx0, cz0, cx1, cz1, dim.ID)
 	if derr != nil {
 		if derr != pgx.ErrNoRows {
 			log.Print(derr.Error())
