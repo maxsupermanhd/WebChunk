@@ -13,7 +13,8 @@ create table servers (
 create table dimensions (
 	id serial primary key,
 	server int references servers(id) not null,
-	name text not null
+	name text not null,
+	alias text
 );
 create table chunks (
 	id serial primary key,
