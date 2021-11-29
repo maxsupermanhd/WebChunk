@@ -97,6 +97,9 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column
 func terrainScaleImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	err, sname, dname, fname, cx, cz, cs := tilingParams(w, r, params)
+	if err != nil {
+		return
+	}
 	scale := int(math.Pow(2, float64(cs)))
 	imagesize := 512
 	cc, err := getChunksRegion(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
@@ -105,6 +108,7 @@ func terrainScaleImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{0, 0, 0, 255}}, image.ZP, draw.Src)
 	imagescale := int(imagesize / scale)
 	// log.Print("Scale ", scale)
 	// log.Print("Image scale ", imagescale, imagesize-imagescale)
@@ -125,12 +129,7 @@ func terrainScaleImageHandler(w http.ResponseWriter, r *http.Request) {
 		// 	draw.Src)
 	}
 	w.WriteHeader(http.StatusOK)
-	switch fname {
-	case "jpeg":
-		writeImageJpeg(w, img)
-	case "png":
-		writeImagePng(w, img)
-	}
+	writeImage(w, fname, img)
 }
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
@@ -195,24 +194,24 @@ func drawSection(s *save.Chunk, img *image.RGBA) {
 func writeImageJpeg(w http.ResponseWriter, img *image.RGBA) {
 	buffer := new(bytes.Buffer)
 	if err := jpeg.Encode(buffer, img, nil); err != nil {
-		log.Println("unable to encode image.")
+		log.Printf("Unable to encode image: %s", err.Error())
 	}
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
 	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Println("unable to write image.")
+		log.Printf("Unable to write image: %s", err.Error())
 	}
 }
 
 func writeImagePng(w http.ResponseWriter, img *image.RGBA) {
 	buffer := new(bytes.Buffer)
 	if err := png.Encode(buffer, img); err != nil {
-		log.Println("unable to encode image.")
+		log.Printf("Unable to encode image: %s", err.Error())
 	}
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
 	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Println("unable to write image.")
+		log.Printf("Unable to write image: %s", err.Error())
 	}
 }
 
