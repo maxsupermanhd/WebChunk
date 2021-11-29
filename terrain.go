@@ -9,10 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"image/jpeg"
-	"image/png"
 	"log"
-	"math"
 	"net/http"
 	"strconv"
 	_ "sync"
@@ -23,7 +20,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
-	"github.com/nfnt/resize"
 )
 
 func getChunkData(dname, sname string, cx, cz int) (save.Column, error) {
@@ -49,9 +45,9 @@ func getChunkData(dname, sname string, cx, cz int) (save.Column, error) {
 	return c, perr
 }
 
-func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column, error) {
+func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error) {
 	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
-	c := []save.Column{}
+	c := []chunkData{}
 	dim, err := getDimensionByNames(sname, dname)
 	if err != nil {
 		return c, err
@@ -84,47 +80,9 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]save.Column
 			log.Printf("Chunk %d: %s", cid, perr.Error())
 			continue
 		}
-		c = append(c, cc)
+		c = append(c, chunkData{x: cc.Level.PosX, z: cc.Level.PosZ, data: cc})
 	}
 	return c, perr
-}
-
-func terrainScaleImageHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	err, sname, dname, fname, cx, cz, cs := tilingParams(w, r, params)
-	if err != nil {
-		return
-	}
-	scale := int(math.Pow(2, float64(cs)))
-	imagesize := 512
-	cc, err := getChunksRegion(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
-	if err != nil {
-		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
-		return
-	}
-	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{0, 0, 0, 255}}, image.ZP, draw.Src)
-	imagescale := int(imagesize / scale)
-	// log.Print("Scale ", scale)
-	// log.Print("Image scale ", imagescale, imagesize-imagescale)
-	offsetx := cx * scale
-	offsety := cz * scale
-	// log.Print("Offsets ", offsetx, offsety)
-	// log.Print("Chunks ", len(cc))
-	for _, c := range cc {
-		placex := int(c.Level.PosX) - offsetx
-		placey := int(c.Level.PosZ) - offsety
-		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
-		// c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
-		tile := resize.Resize(uint(imagescale), uint(imagescale), drawColumn(&c), resize.NearestNeighbor)
-		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
-			tile, image.Pt(0, 0), draw.Over)
-		// draw.Draw(img, image.Rect(0, 0, imagesize, imagesize),
-		// 	tile, image.Pt(placex*int(imagescale), placey*int(imagescale)),
-		// 	draw.Src)
-	}
-	w.WriteHeader(http.StatusOK)
-	writeImage(w, fname, img)
 }
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
@@ -184,60 +142,6 @@ func drawSection(s *save.Chunk, img *image.RGBA) {
 		)
 	}
 	return
-}
-
-func writeImageJpeg(w http.ResponseWriter, img *image.RGBA) {
-	buffer := new(bytes.Buffer)
-	if err := jpeg.Encode(buffer, img, nil); err != nil {
-		log.Printf("Unable to encode image: %s", err.Error())
-	}
-	w.Header().Set("Content-Type", "image/jpeg")
-	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
-	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Printf("Unable to write image: %s", err.Error())
-	}
-}
-
-func writeImagePng(w http.ResponseWriter, img *image.RGBA) {
-	buffer := new(bytes.Buffer)
-	if err := png.Encode(buffer, img); err != nil {
-		log.Printf("Unable to encode image: %s", err.Error())
-	}
-	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
-	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Printf("Unable to write image: %s", err.Error())
-	}
-}
-
-func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	dname := params["dim"]
-	sname := params["server"]
-	fname := params["format"]
-	if fname != "jpeg" && fname != "png" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	cxs := params["cx"]
-	cx, err := strconv.Atoi(cxs)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	czs := params["cz"]
-	cz, err := strconv.Atoi(czs)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	c, err := getChunkData(dname, sname, cz, cx)
-	if err != nil {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	writeImage(w, fname, drawColumn(&c))
 }
 
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
@@ -312,13 +216,8 @@ func drawHeatOfChunks(c int) *image.RGBA {
 	return layerImg
 }
 
-type chunkCounts struct {
-	x, z, c int
-}
-
-func getChunksCountRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkCounts, error) {
-	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
-	cc := []chunkCounts{}
+func getChunksCountRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error) {
+	cc := []chunkData{}
 	rows, derr := dbpool.Query(context.Background(), `
 	select
 	x, z, coalesce(count(*), 0) as c
@@ -338,125 +237,43 @@ func getChunksCountRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkC
 		return cc, derr
 	}
 	for rows.Next() {
-		var x, z, c int
+		var x, z, c int32
 		derr := rows.Scan(&x, &z, &c)
 		if derr != nil {
 			log.Print(derr.Error())
 			continue
 		}
-		cc = append(cc, chunkCounts{x: x, z: z, c: c})
+		cc = append(cc, chunkData{x: x, z: z, data: c})
 	}
 	return cc, derr
 }
 
-func tilingParams(w http.ResponseWriter, r *http.Request, params map[string]string) (err error, sname, dname, fname string, cx, cz, cs int) {
-	dname = params["dim"]
-	sname = params["server"]
-	fname = params["format"]
+func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	dname := params["dim"]
+	sname := params["server"]
+	fname := params["format"]
 	if fname != "jpeg" && fname != "png" {
-		plainmsg(w, r, 2, "Bad encoding")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	cxs := params["cx"]
-	cx, err = strconv.Atoi(cxs)
+	cx, err := strconv.Atoi(cxs)
 	if err != nil {
-		plainmsg(w, r, 2, "Bad cx id: "+err.Error())
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	czs := params["cz"]
-	cz, err = strconv.Atoi(czs)
+	cz, err := strconv.Atoi(czs)
 	if err != nil {
-		plainmsg(w, r, 2, "Bad cz id: "+err.Error())
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	css := params["cs"]
-	cs, err = strconv.Atoi(css)
+	c, err := getChunkData(dname, sname, cz, cx)
 	if err != nil {
-		plainmsg(w, r, 2, "Bad s id: "+err.Error())
+		w.WriteHeader(http.StatusNoContent)
 		return
-	}
-	return
-}
-
-func writeImage(w http.ResponseWriter, format string, img *image.RGBA) {
-	switch format {
-	case "jpeg":
-		writeImageJpeg(w, img)
-	case "png":
-		writeImagePng(w, img)
-	}
-}
-
-func terrainChunkCountScaleImageHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	err, sname, dname, fname, cx, cz, cs := tilingParams(w, r, params)
-	if err != nil {
-		return
-	}
-	scale := int(math.Pow(2, float64(cs)))
-	imagesize := 512
-	cc, err := getChunksCountRegion(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
-	if err != nil {
-		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
-		return
-	}
-	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
-	imagescale := int(imagesize / scale)
-	// log.Print("Scale ", scale)
-	// log.Print("Image scale ", imagescale, imagesize-imagescale)
-	offsetx := cx * scale
-	offsety := cz * scale
-	// log.Print("Offsets ", offsetx, offsety)
-	// log.Print("Chunks ", len(cc))
-	for _, c := range cc {
-		placex := int(c.x) - offsetx
-		placey := int(c.z) - offsety
-		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
-		// c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
-		tile := resize.Resize(uint(imagescale), uint(imagescale), drawNumberOfChunks(c.c), resize.NearestNeighbor)
-		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
-			tile, image.Pt(0, 0), draw.Over)
-		// draw.Draw(img, image.Rect(0, 0, imagesize, imagesize),
-		// 	tile, image.Pt(placex*int(imagescale), placey*int(imagescale)),
-		// 	draw.Src)
 	}
 	w.WriteHeader(http.StatusOK)
-	writeImage(w, fname, img)
-}
-
-func terrainChunkCountHeatScaleImageHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	err, sname, dname, fname, cx, cz, cs := tilingParams(w, r, params)
-	if err != nil {
-		return
-	}
-	scale := int(math.Pow(2, float64(cs)))
-	imagesize := 512
-	cc, err := getChunksCountRegion(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
-	if err != nil {
-		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
-		return
-	}
-	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
-	imagescale := int(imagesize / scale)
-	// log.Print("Scale ", scale)
-	// log.Print("Image scale ", imagescale, imagesize-imagescale)
-	offsetx := cx * scale
-	offsety := cz * scale
-	// log.Print("Offsets ", offsetx, offsety)
-	// log.Print("Chunks ", len(cc))
-	for _, c := range cc {
-		placex := int(c.x) - offsetx
-		placey := int(c.z) - offsety
-		// log.Printf("Chunk [%d] %d %d offsetted %d %d scaled %v", i,
-		// c.Level.PosX, c.Level.PosZ, placex, placey, image.Rect(placex*int(imagescale), placey*int(imagescale), imagescale, imagescale))
-		tile := resize.Resize(uint(imagescale), uint(imagescale), drawHeatOfChunks(c.c), resize.NearestNeighbor)
-		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
-			tile, image.Pt(0, 0), draw.Over)
-		// draw.Draw(img, image.Rect(0, 0, imagesize, imagesize),
-		// 	tile, image.Pt(placex*int(imagescale), placey*int(imagescale)),
-		// 	draw.Src)
-	}
-	w.WriteHeader(http.StatusOK)
-	writeImage(w, fname, img)
+	writeImage(w, fname, drawColumn(&c))
 }

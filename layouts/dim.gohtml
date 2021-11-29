@@ -59,7 +59,7 @@
 		    }
 		});
 		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
-		let terrainlayer = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/{z}/{x}/{y}/png', {
+		let terrainlayer = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/terrain/{z}/{x}/{y}/png', {
 			maxNativeZoom: 4,
 			minNativeZoom: 0,
 			maxZoom: 4,
@@ -68,7 +68,7 @@
 			zoomReverse: true,
 			zoomSnap: 0.25,
 			attribution: '&copy; McWebChunk Contributors'});
-		let number = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/counttiles/{z}/{x}/{y}/png', {
+		let number = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', {
 			maxNativeZoom: 4,
 			minNativeZoom: 0,
 			maxZoom: 4,
@@ -77,7 +77,7 @@
 			zoomReverse: true,
 			zoomSnap: 0.25,
 			attribution: '&copy; McWebChunk Contributors'});
-		let numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/counttilesheat/{z}/{x}/{y}/png', {
+		let numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', {
 			maxNativeZoom: 4,
 			minNativeZoom: 0,
 			maxZoom: 4,

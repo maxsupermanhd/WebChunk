@@ -16,7 +16,7 @@ func basicLayoutLookupRespond(page string, w http.ResponseWriter, r *http.Reques
 	in := layouts.Lookup(page)
 	if in != nil {
 		m, mk := p.(map[string]interface{})
-		if mk == false {
+		if mk {
 			log.Println("Basic respond got parameters interface of wrong type")
 		}
 		m["NavWhere"] = page

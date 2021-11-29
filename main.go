@@ -14,7 +14,6 @@ import (
 	_ "strconv"
 	"time"
 
-	scs "github.com/alexedwards/scs/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -35,7 +34,6 @@ var (
 )
 
 var layouts *template.Template
-var sessionManager *scs.SessionManager
 var dbpool *pgxpool.Pool
 var layoutFuncs = template.FuncMap{
 	"noescape": func(s string) template.HTML {
@@ -107,7 +105,7 @@ func main() {
 		MaxSize:  10,
 		Compress: true,
 	}, os.Stdout))
-	
+
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println()
 	log.Println("WebChunk web server is starting up...")
@@ -180,11 +178,9 @@ func main() {
 	router.HandleFunc("/", indexHandler)
 	router.HandleFunc("/servers/{server}", serverHandler)
 	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler)
-	router.HandleFunc("/servers/{server}/{dim}/chunkinfo/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler)
-	router.HandleFunc("/servers/{server}/{dim}/terrain/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler)
-	router.HandleFunc("/servers/{server}/{dim}/tiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainScaleImageHandler)
-	router.HandleFunc("/servers/{server}/{dim}/counttiles/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainChunkCountScaleImageHandler)
-	router.HandleFunc("/servers/{server}/{dim}/counttilesheat/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainChunkCountHeatScaleImageHandler)
+	router.HandleFunc("/servers/{server}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler)
+	router.HandleFunc("/servers/{server}/{dim}/chunk/image/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler)
+	router.HandleFunc("/servers/{server}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler)
 
 	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)

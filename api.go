@@ -55,12 +55,10 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.Level.PosX, col.Level.PosZ, sname, dname)))
-	return
 }
 
 func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
-	return
 	// params := mux.Vars(r)
 	// dids := params["did"]
 	// did, err := strconv.Atoi(dids)
