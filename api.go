@@ -36,12 +36,13 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tag, err := dbpool.Exec(context.Background(), `
-		insert into chunks (x, z, data, dim)
+		insert into chunks (x, z, data, dim, server)
 		values ($1, $2, $3,
 			(select dimensions.id 
 			 from dimensions 
 			 join servers on servers.id = dimensions.server 
-			 where servers.name = $4 and dimensions.name = $5))`,
+			 where servers.name = $4 and dimensions.name = $5),
+		 	(select id from servers where name = $4))`,
 		col.Level.PosX, col.Level.PosZ, body, sname, dname)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
