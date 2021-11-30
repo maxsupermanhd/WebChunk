@@ -92,6 +92,7 @@ func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	_ = GoVersion
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Error loading .env file")
