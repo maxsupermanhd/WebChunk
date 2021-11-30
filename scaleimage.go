@@ -48,6 +48,18 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		p = func(i interface{}) *image.RGBA {
 			return drawHeatOfChunks(int(i.(int32)))
 		}
+	case "heightmap":
+		g = getChunksRegion
+		p = func(i interface{}) *image.RGBA {
+			s := i.(save.Column)
+			return drawColumnHeightmap(&s)
+		}
+	case "xray":
+		g = getChunksRegion
+		p = func(i interface{}) *image.RGBA {
+			s := i.(save.Column)
+			return drawColumnXray(&s)
+		}
 	}
 	scaleImageryHandler(w, r, g, p)
 }

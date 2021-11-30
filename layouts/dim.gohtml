@@ -13,12 +13,8 @@
 		<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
 			integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
 			crossorigin=""></script>
-		<meta content="Welp, that's a website" property="og:title">
-		<meta content="Index page - it has some useful info on it" property="og:description">
-		<!-- <meta content="https://wz2100-autohost.net/" property="og:url"> -->
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-		<!-- <script src="https://github.com/chartjs/chartjs-plugin-zoom/releases/download/v1.1.1/chartjs-plugin-zoom.min.js"></script> -->
 		<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
 		<link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' rel='stylesheet' />
 
@@ -31,6 +27,12 @@
 			{{if avail "IP" .Server}}<small>IP: <code>{{.Server.IP}}</code></small>{{end}}
 			<h3>Dimension {{.Dim.Name}}{{if avail "Alias" .Dim}} <small>({{.Dim.Alias}})</small>{{end}}</h3>
 			<hr>
+			<div>
+				<label>X<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoX" value="-280"></label>
+				<label>Z<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoZ" value="620"></label>
+				<label>S<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoS" value="2"></label>
+				<a class="btn btn-primary" onclick="mymap.setView([document.getElementById('gotoX').value, document.getElementById('gotoZ').value], document.getElementById('gotoS').value)">go to</a>
+			</div>
 		</div>
 		<div id="map"></div>
 		<script>
@@ -59,33 +61,17 @@
 		    }
 		});
 		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
-		let terrainlayer = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/terrain/{z}/{x}/{y}/png', {
-			maxNativeZoom: 4,
-			minNativeZoom: 0,
-			maxZoom: 4,
-			minZoom: 0,
-			tileSize: 256,
-			zoomReverse: true,
-			zoomSnap: 0.25,
-			attribution: '&copy; McWebChunk Contributors'});
-		let number = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', {
-			maxNativeZoom: 4,
-			minNativeZoom: 0,
-			maxZoom: 4,
-			minZoom: 0,
-			tileSize: 256,
-			zoomReverse: true,
-			zoomSnap: 0.25,
-			attribution: '&copy; McWebChunk Contributors'});
-		let numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', {
-			maxNativeZoom: 4,
-			minNativeZoom: 0,
-			maxZoom: 4,
-			minZoom: 0,
-			tileSize: 256,
-			zoomReverse: true,
-			zoomSnap: 0.25,
-			attribution: '&copy; McWebChunk Contributors'});
+
+		var defaultLayerSettings = {
+			maxNativeZoom: 4, minNativeZoom: 0, maxZoom: 4, minZoom: 0,
+			tileSize: 256, zoomReverse: true,
+			zoomSnap: 0.25, attribution: '&copy; McWebChunk Contributors'}
+
+		var terrainlayer = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/terrain/{z}/{x}/{y}/png', defaultLayerSettings);
+		var number = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', defaultLayerSettings);
+		var numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', defaultLayerSettings);
+		var height = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/heightmap/{z}/{x}/{y}/png', defaultLayerSettings);
+		var xray = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/xray/{z}/{x}/{y}/png', defaultLayerSettings);
 		
 		L.GridLayer.GridDebug = L.GridLayer.extend({
 			createTile: function (coords) {
@@ -102,10 +88,10 @@
 		};
 		let coordinatelayer = L.gridLayer.gridDebug();
 		var mymap = L.map('map', {
-			cursor: true,
+			cursor: false,
 			crs: L.CRS.Simple,
 			fullscreenControl: true,
-			layers: [terrainlayer, number, numberheat, coordinatelayer]
+			layers: [terrainlayer, coordinatelayer]
 		}).setView([0, 0], 3);
 		// var circle = L.square([0, 0], {
 		// 	color: 'red',
@@ -114,7 +100,7 @@
 		// 	radius: 100
 		// }).addTo(mymap);
 		L.control.scale().addTo(mymap);
-		L.control.layers({}, {"Terrain": terrainlayer, "Chunk count heat": numberheat, "Chunk count": number, "Coordinate grid": coordinatelayer}).addTo(mymap);
+		L.control.layers({"Terrain": terrainlayer, "Terrain height": height, "Xray": xray}, {"Chunk count heat": numberheat, "Chunk count": number, "Coordinate grid": coordinatelayer}).addTo(mymap);
 		</script>
 	</body>
 </html>
