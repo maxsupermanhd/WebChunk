@@ -53,7 +53,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter func(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error), painter func(interface{}) *image.RGBA) {
-	err, sname, dname, fname, cx, cz, cs := tilingParams(w, r)
+	sname, dname, fname, cx, cz, cs, err := tilingParams(w, r)
 	if err != nil {
 		return
 	}
@@ -79,7 +79,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter func(dna
 	writeImage(w, fname, img)
 }
 
-func tilingParams(w http.ResponseWriter, r *http.Request) (err error, sname, dname, fname string, cx, cz, cs int) {
+func tilingParams(w http.ResponseWriter, r *http.Request) (sname, dname, fname string, cx, cz, cs int, err error) {
 	params := mux.Vars(r)
 	dname = params["dim"]
 	sname = params["server"]
