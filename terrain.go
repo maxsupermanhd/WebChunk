@@ -212,7 +212,7 @@ func drawNumberOfChunks(c int) *image.RGBA {
 
 func drawHeatOfChunks(c int) *image.RGBA {
 	layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
-	draw.Draw(layerImg, layerImg.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(c * 30)}}, image.ZP, draw.Src)
+	draw.Draw(layerImg, layerImg.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(c * 30)}}, image.Point{}, draw.Src)
 	return layerImg
 }
 
