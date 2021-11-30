@@ -12,13 +12,9 @@ func plainmsg(w http.ResponseWriter, r *http.Request, color int, msg string) {
 		"msg":      msg})
 }
 
-func basicLayoutLookupRespond(page string, w http.ResponseWriter, r *http.Request, p interface{}) {
+func basicLayoutLookupRespond(page string, w http.ResponseWriter, r *http.Request, m map[string]interface{}) {
 	in := layouts.Lookup(page)
 	if in != nil {
-		m, mk := p.(map[string]interface{})
-		if mk {
-			log.Println("Basic respond got parameters interface of wrong type")
-		}
 		m["NavWhere"] = page
 		// sessionAppendUser(r, &m)
 		w.Header().Set("Server", "WebChunk webserver "+CommitHash)
