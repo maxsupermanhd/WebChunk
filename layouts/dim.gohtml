@@ -82,6 +82,7 @@
 				tile.style.fontWeight = 'bold';
 				tile.style.fontSize = '14pt';
 				tile.innerHTML = [4-coords.z, coords.x, coords.y].join('/');
+				tile.innerHTML += '<br>'+[coords.x*(4-coords.z)*16, coords.y*(4-coords.z)*16].join('/');
 				return tile;
 			},
 		});
