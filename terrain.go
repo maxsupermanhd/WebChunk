@@ -87,7 +87,7 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, 
 
 func drawColumn(column *save.Column) (img *image.RGBA) {
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	defaultColor := color.RGBA{0, 0, 0, 0}
+	defaultColor := color.RGBA{0, 0, 0, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
 	for si := 0; si < len(column.Level.Sections); si++ {
 		s := column.Level.Sections[si]
@@ -100,7 +100,11 @@ func drawColumn(column *save.Column) (img *image.RGBA) {
 		for y := 0; y < 16; y++ {
 			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
 			for i := 16*16 - 1; i >= 0; i-- {
-				layerImg.Set(i%16, i/16, colors[getBID(bpb, bs, &s, y, i)])
+				bid := getBID(bpb, bs, &s, y, i)
+				if filterBlock(bid) {
+					continue
+				}
+				layerImg.Set(i%16, i/16, colors[bid])
 			}
 			draw.Draw(
 				img, image.Rect(0, 0, 16, 16),
@@ -137,7 +141,7 @@ func getBID(bpb int, bs *save.BitStorage, s *save.Chunk, y, i int) (bid block.ID
 	case bpb <= 4:
 		b := s.Palette[bs.Get(y*16*16+i)]
 		if id, ok := idByName[b.Name]; ok {
-			bid = block.StateID[id]
+			bid = block.StateID[block.ByID[block.ID(id)].MinStateID]
 		}
 	}
 	return
@@ -171,6 +175,35 @@ func drawColumnHeightmap(column *save.Column) (img *image.RGBA) {
 	return
 }
 
+func drawColumnPortalBlocksHeightmap(column *save.Column) (img *image.RGBA) {
+	portalsDetected := 0
+	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
+		s := column.Level.Sections[si]
+		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
+		if len(s.BlockStates) == 0 {
+			continue
+		}
+		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
+		bs := save.NewBitStorage(bpb, 4096, data)
+		for y := 16 - 1; y >= 0; y-- {
+			for i := 16*16 - 1; i >= 0; i-- {
+				if getBID(bpb, bs, &s, y, i) == block.NetherPortal.ID {
+					portalsDetected++
+				}
+			}
+		}
+	}
+	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	alpha := 0
+	if portalsDetected/8 > 255 {
+		alpha = 255
+	} else {
+		alpha = portalsDetected * 8
+	}
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
+	return
+}
+
 func filterBlock(i block.ID) (r bool) {
 	m := map[block.ID]bool{
 		block.CoalOre.ID:          true,
@@ -179,6 +212,7 @@ func filterBlock(i block.ID) (r bool) {
 		block.EmeraldOre.ID:       true,
 		block.DiamondOre.ID:       true,
 		block.MossyCobblestone.ID: true,
+		block.Air.ID:              true,
 	}
 	_, r = m[i]
 	return

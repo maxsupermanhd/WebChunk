@@ -60,6 +60,12 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 			s := i.(save.Column)
 			return drawColumnXray(&s)
 		}
+	case "portalsheat":
+		g = getChunksRegion
+		p = func(i interface{}) *image.RGBA {
+			s := i.(save.Column)
+			return drawColumnPortalBlocksHeightmap(&s)
+		}
 	}
 	scaleImageryHandler(w, r, g, p)
 }

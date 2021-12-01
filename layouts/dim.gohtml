@@ -72,6 +72,7 @@
 		var numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', defaultLayerSettings);
 		var height = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/heightmap/{z}/{x}/{y}/png', defaultLayerSettings);
 		var xray = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/xray/{z}/{x}/{y}/png', defaultLayerSettings);
+		var portals = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/portalsheat/{z}/{x}/{y}/png', defaultLayerSettings);
 		
 		L.GridLayer.GridDebug = L.GridLayer.extend({
 			createTile: function (coords) {
@@ -100,7 +101,16 @@
 		// 	radius: 100
 		// }).addTo(mymap);
 		L.control.scale().addTo(mymap);
-		L.control.layers({"Terrain": terrainlayer, "Terrain height": height, "Xray": xray}, {"Chunk count heat": numberheat, "Chunk count": number, "Coordinate grid": coordinatelayer}).addTo(mymap);
+		L.control.layers({
+			"Terrain": terrainlayer,
+			"Terrain height": height,
+			"Xray": xray
+		}, {
+			"Chunk count heat": numberheat,
+			"Chunk count": number,
+			"Coordinate grid": coordinatelayer,
+			"Portal heat": portals
+			}).addTo(mymap);
 		</script>
 	</body>
 </html>
