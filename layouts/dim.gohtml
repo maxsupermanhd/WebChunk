@@ -73,6 +73,7 @@
 		var height = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/heightmap/{z}/{x}/{y}/png', defaultLayerSettings);
 		var xray = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/xray/{z}/{x}/{y}/png', defaultLayerSettings);
 		var portals = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/portalsheat/{z}/{x}/{y}/png', defaultLayerSettings);
+		var chests = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/chestheat/{z}/{x}/{y}/png', defaultLayerSettings);
 		
 		L.GridLayer.GridDebug = L.GridLayer.extend({
 			createTile: function (coords) {
@@ -109,7 +110,8 @@
 			"Chunk count heat": numberheat,
 			"Chunk count": number,
 			"Coordinate grid": coordinatelayer,
-			"Portal heat": portals
+			"Portal heat": portals,
+			"Chest heat": chests
 			}).addTo(mymap);
 		</script>
 	</body>

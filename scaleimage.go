@@ -66,6 +66,12 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 			s := i.(save.Column)
 			return drawColumnPortalBlocksHeightmap(&s)
 		}
+	case "chestheat":
+		g = getChunksRegion
+		p = func(i interface{}) *image.RGBA {
+			s := i.(save.Column)
+			return drawColumnChestBlocksHeightmap(&s)
+		}
 	}
 	scaleImageryHandler(w, r, g, p)
 }
