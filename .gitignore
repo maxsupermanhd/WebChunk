@@ -3,3 +3,4 @@ webchunk
 *.log
 *.log.gz
 tags
+db/data

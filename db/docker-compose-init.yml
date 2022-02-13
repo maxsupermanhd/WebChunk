@@ -1,0 +1,14 @@
+version: '3.3'
+services:
+  postgres:
+    image: 'postgres:13.3'
+    environment:
+      POSTGRES_DB: chunkdb
+      POSTGRES_USER: webchunk
+      POSTGRES_PASSWORD: chunky81254
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ./sql/init:/docker-entrypoint-initdb.d
+      - ./data:/var/lib/postgresql/data
+    ports:
+      - '9182:5432'

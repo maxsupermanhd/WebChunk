@@ -191,7 +191,7 @@ func main() {
 	//	router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router1, customLogger)
 	// router4 := handlers.RecoveryHandler()(router3)
-	log.Println("Started!")
+	log.Println("Started! (http://127.0.0.1:" + port + "/)")
 	log.Panic(http.ListenAndServe(":"+port, router3))
 }
 
