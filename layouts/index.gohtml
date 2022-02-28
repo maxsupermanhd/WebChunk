@@ -3,16 +3,9 @@
 <html translate="no">
 	<head>
 		{{template "head"}}
-		<meta content="Welp, that's a website" property="og:title">
-		<meta content="Index page - it has some useful info on it" property="og:description">
-		<meta content="https://wz2100-autohost.net/" property="og:url">
-		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-		<script src="https://github.com/chartjs/chartjs-plugin-zoom/releases/download/v1.1.1/chartjs-plugin-zoom.min.js"></script>
 		<title>WebChunk main page</title>
 	</head>
 	<body>
-		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-p34f1UUtsS3wqzfto5wAAmdvj+osOnFyQFpp4Ua3gs/ZVWx6oOypYoCJhGGScy+8" crossorigin="anonymous"></script>
 		<div class="px-4 py-5 container">
 			<h2>WebChunk</h2>
 			<p>
@@ -22,6 +15,14 @@
 					<li><a href="/servers/{{$s.Name}}">{{$s.Name}}{{if avail "IP" $s}} (<code>{{$s.IP}}</code>){{end}}</a></li>
 					{{end}}
 				</ul>
+			</p>
+			<p>
+				<details>
+					<summary>Add server</summary>
+					Server name: <input type="text" id="addserver-name">
+					Server IP: <input type="text" id="addserver-ip">
+					<button class="btn btn-primary" onclick="addServer()">Add</button>
+				</details>
 			</p>
 			<table class="table">
 				<tr>

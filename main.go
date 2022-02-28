@@ -17,7 +17,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/natefinch/lumberjack"
@@ -76,7 +75,7 @@ func ByteCountIEC(b uint64) string {
 }
 
 func robotsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "User-agent: *\nDisallow: /\n\n")
+	fmt.Fprint(w, "User-agent: *\nDisallow: /\n\n\n")
 }
 func faviconHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "./static/favicon.ico")
@@ -162,84 +161,34 @@ func main() {
 	}
 	defer dbpool.Close()
 
-	// log.Println("Starting session manager")
-	// sessionManager = scs.New()
-	// store := pgxstore.New(dbpool)
-	// sessionManager.Store = store
-	// sessionManager.Lifetime = 14 * 24 * time.Hour
-	// defer store.StopCleanup()
-
 	log.Println("Adding routes")
 	router := mux.NewRouter()
-	// router.NotFoundHandler = myNotFoundHandler()
-	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
-	router.HandleFunc("/favicon.ico", faviconHandler)
-	router.HandleFunc("/robots.txt", robotsHandler)
+	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(hiddenFileSystem{http.Dir("./static")}))).Methods("GET")
+	router.HandleFunc("/favicon.ico", faviconHandler).Methods("GET")
+	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
 
-	router.HandleFunc("/", indexHandler)
-	router.HandleFunc("/servers/{server}", serverHandler)
-	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler)
-	router.HandleFunc("/servers/{server}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler)
-	router.HandleFunc("/servers/{server}/{dim}/chunk/image/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler)
-	router.HandleFunc("/servers/{server}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler)
+	router.HandleFunc("/", indexHandler).Methods("GET")
+	router.HandleFunc("/servers/{server}", serverHandler).Methods("GET")
+	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler).Methods("GET")
+	router.HandleFunc("/servers/{server}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
+	router.HandleFunc("/servers/{server}/{dim}/chunk/image/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler).Methods("GET")
+	router.HandleFunc("/servers/{server}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
 
 	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)
 
-	// router0 := sessionManager.LoadAndSave(router)
+	router.HandleFunc("/api/servers", apiHandle(apiAddServer)).Methods("POST")
+	router.HandleFunc("/api/servers", apiHandle(apiListServers)).Methods("GET")
+
+	router.HandleFunc("/api/dims", apiHandle(apiAddDimension)).Methods("POST")
+	router.HandleFunc("/api/dims", apiHandle(apiListDimensions)).Methods("GET")
+
 	router1 := handlers.ProxyHeaders(router)
 	//	router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router1, customLogger)
 	// router4 := handlers.RecoveryHandler()(router3)
 	log.Println("Started! (http://127.0.0.1:" + port + "/)")
 	log.Panic(http.ListenAndServe(":"+port, router3))
-}
-
-type DimStruct struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Alias string `json:"alias"`
-}
-
-type ServerStruct struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	IP   string `json:"ip"`
-}
-
-func listServers() ([]ServerStruct, error) {
-	var servers []ServerStruct
-	derr := dbpool.QueryRow(context.Background(), `
-	select
-		json_agg(json_build_object('id', id)::jsonb ||
-			json_build_object('name', name)::jsonb ||
-			json_build_object('ip', ip)::jsonb)
-	from servers;`).Scan(&servers)
-	return servers, derr
-}
-
-func getServerByID(sid int) (ServerStruct, error) {
-	var server ServerStruct
-	derr := dbpool.QueryRow(context.Background(), `
-	select
-		json_build_object('id', id)::jsonb ||
-		json_build_object('name', name)::jsonb ||
-		json_build_object('ip', ip)::jsonb
-	from servers
-	where id = $1;`, sid).Scan(&server)
-	return server, derr
-}
-
-func getServerByName(servername string) (ServerStruct, error) {
-	var server ServerStruct
-	derr := dbpool.QueryRow(context.Background(), `
-	select
-		json_build_object('id', id)::jsonb ||
-		json_build_object('name', name)::jsonb ||
-		json_build_object('ip', ip)::jsonb
-	from servers
-	where name = $1;`, servername).Scan(&server)
-	return server, derr
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -253,98 +202,4 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	basicLayoutLookupRespond("index", w, r, map[string]interface{}{"LoadAvg": load, "VirtMem": virtmem, "Uptime": uptimetime, "Servers": servers})
-}
-
-func listDimensionsByServerName(server string) ([]DimStruct, error) {
-	var dims []DimStruct
-	derr := dbpool.QueryRow(context.Background(), `
-		select
-			json_agg(
-				json_build_object('id', dimensions.id)::jsonb ||
-				json_build_object('name', dimensions.name)::jsonb ||
-				json_build_object('alias', dimensions.alias)::jsonb)
-		from dimensions
-		join servers on dimensions.server = servers.id
-		where servers.name = $1`, server).Scan(&dims)
-	return dims, derr
-}
-
-func listDimensionsByServerID(sid int) ([]DimStruct, error) {
-	var dims []DimStruct
-	derr := dbpool.QueryRow(context.Background(), `
-		select
-			json_agg(json_build_object('id', id)::jsonb ||
-			json_build_object('name', name)::jsonb ||
-			json_build_object('alias', alias)::jsonb)
-		from dimensions
-		where server = $1;`, sid).Scan(&dims)
-	return dims, derr
-}
-
-func getDimensionByID(did int) (DimStruct, error) {
-	var dim DimStruct
-	derr := dbpool.QueryRow(context.Background(), `
-		select json_build_object('id', id)::jsonb ||
-			json_build_object('name', name)::jsonb ||
-			json_build_object('alias', alias)::jsonb
-		from dimensions
-		where id = $1;`, did).Scan(&dim)
-	return dim, derr
-}
-
-func getDimensionByNames(server, dimension string) (DimStruct, error) {
-	var dim DimStruct
-	derr := dbpool.QueryRow(context.Background(), `
-		select json_build_object('id', dimensions.id)::jsonb ||
-			json_build_object('name', dimensions.name)::jsonb ||
-			json_build_object('alias', dimensions.alias)::jsonb
-		from dimensions
-		join servers on dimensions.server = servers.id
-		where dimensions.name = $1 and servers.name = $2;`, dimension, server).Scan(&dim)
-	return dim, derr
-}
-
-func serverHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	sname := params["server"]
-	server, derr := getServerByName(sname)
-	if derr != nil {
-		if derr == pgx.ErrNoRows {
-			plainmsg(w, r, 2, "Server not found")
-		} else {
-			plainmsg(w, r, 2, "Database query error: "+derr.Error())
-		}
-		return
-	}
-	dims, derr := listDimensionsByServerName(sname)
-	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
-		return
-	}
-	basicLayoutLookupRespond("server", w, r, map[string]interface{}{"Dims": dims, "Server": server})
-}
-
-func dimensionHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	sname := params["server"]
-	dimname := params["dim"]
-	server, derr := getServerByName(sname)
-	if derr != nil {
-		if derr == pgx.ErrNoRows {
-			plainmsg(w, r, 2, "Server not found")
-		} else {
-			plainmsg(w, r, 2, "Database query error: "+derr.Error())
-		}
-		return
-	}
-	dim, derr := getDimensionByNames(sname, dimname)
-	if derr != nil {
-		if derr == pgx.ErrNoRows {
-			plainmsg(w, r, 2, "Dimension not found")
-		} else {
-			plainmsg(w, r, 2, "Database query error: "+derr.Error())
-		}
-		return
-	}
-	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "Server": server})
 }

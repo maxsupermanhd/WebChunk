@@ -5,10 +5,15 @@ import (
 	"net/http"
 )
 
+const (
+	plainmsgColorRed = iota
+	plainmsgColorGreen
+)
+
 func plainmsg(w http.ResponseWriter, r *http.Request, color int, msg string) {
 	basicLayoutLookupRespond("plainmsg", w, r, map[string]interface{}{
-		"msgred":   color == 2,
-		"msggreen": color == 1,
+		"msgred":   color == plainmsgColorRed,
+		"msggreen": color == plainmsgColorGreen,
 		"msg":      msg})
 }
 
