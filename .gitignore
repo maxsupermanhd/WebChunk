@@ -1,5 +1,6 @@
 .env
 webchunk
+mcwebchunk
 *.log
 *.log.gz
 tags

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -154,6 +155,20 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Println("Initializing compute shader")
+	err = initOpenGL()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer glfw.Terminate()
+	log.Println("Compiling shaders")
+	err = prepareShaders()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Running demo app")
+	app()
+
 	log.Println("Connecting to database")
 	dbpool, err = pgxpool.Connect(context.Background(), os.Getenv("DB"))
 	if err != nil {
@@ -184,7 +199,7 @@ func main() {
 	router.HandleFunc("/api/dims", apiHandle(apiListDimensions)).Methods("GET")
 
 	router1 := handlers.ProxyHeaders(router)
-	//	router2 := handlers.CompressHandler(router1)
+	// router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router1, customLogger)
 	// router4 := handlers.RecoveryHandler()(router3)
 	log.Println("Started! (http://127.0.0.1:" + port + "/)")
