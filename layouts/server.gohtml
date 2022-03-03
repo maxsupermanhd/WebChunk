@@ -17,20 +17,20 @@
 			<h2>Server {{.Server.Name}} (<code>{{.Server.ID}}</code>)</h2>
 			{{if avail "IP" .Server}}<small>IP: <code>{{.Server.IP}}</code></small>{{end}}
 			<p>
+				<details>
+					<summary>Add dimension</summary>
+					Dimension name: <input type="text" id="adddimension-name">
+					Dimension alias: <input type="text" id="adddimension-alias">
+					<button class="btn btn-primary" onclick="addDimension(document.getElementById('adddimension-name').value, document.getElementById('adddimension-alias').value, {{.Server.ID}})">Add</button>
+				</details>
+			</p>
+			<p>
 				Available dimensions: ({{len .Dims}})
 				<ul>
 					{{range $i, $s := .Dims}}
 					<li><a href="/servers/{{$.Server.Name}}/{{$s.Name}}">{{$s.Name}}{{if avail "Alias" $s}} ({{$s.Alias}}){{end}}</a></li>
 					{{end}}
 				</ul>
-			</p>
-			<p>
-				<details>
-					<summary>Add server</summary>
-					Server name: <input type="text" id="addserver-name">
-					Server IP: <input type="text" id="addserver-ip">
-					<button class="btn btn-primary" onclick="addServer()">Add</button>
-				</details>
 			</p>
 		</div>
 	</body>

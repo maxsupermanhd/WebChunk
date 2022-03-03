@@ -26,7 +26,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var col save.Column
+	var col save.Chunk
 	err = col.Load(body)
 	if err != nil {
 		errmsg := fmt.Sprintf("Error parsing chunk data: %s", err)
@@ -43,18 +43,18 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 			 join servers on servers.id = dimensions.server 
 			 where servers.name = $4 and dimensions.name = $5),
 		 	(select id from servers where name = $4))`,
-		col.Level.PosX, col.Level.PosZ, body, sname, dname)
+		col.XPos, col.ZPos, body, sname, dname)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Print(err.Error())
 		return
 	}
-	log.Print("Submitted chunk ", col.Level.PosX, col.Level.PosZ, " server ", sname, " dimension ", dname)
+	log.Print("Submitted chunk ", col.XPos, col.ZPos, " server ", sname, " dimension ", dname)
 	if tag.RowsAffected() != 1 {
 		log.Print("Rows affected ", tag.RowsAffected())
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.Level.PosX, col.Level.PosZ, sname, dname)))
+	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, sname, dname)))
 }
 
 func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {

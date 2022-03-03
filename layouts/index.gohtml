@@ -21,7 +21,7 @@
 					<summary>Add server</summary>
 					Server name: <input type="text" id="addserver-name">
 					Server IP: <input type="text" id="addserver-ip">
-					<button class="btn btn-primary" onclick="addServer()">Add</button>
+					<button class="btn btn-primary" onclick="addServer(document.getElementById('addserver-name').value, document.getElementById('addserver-ip').value)">Add</button>
 				</details>
 			</p>
 			<table class="table">

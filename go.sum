@@ -5,6 +5,8 @@ github.com/StackExchange/wmi v1.2.1 h1:VIkavFPXSjcnS+O8yTq7NI32k0R5Aj+v39y29VYDO
 github.com/StackExchange/wmi v1.2.1/go.mod h1:rcmrprowKIVzvc+NUiLncP2uuArMWLCbu9SBzvHz7e8=
 github.com/Tnze/go-mc v1.17.0 h1:eux33waaSNAUJmnRjYjUmR3NgoHgQStFxHSBYg9I1WM=
 github.com/Tnze/go-mc v1.17.0/go.mod h1:t0AI38F1BEmmy8/uLhr9RCOUeDbBj3oUNQH9akjzMc0=
+github.com/Tnze/go-mc v1.17.2-0.20220220112341-23bcf9149a0e h1:I9bLi/k2TlGyBihh8gFxfl62EgmK81NA7+PHXXhREAc=
+github.com/Tnze/go-mc v1.17.2-0.20220220112341-23bcf9149a0e/go.mod h1:6MVVpHUdiCvauT4RsnzM3BUOue3eAUuJIr9wzjirGIY=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/cockroachdb/cockroach-go/v2 v2.2.0/go.mod h1:u3MiKYGupPPjkn3ozknpMUpxPaNLTFWAya419/zv6eI=

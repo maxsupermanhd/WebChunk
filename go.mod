@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
-	github.com/Tnze/go-mc v1.17.0
+	github.com/Tnze/go-mc v1.17.2-0.20220220112341-23bcf9149a0e
 	github.com/davecgh/go-spew v1.1.1
 	github.com/felixge/httpsnoop v1.0.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.1
@@ -18,6 +18,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgx/v4 v4.14.1
 	github.com/joho/godotenv v1.4.0
+	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/shirou/gopsutil v3.21.10+incompatible

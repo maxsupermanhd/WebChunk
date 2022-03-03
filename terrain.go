@@ -11,19 +11,22 @@ import (
 	"image/draw"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 	_ "sync"
 	"unsafe"
 
 	"github.com/Tnze/go-mc/data/block"
+	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/save"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
 )
 
-func getChunkData(dname, sname string, cx, cz int) (save.Column, error) {
-	var c save.Column
+func getChunkData(dname, sname string, cx, cz int) (save.Chunk, error) {
+	var c save.Chunk
 	var d []byte
 	derr := dbpool.QueryRow(context.Background(), `
 		select data
@@ -74,37 +77,56 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, 
 		var d []byte
 		var cid int
 		rows.Scan(&d, &cid)
-		var cc save.Column
+		var cc save.Chunk
 		perr = cc.Load(d)
 		if perr != nil {
 			log.Printf("Chunk %d: %s", cid, perr.Error())
 			continue
 		}
-		c = append(c, chunkData{x: cc.Level.PosX, z: cc.Level.PosZ, data: cc})
+		c = append(c, chunkData{x: cc.XPos, z: cc.ZPos, data: cc})
 	}
 	return c, perr
 }
 
-func drawColumn(column *save.Column) (img *image.RGBA) {
+func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
 	defaultColor := color.RGBA{0, 0, 0, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
-	for si := 0; si < len(column.Level.Sections); si++ {
-		s := column.Level.Sections[si]
-		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-		if len(s.BlockStates) == 0 {
+	sort.Slice(chunk.Sections, func(i, j int) bool {
+		return chunk.Sections[i].Y > chunk.Sections[j].Y
+	})
+	for _, s := range chunk.Sections {
+		// log.Println("Section", s.Y)
+		if len(s.BlockStates.Data) == 0 {
+			// log.Println("Section is empty")
 			continue
 		}
-		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-		bs := save.NewBitStorage(bpb, 4096, data)
-		for y := 0; y < 16; y++ {
+		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
+		palette := s.BlockStates.Palette
+		rawPalette := make([]int, len(palette))
+		for i, v := range palette {
+			// TODO: Consider the properties of block, not only index the block name
+			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
+		}
+		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
+		for y := 15; y >= 0; y-- {
 			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
 			for i := 16*16 - 1; i >= 0; i-- {
-				bid := getBID(bpb, bs, &s, y, i)
-				if filterBlock(bid) {
+				if img.At(i%16, i/16) != defaultColor {
 					continue
 				}
-				layerImg.Set(i%16, i/16, colors[bid])
+				state, ok := block.StateID[uint32(c.Get(y*16*16+i))]
+				if !ok {
+					continue
+				}
+				block, ok := block.ByID[state]
+				if !ok {
+					continue
+				}
+				if !block.Transparent {
+					absy := uint8(int(s.Y)*16 + y)
+					layerImg.Set(i%16, i/16, color.RGBA{absy, absy, 255, 255})
+				}
 			}
 			draw.Draw(
 				img, image.Rect(0, 0, 16, 16),
@@ -113,7 +135,7 @@ func drawColumn(column *save.Column) (img *image.RGBA) {
 			)
 		}
 	}
-	return
+	return img
 }
 
 var colors []color.RGBA64
@@ -123,6 +145,8 @@ var colorsBin []byte // gob([]color.RGBA64)
 
 var idByName = make(map[string]uint32, len(block.ByID))
 
+var stateIDs map[string]uint32
+
 func initChunkDraw() {
 	for _, v := range block.ByID {
 		idByName["minecraft:"+v.Name] = uint32(v.ID)
@@ -130,159 +154,151 @@ func initChunkDraw() {
 	if err := gob.NewDecoder(bytes.NewReader(colorsBin)).Decode(&colors); err != nil {
 		panic(err)
 	}
+	stateIDs = map[string]uint32{}
+	for i, v := range block.StateID {
+		name := block.ByID[v].Name
+		if _, ok := stateIDs[name]; !ok {
+			stateIDs[name] = i
+		}
+	}
 }
 
-func getBID(bpb int, bs *save.BitStorage, s *save.Chunk, y, i int) (bid block.ID) {
-	switch {
-	case bpb > 9:
-		bid = block.StateID[uint32(bs.Get(y*16*16+i))]
-	case bpb > 4:
-		fallthrough
-	case bpb <= 4:
-		b := s.Palette[bs.Get(y*16*16+i)]
-		if id, ok := idByName[b.Name]; ok {
-			bid = block.StateID[block.ByID[block.ID(id)].MinStateID]
-		}
-	}
-	return
-}
+// func drawColumnHeightmap(column *save.Column) (img *image.RGBA) {
+// 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+// 	defaultColor := color.RGBA{0, 0, 0, 255}
+// 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
+// 	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
+// 		s := column.Level.Sections[si]
+// 		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
+// 		if len(s.BlockStates) == 0 {
+// 			continue
+// 		}
+// 		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
+// 		bs := save.NewBitStorage(bpb, 4096, data)
+// 		for y := 16 - 1; y >= 0; y-- {
+// 			for i := 16*16 - 1; i >= 0; i-- {
+// 				if img.At(i%16, i/16) != defaultColor {
+// 					continue
+// 				}
+// 				bid := getBID(bpb, bs, &s, y, i)
+// 				if !block.ByID[bid].Transparent {
+// 					absy := int(s.Y)*16 + y
+// 					img.Set(i%16, i/16, color.RGBA{uint8(absy), uint8(absy), 255, 255})
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return
+// }
 
-func drawColumnHeightmap(column *save.Column) (img *image.RGBA) {
-	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	defaultColor := color.RGBA{0, 0, 0, 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
-	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
-		s := column.Level.Sections[si]
-		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-		if len(s.BlockStates) == 0 {
-			continue
-		}
-		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-		bs := save.NewBitStorage(bpb, 4096, data)
-		for y := 16 - 1; y >= 0; y-- {
-			for i := 16*16 - 1; i >= 0; i-- {
-				if img.At(i%16, i/16) != defaultColor {
-					continue
-				}
-				bid := getBID(bpb, bs, &s, y, i)
-				if !block.ByID[bid].Transparent {
-					absy := int(s.Y)*16 + y
-					img.Set(i%16, i/16, color.RGBA{uint8(absy), uint8(absy), 255, 255})
-				}
-			}
-		}
-	}
-	return
-}
+// func drawColumnPortalBlocksHeightmap(column *save.Column) (img *image.RGBA) {
+// 	portalsDetected := 0
+// 	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
+// 		s := column.Level.Sections[si]
+// 		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
+// 		if len(s.BlockStates) == 0 {
+// 			continue
+// 		}
+// 		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
+// 		bs := save.NewBitStorage(bpb, 4096, data)
+// 		for y := 16 - 1; y >= 0; y-- {
+// 			for i := 16*16 - 1; i >= 0; i-- {
+// 				if getBID(bpb, bs, &s, y, i) == block.NetherPortal.ID {
+// 					portalsDetected++
+// 				}
+// 			}
+// 		}
+// 	}
+// 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+// 	alpha := 0
+// 	if portalsDetected/8 > 255 {
+// 		alpha = 255
+// 	} else {
+// 		alpha = portalsDetected * 8
+// 	}
+// 	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
+// 	return
+// }
 
-func drawColumnPortalBlocksHeightmap(column *save.Column) (img *image.RGBA) {
-	portalsDetected := 0
-	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
-		s := column.Level.Sections[si]
-		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-		if len(s.BlockStates) == 0 {
-			continue
-		}
-		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-		bs := save.NewBitStorage(bpb, 4096, data)
-		for y := 16 - 1; y >= 0; y-- {
-			for i := 16*16 - 1; i >= 0; i-- {
-				if getBID(bpb, bs, &s, y, i) == block.NetherPortal.ID {
-					portalsDetected++
-				}
-			}
-		}
-	}
-	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	alpha := 0
-	if portalsDetected/8 > 255 {
-		alpha = 255
-	} else {
-		alpha = portalsDetected * 8
-	}
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
-	return
-}
+// func drawColumnChestBlocksHeightmap(column *save.Column) (img *image.RGBA) {
+// 	count := 0
+// 	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
+// 		s := column.Level.Sections[si]
+// 		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
+// 		if len(s.BlockStates) == 0 {
+// 			continue
+// 		}
+// 		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
+// 		bs := save.NewBitStorage(bpb, 4096, data)
+// 		for y := 16 - 1; y >= 0; y-- {
+// 			for i := 16*16 - 1; i >= 0; i-- {
+// 				bid := getBID(bpb, bs, &s, y, i)
+// 				if bid == block.Chest.ID || bid == block.EnderChest.ID {
+// 					count++
+// 				}
+// 			}
+// 		}
+// 	}
+// 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+// 	alpha := 0
+// 	if count/8 > 255 {
+// 		alpha = 255
+// 	} else {
+// 		alpha = count * 8
+// 	}
+// 	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
+// 	return
+// }
 
-func drawColumnChestBlocksHeightmap(column *save.Column) (img *image.RGBA) {
-	count := 0
-	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
-		s := column.Level.Sections[si]
-		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-		if len(s.BlockStates) == 0 {
-			continue
-		}
-		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-		bs := save.NewBitStorage(bpb, 4096, data)
-		for y := 16 - 1; y >= 0; y-- {
-			for i := 16*16 - 1; i >= 0; i-- {
-				bid := getBID(bpb, bs, &s, y, i)
-				if bid == block.Chest.ID || bid == block.EnderChest.ID {
-					count++
-				}
-			}
-		}
-	}
-	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	alpha := 0
-	if count/8 > 255 {
-		alpha = 255
-	} else {
-		alpha = count * 8
-	}
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
-	return
-}
+// func filterBlock(i block.ID) (r bool) {
+// 	m := map[block.ID]bool{
+// 		block.CoalOre.ID:          true,
+// 		block.RedstoneOre.ID:      true,
+// 		block.IronOre.ID:          true,
+// 		block.EmeraldOre.ID:       true,
+// 		block.DiamondOre.ID:       true,
+// 		block.MossyCobblestone.ID: true,
+// 		block.Air.ID:              true,
+// 	}
+// 	_, r = m[i]
+// 	return
+// }
 
-func filterBlock(i block.ID) (r bool) {
-	m := map[block.ID]bool{
-		block.CoalOre.ID:          true,
-		block.RedstoneOre.ID:      true,
-		block.IronOre.ID:          true,
-		block.EmeraldOre.ID:       true,
-		block.DiamondOre.ID:       true,
-		block.MossyCobblestone.ID: true,
-		block.Air.ID:              true,
-	}
-	_, r = m[i]
-	return
-}
-
-func drawColumnXray(column *save.Column) (img *image.RGBA) {
-	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	defaultColor := color.RGBA{0, 0, 0, 0}
-	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
-	for si := 0; si < len(column.Level.Sections); si++ {
-		s := column.Level.Sections[si]
-		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-		if len(s.BlockStates) == 0 {
-			continue
-		}
-		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-		bs := save.NewBitStorage(bpb, 4096, data)
-		for y := 0; y < 16; y++ {
-			if int(s.Y)*16+y < 8 {
-				continue
-			}
-			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
-			for i := 16*16 - 1; i >= 0; i-- {
-				bid := getBID(bpb, bs, &s, y, i)
-				if !filterBlock(bid) {
-					layerImg.Set(i%16, i/16, color.RGBA{100, 100, 100, 1})
-				} else {
-					r, g, b, _ := colors[bid].RGBA()
-					layerImg.Set(i%16, i/16, color.RGBA{uint8(r), uint8(g), uint8(b), 1})
-				}
-			}
-			draw.Draw(
-				img, image.Rect(0, 0, 16, 16),
-				layerImg, image.Pt(0, 0),
-				draw.Over,
-			)
-		}
-	}
-	return
-}
+// func drawColumnXray(column *save.Column) (img *image.RGBA) {
+// 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+// 	defaultColor := color.RGBA{0, 0, 0, 0}
+// 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
+// 	for si := 0; si < len(column.Level.Sections); si++ {
+// 		s := column.Level.Sections[si]
+// 		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
+// 		if len(s.BlockStates) == 0 {
+// 			continue
+// 		}
+// 		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
+// 		bs := save.NewBitStorage(bpb, 4096, data)
+// 		for y := 0; y < 16; y++ {
+// 			if int(s.Y)*16+y < 8 {
+// 				continue
+// 			}
+// 			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
+// 			for i := 16*16 - 1; i >= 0; i-- {
+// 				bid := getBID(bpb, bs, &s, y, i)
+// 				if !filterBlock(bid) {
+// 					layerImg.Set(i%16, i/16, color.RGBA{100, 100, 100, 1})
+// 				} else {
+// 					r, g, b, _ := colors[bid].RGBA()
+// 					layerImg.Set(i%16, i/16, color.RGBA{uint8(r), uint8(g), uint8(b), 1})
+// 				}
+// 			}
+// 			draw.Draw(
+// 				img, image.Rect(0, 0, 16, 16),
+// 				layerImg, image.Pt(0, 0),
+// 				draw.Over,
+// 			)
+// 		}
+// 	}
+// 	return
+// }
 
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
@@ -409,11 +425,11 @@ func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	c, err := getChunkData(dname, sname, cz, cx)
+	_, err = getChunkData(dname, sname, cz, cx)
 	if err != nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	writeImage(w, fname, drawColumn(&c))
+	// writeImage(w, fname, drawColumn(&c))
 }

@@ -35,8 +35,8 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	case "terrain":
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Column)
-			return drawColumn(&s)
+			s := i.(save.Chunk)
+			return drawChunk(&s)
 		}
 	case "counttiles":
 		g = getChunksCountRegion
@@ -51,26 +51,30 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	case "heightmap":
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Column)
-			return drawColumnHeightmap(&s)
+			s := i.(save.Chunk)
+			// return drawChunkHeightmap(&s)
+			return drawChunk(&s)
 		}
 	case "xray":
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Column)
-			return drawColumnXray(&s)
+			s := i.(save.Chunk)
+			// return drawChunkXray(&s)
+			return drawChunk(&s)
 		}
 	case "portalsheat":
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Column)
-			return drawColumnPortalBlocksHeightmap(&s)
+			s := i.(save.Chunk)
+			// return drawChunkPortalBlocksHeightmap(&s)
+			return drawChunk(&s)
 		}
 	case "chestheat":
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Column)
-			return drawColumnChestBlocksHeightmap(&s)
+			s := i.(save.Chunk)
+			// return drawChunkChestBlocksHeightmap(&s)
+			return drawChunk(&s)
 		}
 	}
 	scaleImageryHandler(w, r, g, p)

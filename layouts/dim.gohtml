@@ -31,7 +31,7 @@
 				<label>X<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoX" value="-280"></label>
 				<label>Z<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoZ" value="620"></label>
 				<label>S<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoS" value="2"></label>
-				<a class="btn btn-primary" onclick="mymap.setView([document.getElementById('gotoX').value, document.getElementById('gotoZ').value], document.getElementById('gotoS').value)">go to</a>
+				<a class="btn btn-primary" onclick="mymap.setView([-document.getElementById('gotoZ').value, document.getElementById('gotoX').value], document.getElementById('gotoS').value)">go to</a>
 			</div>
 		</div>
 		<div id="map"></div>
@@ -82,7 +82,7 @@
 				tile.style.fontWeight = 'bold';
 				tile.style.fontSize = '14pt';
 				tile.innerHTML = [4-coords.z, coords.x, coords.y].join('/');
-				tile.innerHTML += '<br>'+[coords.x*(4-coords.z)*16, coords.y*(4-coords.z)*16].join('/');
+				tile.innerHTML += '<br>'+[coords.x*Math.pow(2, 4-coords.z)*16, coords.y*Math.pow(2, 4-coords.z)*16].join('/');
 				return tile;
 			},
 		});

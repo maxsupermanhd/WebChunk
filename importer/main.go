@@ -99,7 +99,7 @@ func sendThreadedHttpRegions(de []fs.DirEntry) {
 		// 			log.Printf("Read sector (%d.%d) error: %v", x, z, err)
 		// 		}
 
-		// var col save.Column
+		// var col save.Chunk
 		// col.Load(data)
 		// // log.Printf("Chunk %d %d", col.Level.PosX, col.Level.PosZ)
 		// tag, err := conn.Exec(context.Background(), `
@@ -189,7 +189,7 @@ func sendThreadedHttpChunks(de []fs.DirEntry) {
 				wg.Add(1)
 				c <- data
 
-				// var col save.Column
+				// var col save.Chunk
 				// col.Load(data)
 				// // log.Printf("Chunk %d %d", col.Level.PosX, col.Level.PosZ)
 				// tag, err := conn.Exec(context.Background(), `
@@ -258,11 +258,11 @@ func sendDBchunks(de []fs.DirEntry) {
 					log.Printf("Read sector (%d.%d) error: %v", x, z, err)
 				}
 
-				var col save.Column
+				var col save.Chunk
 				col.Load(data)
-				log.Printf("Chunk %d %d", col.Level.PosX, col.Level.PosZ)
+				log.Printf("Chunk %d %d", col.XPos, col.ZPos)
 				tag, err := conn.Exec(context.Background(), `
-					insert into chunks (dim, x, z, data) values (1, $1, $2, $3)`, col.Level.PosX, col.Level.PosZ, data)
+					insert into chunks (dim, x, z, data) values (1, $1, $2, $3)`, col.XPos, col.ZPos, data)
 				if err != nil {
 					log.Print(err.Error())
 				}

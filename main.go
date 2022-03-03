@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -155,19 +154,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("Initializing compute shader")
-	err = initOpenGL()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer glfw.Terminate()
-	log.Println("Compiling shaders")
-	err = prepareShaders()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Running demo app")
-	app()
+	// log.Println("Initializing compute shader")
+	// err = initOpenGL()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer glfw.Terminate()
+	// log.Println("Compiling shaders")
+	// err = prepareShaders()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// log.Println("Running demo app")
+	// app()
 
 	log.Println("Connecting to database")
 	dbpool, err = pgxpool.Connect(context.Background(), os.Getenv("DB"))

@@ -12,10 +12,10 @@ import (
 )
 
 type DimStruct struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Alias    string `json:"alias"`
-	ServerID int    `json:"server"`
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Alias  string `json:"alias"`
+	Server int    `json:"server"`
 }
 
 var (
@@ -53,20 +53,21 @@ func getDimensionByID(did int) (DimStruct, error) {
 
 func getDimensionByNames(server, dimension string) (DimStruct, error) {
 	var dim DimStruct
-	derr := pgxscan.Select(context.Background(), dbpool, &dim,
-		`SELECT id, name, alias, server FROM dimensions`+
-			`JOIN SERVERS ON dimensions.server = servers.id`+
-			`WHERE dimensions.name = $1 AND servers.name = $2`, dimension, server)
+	derr := pgxscan.Get(context.Background(), dbpool, &dim, `
+		SELECT dimensions.id, dimensions.name, dimensions.alias, dimensions.server FROM dimensions
+			JOIN SERVERS ON dimensions.server = servers.id
+			WHERE dimensions.name = $1 AND servers.name = $2
+			LIMIT 1`, dimension, server)
 	return dim, derr
 }
 
 func addDimension(server int, name, alias string) (DimStruct, error) {
 	var dim DimStruct
-	derr := pgxscan.Select(context.Background(), dbpool, &dim.ID,
-		`INSERT INTO dimensions (server, name, alias) VALUES ($1, $2, $3) RETURNING id`, server, name, alias)
+	derr := dbpool.QueryRow(context.Background(),
+		`INSERT INTO dimensions (server, name, alias) VALUES ($1, $2, $3) RETURNING id`, server, name, alias).Scan(&dim.ID)
 	dim.Alias = alias
 	dim.Name = name
-	dim.ServerID = server
+	dim.Server = server
 	return dim, derr
 }
 
@@ -96,18 +97,18 @@ func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
-	if r.ParseForm() != nil {
+	if r.ParseMultipartForm(0) != nil {
 		return 400, "Unable to parse form parameters"
 	}
-	name := r.Form.Get("name")
+	name := r.FormValue("name")
 	if !dimNameRegexp.Match([]byte(name)) {
 		return 400, "Invalid dimension name"
 	}
-	alias := r.Form.Get("alias")
+	alias := r.FormValue("alias")
 	if !dimAliasRegexp.Match([]byte(alias)) {
 		return 400, "Invalid dimension alias"
 	}
-	serverid, err := strconv.Atoi(r.Form.Get("server"))
+	serverid, err := strconv.Atoi(r.FormValue("server"))
 	if err != nil {
 		return 400, "Invalid dimension server id"
 	}
