@@ -72,6 +72,13 @@ func addDimension(server int, name, alias string) (DimStruct, error) {
 	return dim, derr
 }
 
+func getDimensionChunkCountSize(dimensionid int) (c int64, s string, derr error) {
+	derr = dbpool.QueryRow(context.Background(),
+		`SELECT COUNT(id), COALESCE(pg_size_pretty(SUM(pg_column_size(data))), '0 kB') FROM chunks WHERE dim = $1`, dimensionid).Scan(&c, &s)
+	return c, s, derr
+
+}
+
 func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	sname := params["server"]

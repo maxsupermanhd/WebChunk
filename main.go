@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"reflect"
 	"strconv"
 	_ "strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -37,6 +40,9 @@ var dbpool *pgxpool.Pool
 var layoutFuncs = template.FuncMap{
 	"noescape": func(s string) template.HTML {
 		return template.HTML(s)
+	},
+	"inc": func(i int) int {
+		return i + 1
 	},
 	"avail": func(name string, data interface{}) bool {
 		v := reflect.ValueOf(data)
@@ -112,6 +118,8 @@ func main() {
 	log.Printf("Built %s, Ver %s (%s)\n", BuildTime, GitTag, CommitHash)
 	log.Println()
 
+	prevTime = time.Now()
+
 	initChunkDraw()
 
 	log.Println("Loading layouts")
@@ -182,6 +190,7 @@ func main() {
 	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
 
 	router.HandleFunc("/", indexHandler).Methods("GET")
+	router.HandleFunc("/servers", serversHandler).Methods("GET")
 	router.HandleFunc("/servers/{server}", serverHandler).Methods("GET")
 	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler).Methods("GET")
 	router.HandleFunc("/servers/{server}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
@@ -205,15 +214,125 @@ func main() {
 	log.Panic(http.ListenAndServe(":"+port, router3))
 }
 
+var prevCPUIdle uint64
+var prevCPUTotal uint64
+var prevTime time.Time
+var prevCPUReport string
+var prevLock sync.Mutex
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	load, _ := load.Avg()
 	virtmem, _ := mem.VirtualMemory()
 	uptime, _ := host.Uptime()
 	uptimetime, _ := time.ParseDuration(strconv.Itoa(int(uptime)) + "s")
+
+	prevLock.Lock()
+	var CPUUsage float64
+	var idleTicks, totalTicks float64
+	if time.Since(prevTime) > 1*time.Second {
+		CPUIdle, CPUTotal := getCPUSample()
+		idleTicks = float64(CPUIdle - prevCPUIdle)
+		totalTicks = float64(CPUTotal - prevCPUTotal)
+		CPUUsage = 100 * (totalTicks - idleTicks) / totalTicks
+		prevCPUReport = fmt.Sprintf("%.1f%% [busy: %.2f, total: %.2f] (past %s)", CPUUsage, totalTicks-idleTicks, totalTicks, (time.Duration(time.Since(prevTime).Seconds()) * time.Second).String())
+		prevTime = time.Now()
+		prevCPUIdle = CPUIdle
+		prevCPUTotal = CPUTotal
+	}
+	CPUReport := prevCPUReport
+	prevLock.Unlock()
+
+	var chunksCount uint64
+	var chunksSize string
+	derr := dbpool.QueryRow(context.Background(),
+		`SELECT COUNT(id) FROM chunks;`).Scan(&chunksCount)
+	if derr != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error chunks count: "+derr.Error())
+		return
+	}
+	derr = dbpool.QueryRow(context.Background(),
+		`SELECT pg_size_pretty(pg_total_relation_size('chunks'));`).Scan(&chunksSize)
+	if derr != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error getting stats: "+derr.Error())
+		return
+	}
+	serverss, err := listServers()
+	if err != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error getting servers: "+err.Error())
+		return
+	}
+	type DimData struct {
+		Dim        DimStruct
+		Size       string
+		ChunkCount int64
+	}
+	type ServerData struct {
+		Server ServerStruct
+		Dims   []DimData
+	}
+	servers := []ServerData{}
+	for _, s := range serverss {
+		servers = append(servers, ServerData{Server: s, Dims: []DimData{}})
+	}
+	dimss, err := listDimensions()
+	for _, d := range dimss {
+		c, s, err := getDimensionChunkCountSize(d.ID)
+		if err != nil {
+			plainmsg(w, r, plainmsgColorRed, "Error getting Dimension details: "+err.Error())
+		}
+		for si, ss := range servers {
+			if ss.Server.ID == d.Server {
+				servers[si].Dims = append(servers[si].Dims, DimData{Dim: d, Size: s, ChunkCount: c})
+			}
+		}
+	}
+
+	basicLayoutLookupRespond("index", w, r, map[string]interface{}{
+		"BuildTime":   BuildTime,
+		"GitTag":      GitTag,
+		"CommitHash":  CommitHash,
+		"GoVersion":   GoVersion,
+		"LoadAvg":     load,
+		"VirtMem":     virtmem,
+		"Uptime":      uptimetime,
+		"ChunksCount": chunksCount,
+		"ChunksSize":  chunksSize,
+		"CPUReport":   CPUReport,
+		"Servers":     servers,
+	})
+}
+
+func serversHandler(w http.ResponseWriter, r *http.Request) {
 	servers, derr := listServers()
 	if derr != nil {
 		plainmsg(w, r, 2, "Database query error: "+derr.Error())
 		return
 	}
-	basicLayoutLookupRespond("index", w, r, map[string]interface{}{"LoadAvg": load, "VirtMem": virtmem, "Uptime": uptimetime, "Servers": servers})
+	basicLayoutLookupRespond("servers", w, r, map[string]interface{}{"Servers": servers})
+}
+
+func getCPUSample() (idle, total uint64) {
+	contents, err := ioutil.ReadFile("/proc/stat")
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(contents), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if fields[0] == "cpu" {
+			numFields := len(fields)
+			for i := 1; i < numFields; i++ {
+				val, err := strconv.ParseUint(fields[i], 10, 64)
+				if err != nil {
+					fmt.Println("Error: ", i, fields[i], err)
+				}
+				total += val // tally up all the numbers to get total ticks
+				if i == 4 {  // idle is the 5th field in the cpu line
+					idle = val
+				}
+			}
+			return
+		}
+	}
+	return
 }

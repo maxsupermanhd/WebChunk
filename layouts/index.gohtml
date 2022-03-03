@@ -4,36 +4,62 @@
 	<head>
 		{{template "head"}}
 		<title>WebChunk main page</title>
+		<style>
+		.stattable {
+			margin:0.7rem;
+			padding:0.7rem;
+			border:1px solid;
+		}
+		.stattable td {
+			padding:0.3rem;
+			border:1px solid;
+		}
+		</style>
 	</head>
 	<body>
 		<div class="px-4 py-5 container">
-			<h2>WebChunk</h2>
-			<p>
-				Available servers:
-				<ul>
-					{{range $i, $s := .Servers}}
-					<li><a href="/servers/{{$s.Name}}">{{$s.Name}}{{if avail "IP" $s}} (<code>{{$s.IP}}</code>){{end}}</a></li>
-					{{end}}
-				</ul>
-			</p>
-			<p>
-				<details>
-					<summary>Add server</summary>
-					Server name: <input type="text" id="addserver-name">
-					Server IP: <input type="text" id="addserver-ip">
-					<button class="btn btn-primary" onclick="addServer(document.getElementById('addserver-name').value, document.getElementById('addserver-ip').value)">Add</button>
-				</details>
-			</p>
-			<table class="table">
+			<h2>WebChunk</h2><small><small>version {{.GitTag}} ({{.CommitHash}}) built {{.BuildTime}} go {{.GoVersion}}</small></small>
+			<table><tr>
+			<td>
+				<table class="stattable">
+					{{if avail "ChunksCount" .}}<tr><td>Chunks in database:</td><td>{{.ChunksCount}}</td></tr>{{end}}
+					{{if avail "ChunksSize" .}}<tr><td>Chunks size:</td><td>{{.ChunksSize}}</td></tr>{{end}}
+					{{if avail "VirtMem" .}}<tr><td>Server RAM:</td><td>{{FormatBytes .VirtMem.Used}}/{{FormatBytes .VirtMem.Total}} ({{FormatPercent .VirtMem.UsedPercent}})</td></tr>{{end}}
+					{{if avail "Uptime" .}}<tr><td>Server uptime:</td><td>{{.Uptime}}</td></tr>{{end}}
+				</table>
+			</td>
+			<td>
+				<table class="stattable">
+					{{if avail "LoadAvg" .}}<tr><td>Server load 1:</td><td>{{.LoadAvg.Load1}}</td></tr>{{end}}
+					{{if avail "LoadAvg" .}}<tr><td>Server load 5:</td><td>{{.LoadAvg.Load5}}</td></tr>{{end}}
+					{{if avail "LoadAvg" .}}<tr><td>Server load 15:</td><td>{{.LoadAvg.Load15}}</td></tr>{{end}}
+					{{if avail "CPUReport" .}}<tr><td>CPU load:</td><td>{{.CPUReport}}</td></tr>{{end}}
+				</table>
+			</td>
+			</tr></table>
+			<table class="stattable">
+			{{range $i, $s := .Servers}}
 				<tr>
-					<td>
-						{{if avail "LoadAvg" .}}<p>Server load: {{.LoadAvg.Load1}} {{.LoadAvg.Load5}} {{.LoadAvg.Load15}}</p>{{end}}
-					</td><td>
-						{{if avail "VirtMem" .}}<p>Server RAM: {{FormatBytes .VirtMem.Used}}/{{FormatBytes .VirtMem.Total}} ({{FormatPercent .VirtMem.UsedPercent}})</p>{{end}}
-					</td><td>
-						{{if avail "Uptime" .}}<p>Server uptime: {{.Uptime}}</p>{{end}}
-					</td>
+					<td {{if ge (len $s.Dims) 1}}rowspan="{{len $s.Dims}}"{{end}}>
+						<a href="/servers/{{$s.Server.Name}}">[{{$s.Server.ID}}] {{$s.Server.Name}} ({{$s.Server.IP}})</a></td>
+					{{if ge (len $s.Dims) 1}}
+					<td><a href="/servers/{{$s.Server.Name}}/{{(index $s.Dims 0).Dim.Name}}">{{(index $s.Dims 0).Dim.Name}} ({{(index $s.Dims 0).Dim.Alias}})</a></td>
+					<td>{{(index $s.Dims 0).ChunkCount}} chunks totaling {{(index $s.Dims 0).Size}}</td>
+					{{else}}
+					<td colspan="2">No dimensions</td>
+					{{end}}
 				</tr>
+				{{if ge (len $s.Dims) 2}}
+				{{range $j, $d := $s.Dims}}
+				{{if ge $j 1}}
+				<tr>
+					<td><a href="/servers/{{$s.Server.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
+					<td>{{$d.ChunkCount}} chunks totaling {{$d.Size}}</td>
+				</tr>
+				{{end}}
+				{{end}}
+				{{end}}
+			{{end}}
 			</table>
 		</div>
 	</body>
