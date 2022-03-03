@@ -65,8 +65,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
-			// return drawChunkPortalBlocksHeightmap(&s)
-			return drawChunk(&s)
+			return drawChunkPortalBlocksHeightmap(&s)
 		}
 	case "chestheat":
 		g = getChunksRegion

@@ -61,9 +61,9 @@
 		    }
 		});
 		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
-
+		let maxZoomBack = 8;
 		var defaultLayerSettings = {
-			maxNativeZoom: 4, minNativeZoom: 0, maxZoom: 4, minZoom: 0,
+			maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
 			tileSize: 256, zoomReverse: true,
 			zoomSnap: 0.25, attribution: '&copy; McWebChunk Contributors'}
 
@@ -81,8 +81,8 @@
 				tile.style.outline = '1px solid green';
 				tile.style.fontWeight = 'bold';
 				tile.style.fontSize = '14pt';
-				tile.innerHTML = [4-coords.z, coords.x, coords.y].join('/');
-				tile.innerHTML += '<br>'+[coords.x*Math.pow(2, 4-coords.z)*16, coords.y*Math.pow(2, 4-coords.z)*16].join('/');
+				tile.innerHTML = [maxZoomBack-coords.z, coords.x, coords.y].join('/');
+				tile.innerHTML += '<br>'+[coords.x*Math.pow(2, maxZoomBack-coords.z)*16, coords.y*Math.pow(2, maxZoomBack-coords.z)*16].join('/');
 				return tile;
 			},
 		});

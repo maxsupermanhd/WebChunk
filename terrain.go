@@ -89,26 +89,43 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, 
 	return c, perr
 }
 
-var metricsSend chan time.Duration
+type metricsCollect struct {
+	t time.Duration
+	m string
+}
+
+type metricsMeasure struct {
+	sum   time.Duration
+	count int64
+}
+
+var (
+	metricsSend = make(chan metricsCollect, 1024)
+	metrics     = map[string]metricsMeasure{}
+)
 
 func metricsDispatcher() {
-	metricsSend = make(chan time.Duration, 1024)
-	sum := time.Duration(0)
-	count := int64(0)
 	for m := range metricsSend {
-		count++
-		sum += m
-		if count%20 == 0 {
-			log.Println("Chunk rendering metrics", time.Duration(sum.Nanoseconds()/count).String())
+		d, ok := metrics[m.m]
+		if ok {
+			d.count++
+			d.sum += m.t
+			metrics[m.m] = d
+		} else {
+			metrics[m.m] = metricsMeasure{sum: m.t, count: 1}
+		}
+		if ok && d.count%200 == 0 {
+			log.Println("Chunk", m.m, "rendering metrics", time.Duration(d.sum.Nanoseconds()/d.count).String(), "per chunk (total", d.count, ")")
 		}
 	}
 }
 
-func appendMetrics(t time.Duration) {
-	metricsSend <- t
+func appendMetrics(t time.Duration, m string) {
+	metricsSend <- metricsCollect{t: t, m: m}
 }
 
 func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
+	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
 	defaultColor := color.RGBA{0, 0, 0, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
@@ -152,6 +169,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 			)
 		}
 	}
+	appendMetrics(time.Now().Sub(t), "heightmap")
 	return img
 }
 
@@ -205,8 +223,47 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	if failedState != 0 {
 		log.Println("Failed to lookup", failedState, "block states")
 	}
-	appendMetrics(time.Now().Sub(t))
+	appendMetrics(time.Now().Sub(t), "colors")
 	return img
+}
+
+func drawChunkPortalBlocksHeightmap(chunk *save.Chunk) (img *image.RGBA) {
+	t := time.Now()
+	portalBlockID, ok := idByName["nether_portal"]
+	if !ok {
+		log.Println("Failed to find portal block id")
+	}
+	portalsDetected := 0
+	for _, s := range chunk.Sections {
+		if len(s.BlockStates.Data) == 0 {
+			continue
+		}
+		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
+		palette := s.BlockStates.Palette
+		rawPalette := make([]int, len(palette))
+		for i, v := range palette {
+			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
+		}
+		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
+		for y := 15; y >= 0; y-- {
+			for i := 16*16 - 1; i >= 0; i-- {
+				bid, ok := block.StateID[uint32(c.Get(y*16*16+i))]
+				if ok && portalBlockID == uint32(bid) {
+					portalsDetected++
+				}
+			}
+		}
+	}
+	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	alpha := 0
+	if portalsDetected/6 > 255 {
+		alpha = 255
+	} else {
+		alpha = portalsDetected * 8
+	}
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
+	appendMetrics(time.Now().Sub(t), "portal_heat")
+	return
 }
 
 var colors []color.RGBA64
@@ -234,63 +291,6 @@ func initChunkDraw() {
 	}
 	go metricsDispatcher()
 }
-
-// func drawColumnHeightmap(column *save.Column) (img *image.RGBA) {
-// 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-// 	defaultColor := color.RGBA{0, 0, 0, 255}
-// 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
-// 	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
-// 		s := column.Level.Sections[si]
-// 		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-// 		if len(s.BlockStates) == 0 {
-// 			continue
-// 		}
-// 		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-// 		bs := save.NewBitStorage(bpb, 4096, data)
-// 		for y := 16 - 1; y >= 0; y-- {
-// 			for i := 16*16 - 1; i >= 0; i-- {
-// 				if img.At(i%16, i/16) != defaultColor {
-// 					continue
-// 				}
-// 				bid := getBID(bpb, bs, &s, y, i)
-// 				if !block.ByID[bid].Transparent {
-// 					absy := int(s.Y)*16 + y
-// 					img.Set(i%16, i/16, color.RGBA{uint8(absy), uint8(absy), 255, 255})
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return
-// }
-
-// func drawColumnPortalBlocksHeightmap(column *save.Column) (img *image.RGBA) {
-// 	portalsDetected := 0
-// 	for si := len(column.Level.Sections) - 1; si >= 0; si-- {
-// 		s := column.Level.Sections[si]
-// 		bpb := len(s.BlockStates) * 64 / (16 * 16 * 16)
-// 		if len(s.BlockStates) == 0 {
-// 			continue
-// 		}
-// 		data := *(*[]uint64)(unsafe.Pointer(&s.BlockStates))
-// 		bs := save.NewBitStorage(bpb, 4096, data)
-// 		for y := 16 - 1; y >= 0; y-- {
-// 			for i := 16*16 - 1; i >= 0; i-- {
-// 				if getBID(bpb, bs, &s, y, i) == block.NetherPortal.ID {
-// 					portalsDetected++
-// 				}
-// 			}
-// 		}
-// 	}
-// 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-// 	alpha := 0
-// 	if portalsDetected/8 > 255 {
-// 		alpha = 255
-// 	} else {
-// 		alpha = portalsDetected * 8
-// 	}
-// 	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
-// 	return
-// }
 
 // func drawColumnChestBlocksHeightmap(column *save.Column) (img *image.RGBA) {
 // 	count := 0
