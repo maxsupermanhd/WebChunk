@@ -52,8 +52,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		g = getChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
-			// return drawChunkHeightmap(&s)
-			return drawChunk(&s)
+			return drawChunkHeightmap(&s)
 		}
 	case "xray":
 		g = getChunksRegion

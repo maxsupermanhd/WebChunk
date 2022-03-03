@@ -154,7 +154,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// log.Println("Initializing compute shader")
+	// log.Println("Initializing OpenGL")
 	// err = initOpenGL()
 	// if err != nil {
 	// 	log.Fatal(err)

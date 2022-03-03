@@ -23,7 +23,7 @@ type trieNode struct {
 }
 
 var de []fs.DirEntry
-var texturesDir = `1.16.5\assets\minecraft\textures\block`
+var texturesDir = `/home/max/Desktop/block/`
 
 func main() {
 	trie := &trieNode{}

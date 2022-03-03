@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	_ "sync"
+	"time"
 	"unsafe"
 
 	"github.com/Tnze/go-mc/data/block"
@@ -88,7 +89,26 @@ func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, 
 	return c, perr
 }
 
-func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
+var metricsSend chan time.Duration
+
+func metricsDispatcher() {
+	metricsSend = make(chan time.Duration, 1024)
+	sum := time.Duration(0)
+	count := int64(0)
+	for m := range metricsSend {
+		count++
+		sum += m
+		if count%20 == 0 {
+			log.Println("Chunk rendering metrics", time.Duration(sum.Nanoseconds()/count).String())
+		}
+	}
+}
+
+func appendMetrics(t time.Duration) {
+	metricsSend <- t
+}
+
+func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
 	defaultColor := color.RGBA{0, 0, 0, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
@@ -96,16 +116,13 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 		return chunk.Sections[i].Y > chunk.Sections[j].Y
 	})
 	for _, s := range chunk.Sections {
-		// log.Println("Section", s.Y)
 		if len(s.BlockStates.Data) == 0 {
-			// log.Println("Section is empty")
 			continue
 		}
 		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
 		palette := s.BlockStates.Palette
 		rawPalette := make([]int, len(palette))
 		for i, v := range palette {
-			// TODO: Consider the properties of block, not only index the block name
 			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
 		}
 		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
@@ -138,6 +155,60 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
+func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
+	t := time.Now()
+	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	defaultColor := color.RGBA{0, 0, 0, 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
+	sort.Slice(chunk.Sections, func(i, j int) bool {
+		return chunk.Sections[i].Y > chunk.Sections[j].Y
+	})
+	failedState := 0
+	// failedID := 0
+	for _, s := range chunk.Sections {
+		if len(s.BlockStates.Data) == 0 {
+			continue
+		}
+		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
+		palette := s.BlockStates.Palette
+		rawPalette := make([]int, len(palette))
+		for i, v := range palette {
+			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
+		}
+		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
+		for y := 15; y >= 0; y-- {
+			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
+			for i := 16*16 - 1; i >= 0; i-- {
+				if img.At(i%16, i/16) != defaultColor {
+					continue
+				}
+				state, ok := block.StateID[uint32(c.Get(y*16*16+i))]
+				if !ok {
+					failedState++
+					continue
+				}
+				// block, ok := block.ByID[state]
+				// if !ok {
+				// 	failedID++
+				// 	continue
+				// }
+				// absy := uint8(int(s.Y)*16 + y)
+				layerImg.Set(i%16, i/16, colors[state])
+			}
+			draw.Draw(
+				img, image.Rect(0, 0, 16, 16),
+				layerImg, image.Pt(0, 0),
+				draw.Over,
+			)
+		}
+	}
+	if failedState != 0 {
+		log.Println("Failed to lookup", failedState, "block states")
+	}
+	appendMetrics(time.Now().Sub(t))
+	return img
+}
+
 var colors []color.RGBA64
 
 //go:embed colors.gob
@@ -149,7 +220,7 @@ var stateIDs map[string]uint32
 
 func initChunkDraw() {
 	for _, v := range block.ByID {
-		idByName["minecraft:"+v.Name] = uint32(v.ID)
+		idByName[v.Name] = uint32(v.ID)
 	}
 	if err := gob.NewDecoder(bytes.NewReader(colorsBin)).Decode(&colors); err != nil {
 		panic(err)
@@ -161,6 +232,7 @@ func initChunkDraw() {
 			stateIDs[name] = i
 		}
 	}
+	go metricsDispatcher()
 }
 
 // func drawColumnHeightmap(column *save.Column) (img *image.RGBA) {

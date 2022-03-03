@@ -68,12 +68,12 @@
 			zoomSnap: 0.25, attribution: '&copy; McWebChunk Contributors'}
 
 		var terrainlayer = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/terrain/{z}/{x}/{y}/png', defaultLayerSettings);
-		var number = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', defaultLayerSettings);
-		var numberheat = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', defaultLayerSettings);
-		var height = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/heightmap/{z}/{x}/{y}/png', defaultLayerSettings);
-		var xray = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/xray/{z}/{x}/{y}/png', defaultLayerSettings);
-		var portals = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/portalsheat/{z}/{x}/{y}/png', defaultLayerSettings);
-		var chests = L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/chestheat/{z}/{x}/{y}/png', defaultLayerSettings);
+		var number =       L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', defaultLayerSettings);
+		var numberheat =   L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', defaultLayerSettings);
+		var height =       L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/heightmap/{z}/{x}/{y}/png', defaultLayerSettings);
+		var xray =         L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/xray/{z}/{x}/{y}/png', defaultLayerSettings);
+		var portals =      L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/portalsheat/{z}/{x}/{y}/png', defaultLayerSettings);
+		var chests =       L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/chestheat/{z}/{x}/{y}/png', defaultLayerSettings);
 		
 		L.GridLayer.GridDebug = L.GridLayer.extend({
 			createTile: function (coords) {
