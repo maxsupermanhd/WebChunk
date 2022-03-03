@@ -169,7 +169,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 			)
 		}
 	}
-	appendMetrics(time.Now().Sub(t), "heightmap")
+	appendMetrics(time.Since(t), "heightmap")
 	return img
 }
 
@@ -223,7 +223,7 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	if failedState != 0 {
 		log.Println("Failed to lookup", failedState, "block states")
 	}
-	appendMetrics(time.Now().Sub(t), "colors")
+	appendMetrics(time.Since(t), "colors")
 	return img
 }
 
@@ -262,7 +262,7 @@ func drawChunkPortalBlocksHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 		alpha = portalsDetected * 8
 	}
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(alpha)}}, image.Point{}, draw.Src)
-	appendMetrics(time.Now().Sub(t), "portal_heat")
+	appendMetrics(time.Since(t), "portal_heat")
 	return
 }
 

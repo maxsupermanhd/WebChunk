@@ -44,6 +44,7 @@ func listDimensions() ([]DimStruct, error) {
 	return dims, derr
 }
 
+//lint:ignore U1000 for future use
 func getDimensionByID(did int) (DimStruct, error) {
 	var dim DimStruct
 	derr := pgxscan.Select(context.Background(), dbpool, &dim,
