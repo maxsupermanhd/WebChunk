@@ -5,3 +5,4 @@ mcwebchunk
 *.log.gz
 tags
 db/data
+imageCache

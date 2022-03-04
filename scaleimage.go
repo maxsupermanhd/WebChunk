@@ -27,10 +27,23 @@ type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int) (
 type chunkPainterFunc = func(interface{}) *image.RGBA
 
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
-	var g chunkDataProviderFunc
-	var p chunkPainterFunc
 	params := mux.Vars(r)
 	datatype := params["ttype"]
+	sname, dname, fname, cx, cz, cs, err := tilingParams(w, r)
+	if err != nil {
+		return
+	}
+	if bytes, err := loadImageCache(sname, dname, datatype, cs, cx, cz); err == nil {
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+		if _, err := w.Write(bytes); err != nil {
+			log.Printf("Unable to write image: %s", err.Error())
+		}
+		return
+	}
+	var g chunkDataProviderFunc
+	var p chunkPainterFunc
 	switch datatype {
 	case "terrain":
 		g = getChunksRegion
@@ -75,13 +88,22 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 			return drawChunk(&s)
 		}
 	}
-	scaleImageryHandler(w, r, g, p)
+	img := scaleImageryHandler(w, r, g, p)
+	if img == nil {
+		return
+	}
+	err = saveImageCache(img, sname, dname, datatype, cs, cx, cz)
+	if err != nil {
+		log.Println("Failed to cache image:", err.Error())
+	}
+	w.WriteHeader(http.StatusOK)
+	writeImage(w, fname, img)
 }
 
-func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter func(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error), painter func(interface{}) *image.RGBA) {
-	sname, dname, fname, cx, cz, cs, err := tilingParams(w, r)
+func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDataProviderFunc, painter chunkPainterFunc) *image.RGBA {
+	sname, dname, _, cx, cz, cs, err := tilingParams(w, r)
 	if err != nil {
-		return
+		return nil
 	}
 	scale := int(math.Pow(2, float64(cs)))
 	imagesize := 512
@@ -92,7 +114,11 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter func(dna
 	cc, err := getter(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
 		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
-		return
+		return nil
+	}
+	if len(cc) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return nil
 	}
 	for _, c := range cc {
 		placex := int(c.x) - offsetx
@@ -101,8 +127,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter func(dna
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)
 	}
-	w.WriteHeader(http.StatusOK)
-	writeImage(w, fname, img)
+	return img
 }
 
 func tilingParams(w http.ResponseWriter, r *http.Request) (sname, dname, fname string, cx, cz, cs int, err error) {

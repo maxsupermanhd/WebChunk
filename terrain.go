@@ -157,7 +157,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 				if !ok {
 					continue
 				}
-				if !block.Transparent {
+				if block.Name != "air" {
 					absy := uint8(int(s.Y)*16 + y)
 					layerImg.Set(i%16, i/16, color.RGBA{absy, absy, 255, 255})
 				}
@@ -176,7 +176,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	defaultColor := color.RGBA{0, 0, 0, 255}
+	defaultColor := color.RGBA{0, 0, 0, 0}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
 	sort.Slice(chunk.Sections, func(i, j int) bool {
 		return chunk.Sections[i].Y > chunk.Sections[j].Y
@@ -276,11 +276,12 @@ var idByName = make(map[string]uint32, len(block.ByID))
 var stateIDs map[string]uint32
 
 func initChunkDraw() {
-	for _, v := range block.ByID {
-		idByName[v.Name] = uint32(v.ID)
-	}
 	if err := gob.NewDecoder(bytes.NewReader(colorsBin)).Decode(&colors); err != nil {
 		panic(err)
+	}
+	for _, v := range block.ByID {
+		// log.Println(v.Transparent, v.Name, colors[i])
+		idByName[v.Name] = uint32(v.ID)
 	}
 	stateIDs = map[string]uint32{}
 	for i, v := range block.StateID {
