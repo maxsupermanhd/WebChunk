@@ -38,6 +38,12 @@
 			</td>
 			</tr></table>
 			<table class="stattable">
+				<tr>
+					<td><a href="/servers">Servers</a></td>
+					<td>Dimensions</td>
+					<td>Chunk information</td>
+					<td>Image cache information</td>
+				</tr>
 			{{range $i, $s := .Servers}}
 				<tr>
 					<td {{if ge (len $s.Dims) 1}}rowspan="{{len $s.Dims}}"{{end}}>
