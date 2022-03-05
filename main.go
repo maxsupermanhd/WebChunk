@@ -198,6 +198,8 @@ func main() {
 	router.HandleFunc("/servers/{server}/{dim}/chunk/image/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler).Methods("GET")
 	router.HandleFunc("/servers/{server}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
+	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
+	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
 
 	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)
@@ -323,7 +325,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 func serversHandler(w http.ResponseWriter, r *http.Request) {
 	servers, derr := listServers()
 	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
 		return
 	}
 	basicLayoutLookupRespond("servers", w, r, map[string]interface{}{"Servers": servers})

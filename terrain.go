@@ -379,24 +379,24 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	dname := params["dim"]
 	server, derr := getServerByName(sname)
 	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
 		return
 	}
 	dim, derr := getDimensionByNames(sname, dname)
 	if derr != nil {
-		plainmsg(w, r, 2, "Database query error: "+derr.Error())
+		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
 		return
 	}
 	cxs := params["cx"]
 	cx, err := strconv.Atoi(cxs)
 	if err != nil {
-		plainmsg(w, r, 2, "Chunk X coordinate is shit: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Chunk X coordinate is shit: "+err.Error())
 		return
 	}
 	czs := params["cz"]
 	cz, err := strconv.Atoi(czs)
 	if err != nil {
-		plainmsg(w, r, 2, "Chunk Z coordinate is shit: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Chunk Z coordinate is shit: "+err.Error())
 		return
 	}
 	c, err := getChunkData(dname, sname, cx, cz)

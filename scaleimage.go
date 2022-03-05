@@ -33,14 +33,16 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if bytes, err := loadImageCache(sname, dname, datatype, cs, cx, cz); err == nil {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
-		if _, err := w.Write(bytes); err != nil {
-			log.Printf("Unable to write image: %s", err.Error())
+	if r.Header.Get("Cache-Control") != "no-cache" {
+		if bytes, err := loadImageCache(sname, dname, datatype, cs, cx, cz); err == nil {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+			if _, err := w.Write(bytes); err != nil {
+				log.Printf("Unable to write image: %s", err.Error())
+			}
+			return
 		}
-		return
 	}
 	var g chunkDataProviderFunc
 	var p chunkPainterFunc
@@ -92,9 +94,11 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	if img == nil {
 		return
 	}
-	err = saveImageCache(img, sname, dname, datatype, cs, cx, cz)
-	if err != nil {
-		log.Println("Failed to cache image:", err.Error())
+	if r.Header.Get("Cache-Control") != "no-store" {
+		err = saveImageCache(img, sname, dname, datatype, cs, cx, cz)
+		if err != nil {
+			log.Println("Failed to cache image:", err.Error())
+		}
 	}
 	w.WriteHeader(http.StatusOK)
 	writeImage(w, fname, img)
@@ -113,7 +117,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	offsety := cz * scale
 	cc, err := getter(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
-		plainmsg(w, r, 2, "Error getting chunk data: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Error getting chunk data: "+err.Error())
 		return nil
 	}
 	if len(cc) == 0 {
@@ -136,25 +140,25 @@ func tilingParams(w http.ResponseWriter, r *http.Request) (sname, dname, fname s
 	sname = params["server"]
 	fname = params["format"]
 	if fname != "jpeg" && fname != "png" {
-		plainmsg(w, r, 2, "Bad encoding")
+		plainmsg(w, r, plainmsgColorRed, "Bad encoding")
 		return
 	}
 	cxs := params["cx"]
 	cx, err = strconv.Atoi(cxs)
 	if err != nil {
-		plainmsg(w, r, 2, "Bad cx id: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Bad cx id: "+err.Error())
 		return
 	}
 	czs := params["cz"]
 	cz, err = strconv.Atoi(czs)
 	if err != nil {
-		plainmsg(w, r, 2, "Bad cz id: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Bad cz id: "+err.Error())
 		return
 	}
 	css := params["cs"]
 	cs, err = strconv.Atoi(css)
 	if err != nil {
-		plainmsg(w, r, 2, "Bad s id: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Bad s id: "+err.Error())
 		return
 	}
 	return

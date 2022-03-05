@@ -20,9 +20,14 @@
 			<table class="colortable">
 			{{range $i, $c := .Colors}}
 				<tr>
-					<td>{{$c.Block.DisplayName}}</td>
-					<td>{{$c.Block.Name}}</td>
-					<td><input value="{{$c.Color}}" data-jscolor="{}"></td>
+					<form method="POST" target="_self">
+						<input type="hidden" name="colorid" value="{{$i}}">
+						<td>{{$i}}</td>
+						<td>{{$c.Block.DisplayName}}</td>
+						<td>{{$c.Block.Name}}</td>
+						<td><input value="{{$c.Color}}" name="colorvalue" data-jscolor="{}"></td>
+						<td><input class="btn btn-primary" type="submit">
+					</form>
 				</tr>
 			{{end}}
 			</table>
