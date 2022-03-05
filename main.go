@@ -196,6 +196,7 @@ func main() {
 	router.HandleFunc("/servers/{server}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
 	router.HandleFunc("/servers/{server}/{dim}/chunk/image/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler).Methods("GET")
 	router.HandleFunc("/servers/{server}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
+	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
 
 	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)
