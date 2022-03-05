@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -264,8 +265,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	type DimData struct {
 		Dim        DimStruct
-		Size       string
+		ChunkSize  string
 		ChunkCount int64
+		CacheSize  string
+		CacheCount int64
 	}
 	type ServerData struct {
 		Server ServerStruct
@@ -276,14 +279,28 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		servers = append(servers, ServerData{Server: s, Dims: []DimData{}})
 	}
 	dimss, err := listDimensions()
+	if err != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error getting dimensions: "+err.Error())
+		return
+	}
 	for _, d := range dimss {
-		c, s, err := getDimensionChunkCountSize(d.ID)
+		chunkCount, chunkSize, err := getDimensionChunkCountSize(d.ID)
 		if err != nil {
-			plainmsg(w, r, plainmsgColorRed, "Error getting Dimension details: "+err.Error())
+			plainmsg(w, r, plainmsgColorRed, "Error getting dimension details from database: "+err.Error())
 		}
 		for si, ss := range servers {
 			if ss.Server.ID == d.Server {
-				servers[si].Dims = append(servers[si].Dims, DimData{Dim: d, Size: s, ChunkCount: c})
+				cacheCount, cacheSize, err := getImageCacheCountSize(ss.Server.Name, d.Name)
+				if err != nil {
+					plainmsg(w, r, plainmsgColorRed, "Error getting dimension details from cache: "+err.Error())
+				}
+				servers[si].Dims = append(servers[si].Dims, DimData{
+					Dim:        d,
+					ChunkSize:  chunkSize,
+					ChunkCount: chunkCount,
+					CacheSize:  humanize.Bytes(uint64(cacheSize)),
+					CacheCount: cacheCount,
+				})
 			}
 		}
 	}

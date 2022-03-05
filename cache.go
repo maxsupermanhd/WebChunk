@@ -5,15 +5,20 @@ import (
 	"image/png"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 )
 
-func saveImageCache(img *image.RGBA, server, dim, render string, s, x, z int) error {
+func getImageCachePrefix() string {
 	prefix := os.Getenv("CACHE_PREFIX")
 	if prefix == "" {
 		prefix = "imageCache"
 	}
-	storePath := path.Join(".", prefix, server, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
+	return prefix
+}
+
+func saveImageCache(img *image.RGBA, server, dim, render string, s, x, z int) error {
+	storePath := path.Join(".", getImageCachePrefix(), server, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
 	err := os.MkdirAll(path.Dir(storePath), 0764)
 	if err != nil {
 		return err
@@ -34,6 +39,27 @@ func loadImageCache(server, dim, render string, s, x, z int) ([]byte, error) {
 	if prefix == "" {
 		prefix = "imageCache"
 	}
-	storePath := path.Join(".", prefix, server, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
+	storePath := path.Join(".", getImageCachePrefix(), server, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
 	return os.ReadFile(storePath)
+}
+
+func DirCountSize(path string) (count, size int64, err error) {
+	err = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			count++
+			size += info.Size()
+		}
+		return err
+	})
+	if os.IsNotExist(err) {
+		return 0, 0, nil
+	}
+	return count, size, err
+}
+
+func getImageCacheCountSize(server, dim string) (int64, int64, error) {
+	return DirCountSize(path.Join(".", getImageCachePrefix(), server, dim))
 }

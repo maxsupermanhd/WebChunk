@@ -44,7 +44,8 @@
 						<a href="/servers/{{$s.Server.Name}}">[{{$s.Server.ID}}] {{$s.Server.Name}} ({{$s.Server.IP}})</a></td>
 					{{if ge (len $s.Dims) 1}}
 					<td><a href="/servers/{{$s.Server.Name}}/{{(index $s.Dims 0).Dim.Name}}">{{(index $s.Dims 0).Dim.Name}} ({{(index $s.Dims 0).Dim.Alias}})</a></td>
-					<td>{{(index $s.Dims 0).ChunkCount}} chunks totaling {{(index $s.Dims 0).Size}}</td>
+					<td>{{(index $s.Dims 0).ChunkCount}} chunks totaling {{(index $s.Dims 0).ChunkSize}}</td>
+					<td>Cached {{(index $s.Dims 0).CacheCount}} images totaling {{(index $s.Dims 0).CacheSize}}</td>
 					{{else}}
 					<td colspan="2">No dimensions</td>
 					{{end}}
@@ -54,7 +55,8 @@
 				{{if ge $j 1}}
 				<tr>
 					<td><a href="/servers/{{$s.Server.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
-					<td>{{$d.ChunkCount}} chunks totaling {{$d.Size}}</td>
+					<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
+					<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
 				</tr>
 				{{end}}
 				{{end}}

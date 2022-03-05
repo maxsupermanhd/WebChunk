@@ -6,6 +6,7 @@ require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/Tnze/go-mc v1.17.2-0.20220220112341-23bcf9149a0e
 	github.com/davecgh/go-spew v1.1.1
+	github.com/dustin/go-humanize v1.0.0
 	github.com/felixge/httpsnoop v1.0.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/georgysavva/scany v0.3.0 // indirect
