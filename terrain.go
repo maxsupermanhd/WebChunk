@@ -130,7 +130,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	defaultColor := color.RGBA{0, 0, 0, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
 	sort.Slice(chunk.Sections, func(i, j int) bool {
-		return chunk.Sections[i].Y > chunk.Sections[j].Y
+		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
 	})
 	for _, s := range chunk.Sections {
 		if len(s.BlockStates.Data) == 0 {
@@ -179,7 +179,7 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	defaultColor := color.RGBA{0, 0, 0, 0}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
 	sort.Slice(chunk.Sections, func(i, j int) bool {
-		return chunk.Sections[i].Y > chunk.Sections[j].Y
+		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
 	})
 	type OutputBlock struct {
 		sR, sG, sB, sA uint64
