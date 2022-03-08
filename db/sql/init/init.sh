@@ -11,7 +11,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 		id SERIAL PRIMARY KEY,
 		server integer NOT NULL REFERENCES servers (id),
 		name text NOT NULL,
-		alias text
+		alias text,
 		UNIQUE (server, name)
 	);
 	CREATE TABLE public.chunks (
