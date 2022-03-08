@@ -18,6 +18,7 @@ Designed to accept chunks from multiple players at once, provide very fast deser
 - [x] Caching
 - [x] Portals/chests overlay
 - [x] Colors customization
+- [x] Concurrent use
 
 ### In plans
 
@@ -37,6 +38,10 @@ Designed to accept chunks from multiple players at once, provide very fast deser
 ## How does it work?
 
 Upon deploying WebChunk to a server or starting it locally it will accept NBT serialized chunk information over HTTP endpoint and store it in attached Postgres database, this is basically it! Front page has a Leaflet map that requests images from WebChunk and displays them nicely and organized.
+
+## Security and safety of the data
+
+WebChunk is built to provide service to owner of the database and web server. It does not feature any user profiles, access rights or any other means of stopping other people from communicating with service. That directly means that you (owner of WebChunk deployment) in charge of regulating who can access resource. WebChunk may also have unknown vulnerabilities that can allow other people to gain unwanted access.
 
 ## License
 
