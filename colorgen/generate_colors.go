@@ -205,35 +205,8 @@ func main() {
 		return strings.Compare(keys[i], keys[j]) > 0
 	})
 
-	// for i, _ := range block.FromID {
-	// 	prefix := "assets/minecraft/textures/block/"
-	// 	blockname := strings.ReplaceAll(i, "minecraft:", "")
-	// 	var f *zip.File
-	// 	for j, _ := range filepaths {
-	// 		textureRegex := regexp.MustCompile("assets/minecraft/textures/block/([A-Za-z_]+).png")
-
-	// 	}
-	// 	// f, ok := filepaths[prefix+blockname+"_top.png"]
-	// 	// if !ok {
-	// 	// 	f, ok = filepaths[prefix+blockname+".png"]
-	// 	// 	if !ok {
-	// 	// 		log.Print("Failed to find texture for [" + blockname + "]")
-	// 	// 		colors[i] = color.RGBA64{0, 0, 0, 0}
-	// 	// 		continue
-	// 	// 	}
-	// 	// }
-	// 	d, err := f.Open()
-	// 	must(err)
-	// 	defer d.Close()
-	// 	colors[i] = *findColor(d)
-	// }
-
-	// log.Printf("Loaded %d/%d", len(colors), len(block.FromID))
-
 	log.Print("Mapping blockstates to models...")
 	statemodel := map[block.Block]map[string]interface{}{}
-	failed := []string{}
-	failedcount := 0
 	for fnid := range keys {
 		fname := keys[fnid]
 		f := filepaths[fname]
@@ -251,44 +224,91 @@ func main() {
 		fr.Close()
 		v := map[string]interface{}{}
 		must(json.Unmarshal(c, &v))
-		_, ok := v["variants"]
-		if !ok {
-			spew.Dump(v)
-			// log.Print(spew.Sprint(v))
-			failed = append(failed, fmatch[1])
+		if _, ok := v["multipart"]; ok {
+			catchallmodel := map[string]interface{}{}
+			for _, vv := range v["multipart"].([]interface{}) {
+				partcase, ok := vv.(map[string]interface{})
+				if !ok {
+					panic(spew.Sdump(vv))
+				}
+				found, ok := partcase["apply"].(map[string]interface{})
+				if !ok {
+					found = (partcase["apply"].([]interface{}))[0].(map[string]interface{})
+				}
+				if _, ok := partcase["when"]; !ok {
+					catchallmodel = found
+					break
+				}
+			}
 			for stateid := range block.StateList {
-				if block.StateList[stateid].ID() == "minecraft:"+fmatch[1] {
-					failedcount++
+				state := block.StateList[stateid]
+				if state.ID() == "minecraft:"+fmatch[1] {
+					statemodel[state] = catchallmodel
 				}
 			}
-			continue
-		}
-		for k, vv := range v["variants"].(map[string]interface{}) {
-			// log.Printf("%s: %##v", fmatch[1], k)
-			matchingBlocks := []block.Block{}
-			for stateid := range block.StateList {
-				if block.StateList[stateid].ID() != "minecraft:"+fmatch[1] {
-					continue
+		} else if _, ok := v["variants"]; ok {
+			for k, vv := range v["variants"].(map[string]interface{}) {
+				matchingBlocks := []block.Block{}
+				for stateid := range block.StateList {
+					if block.StateList[stateid].ID() != "minecraft:"+fmatch[1] {
+						continue
+					}
+					if blockMatches(&block.StateList[stateid], "minecraft:"+fmatch[1], k) {
+						matchingBlocks = append(matchingBlocks, block.StateList[stateid])
+					}
 				}
-				if blockMatches(&block.StateList[stateid], "minecraft:"+fmatch[1], k) {
-					matchingBlocks = append(matchingBlocks, block.StateList[stateid])
+				if len(matchingBlocks) != 0 {
+					modelpath, err := getModel(vv)
+					must(err)
+					for mbi := range matchingBlocks {
+						statemodel[matchingBlocks[mbi]] = modelpath
+					}
+				} else {
+					log.Printf("Failed to create blockstate [%s] for block [%s]", k, "minecraft:"+fmatch[1])
+					return
 				}
 			}
-			if len(matchingBlocks) != 0 {
-				modelpath, err := getModel(vv)
-				must(err)
-				for mbi := range matchingBlocks {
-					statemodel[matchingBlocks[mbi]] = modelpath
-				}
-			} else {
-				log.Printf("Failed to create blockstate [%s] for block [%s]", k, "minecraft:"+fmatch[1])
-				return
-			}
-			// log.Printf("%##v: %##v", len(matchingBlocks), vv)
+		} else {
+			log.Printf("Weird json you have here [%v], skipping", fname)
 		}
 	}
-	spew.Dump(failed)
-	log.Printf("States parsed/actually %v/%v (%v)", len(statemodel), len(block.StateList), failedcount)
+	log.Printf("States parsed/actually %v/%v", len(statemodel), len(block.StateList))
+	log.Print("Mapping blockstates to textures...")
+
+	statetextures := map[block.Block][]string{}
+	failed := []string{}
+	for s, m := range statemodel {
+		modelname, ok := m["model"].(string)
+		if !ok {
+			log.Printf("State %v: %v does not have model %v", s.ID(), spew.Sdump(s), spew.Sprint(m))
+			continue
+		}
+		fname := "assets/minecraft/models/" + modelname[10:] + ".json"
+		f, ok := filepaths[fname]
+		if !ok {
+			log.Printf("Model %v path not found!", spew.Sprint(m))
+			continue
+		}
+		fr, err := f.Open()
+		must(err)
+		c, err := ioutil.ReadAll(fr)
+		must(err)
+		fr.Close()
+		v := map[string]interface{}{}
+		must(json.Unmarshal(c, &v))
+		if t, ok := v["textures"]; ok {
+			textures := []string{}
+			for _, tex := range t.(map[string]interface{}) {
+				textures = append(textures, tex.(string))
+			}
+			statetextures[s] = textures
+		} else {
+			log.Printf("Texture not found for model %v", spew.Sdump(m))
+			failed = append(failed, spew.Sprint(s))
+		}
+	}
+
+	log.Printf("Loaded %v/%v models", len(statetextures), len(statemodel))
 
 	// for i, j := range block.StateList {
 
