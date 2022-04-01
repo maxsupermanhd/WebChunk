@@ -127,24 +127,51 @@ func blockMatches(b *block.Block, id string, d string) bool {
 		}
 		for k, v := range params {
 			if k == strings.ToLower(fieldName) {
-				if methodString == -2 {
-					if fmt.Sprint(r.Field(m).Bool()) != v {
+				vv := strings.Split(v, "|")
+				if len(vv) > 1 {
+					match := false
+					for _, vi := range vv {
+						if methodString == -2 {
+							if fmt.Sprint(r.Field(m).Bool()) == vi {
+								match = true
+							}
+						} else if methodString == -3 {
+							if fmt.Sprint(r.Field(m).Int()) == vi {
+								match = true
+							}
+						} else {
+							e := r.Field(m).Method(methodString).Call([]reflect.Value{})
+							if len(e) != 1 {
+								panic(fmt.Errorf("block-description matcher got wrong return from String method"))
+							}
+							if e[0].String() == vi {
+								match = true
+							}
+							break
+						}
+					}
+					if !match {
 						return false
 					}
-				} else if methodString == -3 {
-					if fmt.Sprint(r.Field(m).Int()) != v {
-						return false
-					}
-
 				} else {
-					e := r.Field(m).Method(methodString).Call([]reflect.Value{})
-					if len(e) != 1 {
-						panic(fmt.Errorf("block-description matcher got wrong return from String method"))
+					if methodString == -2 {
+						if fmt.Sprint(r.Field(m).Bool()) != v {
+							return false
+						}
+					} else if methodString == -3 {
+						if fmt.Sprint(r.Field(m).Int()) != v {
+							return false
+						}
+					} else {
+						e := r.Field(m).Method(methodString).Call([]reflect.Value{})
+						if len(e) != 1 {
+							panic(fmt.Errorf("block-description matcher got wrong return from String method"))
+						}
+						if e[0].String() != v {
+							return false
+						}
+						break
 					}
-					if e[0].String() != v {
-						return false
-					}
-					break
 				}
 			}
 		}
@@ -226,6 +253,7 @@ func main() {
 		must(json.Unmarshal(c, &v))
 		if _, ok := v["multipart"]; ok {
 			catchallmodel := map[string]interface{}{}
+			filteredmodel := map[block.Block]map[string]interface{}{}
 			for _, vv := range v["multipart"].([]interface{}) {
 				partcase, ok := vv.(map[string]interface{})
 				if !ok {
@@ -235,15 +263,67 @@ func main() {
 				if !ok {
 					found = (partcase["apply"].([]interface{}))[0].(map[string]interface{})
 				}
-				if _, ok := partcase["when"]; !ok {
+				whencase, ok := partcase["when"]
+				if !ok {
 					catchallmodel = found
-					break
+				} else {
+					whencase := whencase.(map[string]interface{})
+					ored, ok := whencase["OR"]
+					matches := []string{}
+					if ok {
+						ored := ored.([]interface{})
+						for _, orv := range ored {
+							subm := []string{}
+							orv := orv.(map[string]interface{})
+							for whi, whk := range orv {
+								subm = append(subm, whi+"="+whk.(string))
+							}
+							matches = append(matches, strings.Join(subm, ","))
+						}
+						foundcase := false
+						for stateid := range block.StateList {
+							state := block.StateList[stateid]
+							if state.ID() == "minecraft:"+fmatch[1] {
+								doesmatch := false
+								for _, mv := range matches {
+									if blockMatches(&block.StateList[stateid], "minecraft:"+fmatch[1], mv) {
+										doesmatch = true
+										foundcase = true
+									}
+								}
+								if doesmatch {
+									filteredmodel[state] = found
+								}
+							}
+						}
+						if !foundcase {
+							log.Printf("No matching blockstate for description condition %v", spew.Sdump(whencase))
+						}
+					} else {
+						for whi, whv := range whencase {
+							matches = append(matches, whi+"="+whv.(string))
+						}
+						for stateid := range block.StateList {
+							state := block.StateList[stateid]
+							if state.ID() == "minecraft:"+fmatch[1] {
+								desc := strings.Join(matches, ",")
+								if blockMatches(&block.StateList[stateid], "minecraft:"+fmatch[1], desc) {
+									filteredmodel[state] = found
+								}
+							}
+						}
+					}
 				}
 			}
 			for stateid := range block.StateList {
 				state := block.StateList[stateid]
 				if state.ID() == "minecraft:"+fmatch[1] {
-					statemodel[state] = catchallmodel
+					filtered, ok := filteredmodel[state]
+					if ok {
+						statemodel[state] = filtered
+					} else {
+						statemodel[state] = catchallmodel
+					}
 				}
 			}
 		} else if _, ok := v["variants"]; ok {
@@ -276,8 +356,10 @@ func main() {
 	log.Print("Mapping blockstates to textures...")
 
 	statetextures := map[block.Block][]string{}
-	failed := []string{}
 	for s, m := range statemodel {
+		if s.ID() == "minecraft:air" || s.ID() == "minecraft:cave_air" || s.ID() == "minecraft:void_air" {
+			continue
+		}
 		modelname, ok := m["model"].(string)
 		if !ok {
 			log.Printf("State %v: %v does not have model %v", s.ID(), spew.Sdump(s), spew.Sprint(m))
@@ -303,11 +385,9 @@ func main() {
 			}
 			statetextures[s] = textures
 		} else {
-			log.Printf("Texture not found for model %v", spew.Sdump(m))
-			failed = append(failed, spew.Sprint(s))
+			log.Printf("Texture not found for block %v", spew.Sdump(s))
 		}
 	}
-
 	log.Printf("Loaded %v/%v models", len(statetextures), len(statemodel))
 
 	// for i, j := range block.StateList {
