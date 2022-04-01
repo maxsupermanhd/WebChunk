@@ -5,11 +5,13 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/color"
 	"image/png"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
@@ -24,28 +26,11 @@ var (
 	JARpath = `/home/max/.minecraft/versions/1.18.2/1.18.2.jar`
 )
 
-// type blockDescription struct {
-// 	state string
-// 	id    string
-// }
-
 func must(e error) {
 	if e != nil {
 		log.Fatal(e)
 	}
 }
-
-// func genBlockDescription(id string) []blockDescription {
-// 	if block.FromID[id] == nil {
-// 		return []blockDescription{}
-// 	}
-// 	params := map[string][]string{}
-// 	bp := reflect.New(reflect.ValueOf(block.FromID[id]).Type())
-// 	b := bp.Elem()
-// 	for m := 0; m < b.NumField(); m++ {
-// 		fieldName := b.Type().Field(m).Name
-// 	}
-// }
 
 // func getBlockFromDescription(name, description string) block.Block {
 // 	if block.FromID[name] == nil {
@@ -210,7 +195,6 @@ func main() {
 	spew.Config.Indent = "   "
 
 	filepaths := map[string]*zip.File{}
-	// colors := map[string]color.RGBA64{}
 
 	blockstateRegex := regexp.MustCompile("assets/minecraft/blockstates/([A-Za-z_]+).json")
 
@@ -388,73 +372,69 @@ func main() {
 			log.Printf("Texture not found for block %v", spew.Sdump(s))
 		}
 	}
-	log.Printf("Loaded %v/%v models", len(statetextures), len(statemodel))
+	log.Printf("Loaded %v/%v models (should be %v total)", len(statetextures), len(statemodel), len(block.StateList))
 
-	// for i, j := range block.StateList {
+	colors := map[int]color.RGBA64{}
+	cachedcolors := map[string]color.RGBA64{}
+	colornotfound := 0
+	for i, j := range block.StateList {
+		texturename, ok := statetextures[j]
+		avgcolor := color.RGBA64{R: 0, G: 0, B: 0, A: 0}
+		avgcolorc := uint16(0)
+		if ok {
+			for _, tex := range texturename {
+				tex = strings.TrimPrefix(tex, "minecraft:")
+				fp := "assets/minecraft/textures/" + tex + ".png"
+				f, ok := filepaths[fp]
+				if !ok {
+					log.Printf("File not found: %v", fp)
+					continue
+				}
+				cached, ok := cachedcolors[fp]
+				readedcolor := color.RGBA64{R: 0, G: 0, B: 0, A: 0}
+				if ok {
+					readedcolor = cached
+				} else {
+					r, err := f.Open()
+					must(err)
+					readedcolor = *findColor(r)
+					r.Close()
+					cachedcolors[fp] = readedcolor
+				}
+				avgcolor.R += readedcolor.R
+				avgcolor.G += readedcolor.G
+				avgcolor.B += readedcolor.B
+				avgcolor.A += readedcolor.A
+				avgcolorc++
+			}
+		}
+		if avgcolorc == 0 {
+			colors[i] = avgcolor
+			colornotfound++
+		} else {
+			colors[i] = color.RGBA64{R: avgcolor.R / avgcolorc, G: avgcolor.G / avgcolorc, B: avgcolor.B / avgcolorc, A: avgcolor.A / avgcolorc}
+		}
+	}
 
-	// }
+	log.Printf("Colors matched %v/%v", len(colors)-colornotfound, len(block.StateList))
 
-	// var wg sync.WaitGroup
-	// tasks := make(chan *block.Block)
-	// results := map[string]color.RGBA64{}
+	size := int(math.Ceil(math.Sqrt(float64(len(block.StateList)))))
+	fmt.Println("Size: ", size)
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	for i, v := range colors {
+		img.Set(i%size, i/size, v)
+	}
+	f, err := os.Create("res.png")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		panic(err)
+	}
 
-	// for i := 0; i < runtime.NumCPU(); i++ {
-	// 	go func() {
-	// 		for b := range tasks {
-	// 			results[b.ID] = findColor(trie, b)
-	// 			wg.Done()
-	// 		}
-	// 	}()
-	// }
-
-	// wg.Add(len(block.ByID))
-	// for _, b := range block.ByID {
-	// 	tasks <- b
-	// }
-	// close(tasks)
-	// wg.Wait()
-	// for i, v := range results {
-	// 	if v == nil {
-	// 		results[i] = &color.RGBA64{R: 0, G: 0, B: 0, A: 0}
-	// 	}
-	// }
-	// results[8] = &color.RGBA64{
-	// 	R: 97 * math.MaxUint16 / 256,
-	// 	G: 157 * math.MaxUint16 / 256,
-	// 	B: 54 * math.MaxUint16 / 256,
-	// 	A: 255 * math.MaxUint16 / 256,
-	// }
-	// fmt.Println(results)
-
-	// size := int(math.Ceil(math.Sqrt(float64(len(results)))))
-	// fmt.Println("Size: ", size)
-	// img := image.NewRGBA(image.Rect(0, 0, size, size))
-	// for i, v := range results {
-	// 	if v != nil {
-	// 		img.Set(i%size, i/size, v)
-	// 	}
-	// }
-	// f, err := os.Create("res.png")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer f.Close()
-	// if err := png.Encode(f, img); err != nil {
-	// 	panic(err)
-	// }
-
-	// output(results)
+	output(colors)
 }
-
-// func find(root *trieNode, name string) []int {
-// 	if len(root.values) > 0 {
-// 		return root.values
-// 	}
-// 	if len(name) == 0 {
-// 		return nil
-// 	}
-// 	return find(root.next[[]rune(name)[0]], name[1:])
-// }
 
 func findColor(f io.ReadCloser) *color.RGBA64 {
 	img, err := png.Decode(f)
@@ -482,7 +462,7 @@ func findColor(f io.ReadCloser) *color.RGBA64 {
 	}
 }
 
-func output(colors map[string]color.RGBA64) {
+func output(colors map[int]color.RGBA64) {
 	f, err := os.Create("colors.gob")
 	if err != nil {
 		panic(err)
