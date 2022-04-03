@@ -123,7 +123,7 @@ func main() {
 	if err != nil {
 		log.Println("Error loading .env file")
 	}
-	port := os.Getenv("PORT")
+	port := os.Getenv("WEB_PORT")
 	if port == "" {
 		port = "3000"
 	}

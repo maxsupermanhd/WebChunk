@@ -76,7 +76,7 @@
 		var portals =      L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/portalsheat/{z}/{x}/{y}/png', defaultLayerSettings);
 		var chests =       L.tileLayer('/servers/{{.Server.Name}}/{{.Dim.Name}}/tiles/chestheat/{z}/{x}/{y}/png', defaultLayerSettings);
 		
-		L.GridLayer.GridDebug = L.GridLayer.extend({
+		L.GridLayer.GridCoordinates = L.GridLayer.extend({
 			createTile: function (coords) {
 				const tile = document.createElement('div');
 				tile.style.outline = '1px solid green';
@@ -87,10 +87,10 @@
 				return tile;
 			},
 		});
-		L.gridLayer.gridDebug = function (opts) {
-			return new L.GridLayer.GridDebug(opts);
+		L.gridLayer.gridCoordinates = function (opts) {
+			return new L.GridLayer.GridCoordinates(opts);
 		};
-		let coordinatelayer = L.gridLayer.gridDebug();
+		let coordinatelayer = L.gridLayer.gridCoordinates();
 		var mymap = L.map('map', {
 			cursor: false,
 			crs: L.CRS.Simple,

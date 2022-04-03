@@ -433,7 +433,12 @@ func main() {
 		panic(err)
 	}
 
-	output(colors)
+	towrite := []color.RGBA64{}
+	for i := 0; i < len(block.StateList); i++ {
+		towrite = append(towrite, colors[i])
+	}
+
+	output(towrite)
 }
 
 func findColor(f io.ReadCloser) *color.RGBA64 {
@@ -462,7 +467,7 @@ func findColor(f io.ReadCloser) *color.RGBA64 {
 	}
 }
 
-func output(colors map[int]color.RGBA64) {
+func output(colors []color.RGBA64) {
 	f, err := os.Create("colors.gob")
 	if err != nil {
 		panic(err)

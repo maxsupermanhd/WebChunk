@@ -31,15 +31,15 @@ import (
 	"image/draw"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
-	"strings"
 	_ "sync"
 	"time"
 	"unsafe"
 
-	"github.com/Tnze/go-mc/data/block"
 	"github.com/Tnze/go-mc/level"
+	"github.com/Tnze/go-mc/level/block"
 	"github.com/Tnze/go-mc/save"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
@@ -144,6 +144,45 @@ func appendMetrics(t time.Duration, m string) {
 	metricsSend <- metricsCollect{t: t, m: m}
 }
 
+func isAir(s int) bool {
+	switch block.StateList[s].(type) {
+	case block.Air, block.CaveAir, block.VoidAir:
+		return true
+	default:
+		return false
+	}
+}
+
+func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer {
+	data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
+	statePalette := s.BlockStates.Palette
+	stateRawPalette := make([]int, len(statePalette))
+	for i, v := range statePalette {
+		b, ok := block.FromID[v.Name]
+		if !ok {
+			b, ok = block.FromID["minecraft:"+v.Name]
+			if !ok {
+				if os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+					log.Printf("Can not find block from id [%v]", v.Name)
+				}
+				return nil
+			}
+		}
+		if v.Properties.Data != nil {
+			err := v.Properties.Unmarshal(&b)
+			if err != nil {
+				if os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+					log.Printf("Error unmarshling properties of block [%v] from [%v]: %v", v.Name, v.Properties.String(), err.Error())
+				}
+				return nil
+			}
+		}
+		s := block.ToStateID[b]
+		stateRawPalette[i] = s
+	}
+	return level.NewStatesPaletteContainerWithData(16*16*16, data, stateRawPalette)
+}
+
 func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
@@ -156,28 +195,22 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 		if len(s.BlockStates.Data) == 0 {
 			continue
 		}
-		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
-		palette := s.BlockStates.Palette
-		rawPalette := make([]int, len(palette))
-		for i, v := range palette {
-			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
+		states := prepareSectionBlockstates(&s)
+		if states == nil {
+			if os.Getenv("REPORT_CHUNK_PROBLEMS") == "yes" || os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+				log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
+			}
+			continue
 		}
-		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
 		for y := 15; y >= 0; y-- {
 			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
 			for i := 16*16 - 1; i >= 0; i-- {
 				if img.At(i%16, i/16) != defaultColor {
 					continue
 				}
-				state, ok := block.StateID[uint32(c.Get(y*16*16+i))]
-				if !ok {
-					continue
-				}
-				block, ok := block.ByID[state]
-				if !ok {
-					continue
-				}
-				if block.Name != "air" {
+				state := states.Get(y*16*16 + i)
+				// block := block.StateList[state]
+				if !isAir(state) {
 					absy := uint8(int(s.Y)*16 + y)
 					layerImg.Set(i%16, i/16, color.RGBA{absy, absy, 255, 255})
 				}
@@ -204,6 +237,7 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	type OutputBlock struct {
 		sR, sG, sB, sA uint64
 		c              uint64
+		b              []block.Block
 	}
 	outputs := make([]OutputBlock, 16*16)
 	failedState := 0
@@ -212,47 +246,92 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 		if len(s.BlockStates.Data) == 0 {
 			continue
 		}
-		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
-		palette := s.BlockStates.Palette
-		rawPalette := make([]int, len(palette))
-		for i, v := range palette {
-			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
+		states := prepareSectionBlockstates(&s)
+		if states == nil {
+			if os.Getenv("REPORT_CHUNK_PROBLEMS") == "yes" || os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+				log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
+			}
+			continue
 		}
-		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
 		for y := 15; y >= 0; y-- {
 			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
 			for i := 16*16 - 1; i >= 0; i-- {
 				if img.At(i%16, i/16) != defaultColor {
 					continue
 				}
-				state, ok := block.StateID[uint32(c.Get(y*16*16+i))]
-				if !ok {
-					failedState++
+				state := states.Get(y*16*16 + i)
+				blockState := block.StateList[state]
+				if isAir(state) {
 					continue
 				}
-				block, ok := block.ByID[state]
-				if !ok {
-					failedID++
-					continue
+				toColor := color.RGBA64{R: 0, G: 0, B: 0, A: 0}
+				isTransparent := false
+				switch blockState.(type) {
+				// Grass tint for plains
+				// TODO: actually grab correct tint from biome
+				case block.GrassBlock:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x00}
+				case block.Grass:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					isTransparent = true
+				case block.TallGrass:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					isTransparent = true
+				case block.Fern:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					isTransparent = true
+				case block.LargeFern:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					isTransparent = true
+				case block.PottedFern:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					isTransparent = true
+				case block.SugarCane:
+					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					isTransparent = true
+
+				// Foliage tint for plains
+				// TODO: actually grab correct tint from biome
+				case block.OakLeaves:
+					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					isTransparent = true
+				case block.JungleLeaves:
+					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					isTransparent = true
+				case block.AcaciaLeaves:
+					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					isTransparent = true
+				case block.DarkOakLeaves:
+					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					isTransparent = true
+				case block.Vine:
+					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					isTransparent = true
+
+				// Water tint for "most biomes" lmao
+
+				case block.Water:
+					toColor = color.RGBA64{R: 0x3F, G: 0x76, B: 0xE4, A: 0x1F}
+					isTransparent = true
+				case block.WaterCauldron:
+					toColor = color.RGBA64{R: 0x3F, G: 0x76, B: 0xE4, A: 0xFF}
+				default:
+					toColor = colors[state]
 				}
-				if block.Name == "air" {
-					continue
-				}
-				// printColor := func(c color.RGBA64) string {
-				// 	return fmt.Sprintf("{% 6d % 6d % 6d % 6d}", c.R, c.G, c.B, c.A)
-				// }
-				if block.Transparent {
-					outputs[i].sR += uint64(colors[state].R)
-					outputs[i].sG += uint64(colors[state].G)
-					outputs[i].sB += uint64(colors[state].B)
-					outputs[i].sA += uint64(colors[state].A)
+
+				if isTransparent {
+					outputs[i].sR += uint64(toColor.R)
+					outputs[i].sG += uint64(toColor.G)
+					outputs[i].sB += uint64(toColor.B)
+					outputs[i].sA += uint64(toColor.A)
 					outputs[i].c++
+					outputs[i].b = append(outputs[i].b, blockState)
 				} else {
 					if outputs[i].c == 0 {
-						// log.Println("Painting", colors[state], "no alpha")
-						layerImg.Set(i%16, i/16, colors[state])
+						// log.Println("Painting", toColor, "no alpha")
+						layerImg.Set(i%16, i/16, toColor)
 					} else {
-						backColor := colors[state]
+						backColor := toColor
 						frontColor := color.RGBA64{
 							R: uint16(outputs[i].sR / outputs[i].c),
 							G: uint16(outputs[i].sG / outputs[i].c),
@@ -277,11 +356,13 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 						}
 						// I know that capping those values is a bad idea and there is a proper solution
 						// But I am too lazy and/or stupid to implement it, I tried for over 2 hours already
-						final := color.RGBA64{uint16(finalR), uint16(finalG), uint16(finalB), 65535}
+						toColor = color.RGBA64{uint16(finalR), uint16(finalG), uint16(finalB), 65535}
 						// log.Println("Final blend", fmt.Sprintf("% 3d %02d:%02d", outputs[i].c, i%16, i/16), printColor(colors[state]), printColor(backColor), printColor(frontColor), printColor(final))
-						layerImg.Set(i%16, i/16, final)
 					}
 				}
+
+				// log.Printf("Painting %02d:%02d %v %#v %#v", i%16, i/16, toColor, blockState.ID(), outputs[i].b)
+				layerImg.Set(i%16, i/16, toColor)
 				// absy := uint8(int(s.Y)*16 + y)
 			}
 			draw.Draw(
@@ -303,26 +384,22 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 
 func drawChunkPortalBlocksHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
-	portalBlockID, ok := idByName["nether_portal"]
-	if !ok {
-		log.Println("Failed to find portal block id")
-	}
 	portalsDetected := 0
 	for _, s := range chunk.Sections {
 		if len(s.BlockStates.Data) == 0 {
 			continue
 		}
-		data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
-		palette := s.BlockStates.Palette
-		rawPalette := make([]int, len(palette))
-		for i, v := range palette {
-			rawPalette[i] = int(stateIDs[strings.TrimPrefix(v.Name, "minecraft:")])
+		states := prepareSectionBlockstates(&s)
+		if states == nil {
+			if os.Getenv("REPORT_CHUNK_PROBLEMS") == "yes" || os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+				log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
+			}
+			continue
 		}
-		c := level.NewStatesPaletteContainerWithData(16*16*16, data, rawPalette)
 		for y := 15; y >= 0; y-- {
 			for i := 16*16 - 1; i >= 0; i-- {
-				bid, ok := block.StateID[uint32(c.Get(y*16*16+i))]
-				if ok && portalBlockID == uint32(bid) {
+				b := block.StateList[states.Get(y*16*16+i)]
+				if b.ID() == "nether_portal" {
 					portalsDetected++
 				}
 			}
@@ -345,24 +422,11 @@ var colors []color.RGBA64
 //go:embed colors.gob
 var colorsBin []byte // gob([]color.RGBA64)
 
-var idByName = make(map[string]uint32, len(block.ByID))
-
 var stateIDs map[string]uint32
 
 func initChunkDraw() {
 	if err := gob.NewDecoder(bytes.NewReader(colorsBin)).Decode(&colors); err != nil {
 		panic(err)
-	}
-	for _, v := range block.ByID {
-		// log.Println(v.Transparent, v.Name, colors[i])
-		idByName[v.Name] = uint32(v.ID)
-	}
-	stateIDs = map[string]uint32{}
-	for i, v := range block.StateID {
-		name := block.ByID[v].Name
-		if _, ok := stateIDs[name]; !ok {
-			stateIDs[name] = i
-		}
 	}
 	go metricsDispatcher()
 }

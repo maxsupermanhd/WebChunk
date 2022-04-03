@@ -28,7 +28,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/Tnze/go-mc/data/block"
+	"github.com/Tnze/go-mc/level/block"
 )
 
 func hexColor(c color.Color) string {
@@ -37,16 +37,48 @@ func hexColor(c color.Color) string {
 }
 
 func colorsHandlerGET(w http.ResponseWriter, r *http.Request) {
+	offsets := r.URL.Query().Get("o")
+	counts := r.URL.Query().Get("c")
+	var offset, count int
+	var err error
+	if offsets == "" {
+		offset = 0
+	} else {
+		offset, err = strconv.Atoi(offsets)
+		if err != nil {
+			plainmsg(w, r, plainmsgColorRed, "Failed to parse offset: "+err.Error())
+			return
+		}
+	}
+	if counts == "" {
+		count = 1000
+	} else {
+		count, err = strconv.Atoi(counts)
+		if err != nil {
+			plainmsg(w, r, plainmsgColorRed, "Failed to parse count: "+err.Error())
+			return
+		}
+	}
 	type BlockColor struct {
-		Block block.Block
-		Color string
+		BlockID          string
+		BlockDescription string
+		Color            string
 	}
-	c := make([]BlockColor, len(block.ByID))
-	for i, b := range block.ByID {
-		c[i].Block = *b
-		c[i].Color = hexColor(colors[i])
+	c := map[int]BlockColor{}
+	for i, b := range block.StateList {
+		if i < offset {
+			continue
+		}
+		if i > offset+count {
+			continue
+		}
+		s := BlockColor{
+			b.ID(),
+			fmt.Sprintf("%##v", b),
+			hexColor(colors[uint32(i)])}
+		c[i] = s
 	}
-	basicLayoutLookupRespond("colors", w, r, map[string]interface{}{"Colors": c})
+	basicLayoutLookupRespond("colors", w, r, map[string]interface{}{"Colors": c, "Offset": offset, "Count": count})
 }
 
 func ParseHexColor(s string) (c color.RGBA64, err error) {
@@ -89,7 +121,7 @@ func colorsHandlerPOST(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Failed to parse colorvalue")
 		return
 	}
-	colors[colorid] = newColor
+	colors[uint32(colorid)] = newColor
 	plainmsg(w, r, plainmsgColorGreen, fmt.Sprint("Color ", colorid, " was changed to ", newColor))
 	colorsHandlerGET(w, r)
 }
