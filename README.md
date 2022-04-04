@@ -17,6 +17,7 @@ Designed to accept chunks from multiple players at once, provide very fast deser
 - [x] Portals/chests overlay
 - [x] Colors customization
 - [x] Concurrent use
+- [x] Connect and view downloaded chunks in-game
 
 ### In plans
 
