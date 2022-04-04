@@ -177,6 +177,10 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	outputs := make([]OutputBlock, 16*16)
 	failedState := 0
 	failedID := 0
+	colored := make([]bool, 32*32)
+	for i := range colored {
+		colored[i] = false
+	}
 	for _, s := range chunk.Sections {
 		if len(s.BlockStates.Data) == 0 {
 			continue
@@ -189,9 +193,8 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 			continue
 		}
 		for y := 15; y >= 0; y-- {
-			layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
 			for i := 16*16 - 1; i >= 0; i-- {
-				if img.At(i%16, i/16) != defaultColor {
+				if colored[i] {
 					continue
 				}
 				state := states.Get(y*16*16 + i)
@@ -205,51 +208,51 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 				// Grass tint for plains
 				// TODO: actually grab correct tint from biome
 				case block.GrassBlock:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x00}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0xFF * 257}
 				case block.Grass:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.TallGrass:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.Fern:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.LargeFern:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.PottedFern:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.SugarCane:
-					toColor = color.RGBA64{R: 0x91, G: 0xBD, B: 0x59, A: 0x1F}
+					toColor = color.RGBA64{R: 0x91 * 257, G: 0xBD * 257, B: 0x59 * 257, A: 0x7F * 257}
 					isTransparent = true
 
 				// Foliage tint for plains
 				// TODO: actually grab correct tint from biome
 				case block.OakLeaves:
-					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.JungleLeaves:
-					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.AcaciaLeaves:
-					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.DarkOakLeaves:
-					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
 				case block.Vine:
-					toColor = color.RGBA64{R: 0x77, G: 0xAB, B: 0x2F, A: 0x1F}
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
 
 				// Water tint for "most biomes" lmao
 
 				case block.Water:
-					toColor = color.RGBA64{R: 0x3F, G: 0x76, B: 0xE4, A: 0x1F}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0x7F * 257}
+					// isTransparent = true
 				case block.WaterCauldron:
-					toColor = color.RGBA64{R: 0x3F, G: 0x76, B: 0xE4, A: 0xFF}
+					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0xFF * 257}
 				default:
 					toColor = colors[state]
 				}
@@ -262,10 +265,7 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 					outputs[i].c++
 					outputs[i].b = append(outputs[i].b, blockState)
 				} else {
-					if outputs[i].c == 0 {
-						// log.Println("Painting", toColor, "no alpha")
-						layerImg.Set(i%16, i/16, toColor)
-					} else {
+					if outputs[i].c != 0 {
 						backColor := toColor
 						frontColor := color.RGBA64{
 							R: uint16(outputs[i].sR / outputs[i].c),
@@ -294,17 +294,13 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 						toColor = color.RGBA64{uint16(finalR), uint16(finalG), uint16(finalB), 65535}
 						// log.Println("Final blend", fmt.Sprintf("% 3d %02d:%02d", outputs[i].c, i%16, i/16), printColor(colors[state]), printColor(backColor), printColor(frontColor), printColor(final))
 					}
+					// log.Printf("Painting %02d:%02d %v %#v %#v", i%16, i/16, toColor, blockState.ID(), outputs[i].b)
+					img.Set(i%16, i/16, toColor)
+					colored[i] = true
 				}
 
-				// log.Printf("Painting %02d:%02d %v %#v %#v", i%16, i/16, toColor, blockState.ID(), outputs[i].b)
-				layerImg.Set(i%16, i/16, toColor)
-				// absy := uint8(int(s.Y)*16 + y)
+				// absy := uint(int(s.Y)*16 + y)
 			}
-			draw.Draw(
-				img, image.Rect(0, 0, 16, 16),
-				layerImg, image.Pt(0, 0),
-				draw.Over,
-			)
 		}
 	}
 	if failedState != 0 {
