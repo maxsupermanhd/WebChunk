@@ -31,7 +31,6 @@ import (
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
@@ -46,7 +45,6 @@ type chunkLoader struct {
 	positions            map[uuid.UUID]level.ChunkPos
 	viewingChunks        map[uuid.UUID]map[level.ChunkPos]bool
 	playersMutex         sync.Mutex
-	dbpool               *pgxpool.Pool
 }
 
 func NewChunkLoader(s chunkStorage.ChunkStorage, viewDistance int, dbServer, dbDim string, ec [2]int) *chunkLoader {
