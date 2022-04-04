@@ -1,8 +1,6 @@
-# WebChunk
+<p align="center"><img src="splash.svg" width="600" height="200"></p>
 
-Dynmap for players
-
-![WebChunk with overworld section from PhoenixAnarchy](preview.png)
+![WebChunk with overworld section from PhoenixAnarchy](preview.jpeg)
 
 WebChunk is a simple web server written in Go that works with Postgres datbase to store and render chunks from Minecraft to your browser.
 
