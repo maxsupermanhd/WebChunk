@@ -21,7 +21,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -55,24 +54,12 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	tag, err := dbpool.Exec(context.Background(), `
-		insert into chunks (x, z, data, dim, server)
-		values ($1, $2, $3,
-			(select dimensions.id 
-			 from dimensions 
-			 join servers on servers.id = dimensions.server 
-			 where servers.name = $4 and dimensions.name = $5),
-		 	(select id from servers where name = $4))`,
-		col.XPos, col.ZPos, body, sname, dname)
+	err = storage.AddChunk(dname, sname, col.XPos, col.ZPos, col)
 	if err != nil {
+		log.Print("Failed to submit chunk %v:%v server %v dimension %v: %v", col.XPos, col.ZPos, sname, dname, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Print(err.Error())
-		return
 	}
 	log.Print("Submitted chunk ", col.XPos, col.ZPos, " server ", sname, " dimension ", dname)
-	if tag.RowsAffected() != 1 {
-		log.Print("Rows affected ", tag.RowsAffected())
-	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, sname, dname)))
 }

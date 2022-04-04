@@ -2,6 +2,8 @@ module github.com/maxsupermanhd/mcwebchunk
 
 go 1.18
 
+replace github.com/maxsupermanhd/mcwebchunk/chunkStorage => ./chunkStorage
+
 require (
 	github.com/Tnze/go-mc v1.18.2-0.20220401165811-e00bb53f9efb
 	github.com/davecgh/go-spew v1.1.1

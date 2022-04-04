@@ -22,7 +22,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	_ "embed"
 	"encoding/gob"
 	"html/template"
@@ -43,71 +42,7 @@ import (
 	"github.com/Tnze/go-mc/save"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4"
 )
-
-func getChunkData(dname, sname string, cx, cz int) (save.Chunk, error) {
-	var c save.Chunk
-	var d []byte
-	derr := dbpool.QueryRow(context.Background(), `
-		select data
-		from chunks
-		where x = $1 AND z = $2 AND
-			dim = (select dimensions.id 
-			 from dimensions 
-			 join servers on servers.id = dimensions.server 
-			 where servers.name = $3 and dimensions.name = $4)
-		order by created_at desc
-		limit 1;`, cx, cz, sname, dname).Scan(&d)
-	if derr != nil {
-		if derr != pgx.ErrNoRows {
-			log.Print(derr.Error())
-		}
-		return c, derr
-	}
-	perr := c.Load(d)
-	return c, perr
-}
-
-func getChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error) {
-	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
-	c := []chunkData{}
-	dim, err := getDimensionByNames(sname, dname)
-	if err != nil {
-		return c, err
-	}
-	rows, derr := dbpool.Query(context.Background(), `
-		with grp as
-		 (
-			select x, z, data, created_at, dim, id,
-				rank() over (partition by x, z order by x, z, created_at desc) r
-			from chunks where dim = $5
-		)
-		select data, id
-		from grp
-		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND dim = $5
-		`, cx0, cz0, cx1, cz1, dim.ID)
-	if derr != nil {
-		if derr != pgx.ErrNoRows {
-			log.Print(derr.Error())
-		}
-		return c, derr
-	}
-	var perr error
-	for rows.Next() {
-		var d []byte
-		var cid int
-		rows.Scan(&d, &cid)
-		var cc save.Chunk
-		perr = cc.Load(d)
-		if perr != nil {
-			log.Printf("Chunk %d: %s", cid, perr.Error())
-			continue
-		}
-		c = append(c, chunkData{x: cc.XPos, z: cc.ZPos, data: cc})
-	}
-	return c, perr
-}
 
 type metricsCollect struct {
 	t time.Duration
@@ -515,12 +450,12 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	sname := params["server"]
 	dname := params["dim"]
-	server, derr := getServerByName(sname)
+	server, derr := storage.GetServerByName(sname)
 	if derr != nil {
 		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
 		return
 	}
-	dim, derr := getDimensionByNames(sname, dname)
+	dim, derr := storage.GetDimensionByNames(sname, dname)
 	if derr != nil {
 		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
 		return
@@ -537,7 +472,7 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Chunk Z coordinate is shit: "+err.Error())
 		return
 	}
-	c, err := getChunkData(dname, sname, cx, cz)
+	c, err := storage.GetChunkData(dname, sname, cx, cz)
 	if err != nil {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
@@ -583,38 +518,6 @@ func drawHeatOfChunks(c int) *image.RGBA {
 	return layerImg
 }
 
-func getChunksCountRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error) {
-	cc := []chunkData{}
-	rows, derr := dbpool.Query(context.Background(), `
-	select
-	x, z, coalesce(count(*), 0) as c
-	from chunks
-	where dim = (select dimensions.id 
-				 from dimensions 
-				 join servers on servers.id = dimensions.server 
-				 where servers.name = $5 and dimensions.name = $6) AND
-		  x >= $1 AND z >= $2 AND x < $3 AND z < $4
-	group by x, z
-	order by c desc
-		`, cx0, cz0, cx1, cz1, sname, dname)
-	if derr != nil {
-		if derr != pgx.ErrNoRows {
-			log.Print(derr.Error())
-		}
-		return cc, derr
-	}
-	for rows.Next() {
-		var x, z, c int32
-		derr := rows.Scan(&x, &z, &c)
-		if derr != nil {
-			log.Print(derr.Error())
-			continue
-		}
-		cc = append(cc, chunkData{x: x, z: z, data: c})
-	}
-	return cc, derr
-}
-
 func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	dname := params["dim"]
@@ -636,7 +539,7 @@ func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	_, err = getChunkData(dname, sname, cz, cx)
+	_, err = storage.GetChunkData(dname, sname, cz, cx)
 	if err != nil {
 		w.WriteHeader(http.StatusNoContent)
 		return

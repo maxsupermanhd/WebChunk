@@ -21,89 +21,25 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"regexp"
 	"strconv"
 
-	"github.com/georgysavva/scany/pgxscan"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
-
-type DimStruct struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Alias  string `json:"alias"`
-	Server int    `json:"server"`
-}
 
 var (
 	dimNameRegexp  = regexp.MustCompile(`[\-a-zA-Z0-9.]+`)
 	dimAliasRegexp = dimNameRegexp
 )
 
-func listDimensionsByServerName(server string) ([]DimStruct, error) {
-	var dims []DimStruct
-	derr := pgxscan.Select(context.Background(), dbpool, &dims,
-		`SELECT dimensions.id, dimensions.name, dimensions.alias, server FROM dimensions JOIN SERVERS ON dimensions.server = servers.id WHERE servers.name = $1`, server)
-	return dims, derr
-}
-
-func listDimensionsByServerID(sid int) ([]DimStruct, error) {
-	var dims []DimStruct
-	derr := pgxscan.Select(context.Background(), dbpool, &dims,
-		`SELECT id, name, alias, server FROM dimensions WHERE server = $1`, sid)
-	return dims, derr
-}
-
-func listDimensions() ([]DimStruct, error) {
-	var dims []DimStruct
-	derr := pgxscan.Select(context.Background(), dbpool, &dims,
-		`SELECT id, name, alias, server FROM dimensions`)
-	return dims, derr
-}
-
-//lint:ignore U1000 for future use
-func getDimensionByID(did int) (DimStruct, error) {
-	var dim DimStruct
-	derr := pgxscan.Select(context.Background(), dbpool, &dim,
-		`SELECT id, name, alias, server FROM dimensions WHERE id = $1`, did)
-	return dim, derr
-}
-
-func getDimensionByNames(server, dimension string) (DimStruct, error) {
-	var dim DimStruct
-	derr := pgxscan.Get(context.Background(), dbpool, &dim, `
-		SELECT dimensions.id, dimensions.name, dimensions.alias, dimensions.server FROM dimensions
-			JOIN SERVERS ON dimensions.server = servers.id
-			WHERE dimensions.name = $1 AND servers.name = $2
-			LIMIT 1`, dimension, server)
-	return dim, derr
-}
-
-func addDimension(server int, name, alias string) (DimStruct, error) {
-	var dim DimStruct
-	derr := dbpool.QueryRow(context.Background(),
-		`INSERT INTO dimensions (server, name, alias) VALUES ($1, $2, $3) RETURNING id`, server, name, alias).Scan(&dim.ID)
-	dim.Alias = alias
-	dim.Name = name
-	dim.Server = server
-	return dim, derr
-}
-
-func getDimensionChunkCountSize(dimensionid int) (c int64, s string, derr error) {
-	derr = dbpool.QueryRow(context.Background(),
-		`SELECT COUNT(id), COALESCE(pg_size_pretty(SUM(pg_column_size(data))), '0 kB') FROM chunks WHERE dim = $1`, dimensionid).Scan(&c, &s)
-	return c, s, derr
-
-}
-
 func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	sname := params["server"]
 	dimname := params["dim"]
-	server, derr := getServerByName(sname)
+	server, derr := storage.GetServerByName(sname)
 	if derr != nil {
 		if derr == pgx.ErrNoRows {
 			plainmsg(w, r, plainmsgColorRed, "Server not found")
@@ -112,7 +48,7 @@ func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	dim, derr := getDimensionByNames(sname, dimname)
+	dim, derr := storage.GetDimensionByNames(sname, dimname)
 	if derr != nil {
 		if derr == pgx.ErrNoRows {
 			plainmsg(w, r, plainmsgColorRed, "Dimension not found")
@@ -140,13 +76,13 @@ func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
 	if err != nil {
 		return 400, "Invalid dimension server id"
 	}
-	_, err = getServerByID(serverid)
+	_, err = storage.GetServerByID(serverid)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return 404, "Server not found"
 		}
 	}
-	dim, err := addDimension(serverid, name, alias)
+	dim, err := storage.AddDimension(serverid, name, alias)
 	if err != nil {
 		return 500, "Failed to add server: " + err.Error()
 	}
@@ -159,10 +95,10 @@ func apiListDimensions(w http.ResponseWriter, r *http.Request) (int, string) {
 		return 400, "Unable to parse form parameters"
 	}
 	server := r.Form.Get("server")
-	var dims []DimStruct
+	var dims []chunkStorage.DimStruct
 	var err error
 	if server == "" {
-		dims, err = listDimensions()
+		dims, err = storage.ListDimensions()
 		if err != nil {
 			return 500, "Database call failed: " + err.Error()
 		}
@@ -171,7 +107,7 @@ func apiListDimensions(w http.ResponseWriter, r *http.Request) (int, string) {
 		if err != nil {
 			return 400, "Invalid dimension server id"
 		}
-		dims, err = listDimensionsByServerID(serverid)
+		dims, err = storage.ListDimensionsByServerID(serverid)
 		if err != nil {
 			return 500, "Database call failed: " + err.Error()
 		}

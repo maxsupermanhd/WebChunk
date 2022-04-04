@@ -35,15 +35,11 @@ import (
 
 	"github.com/Tnze/go-mc/save"
 	"github.com/gorilla/mux"
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 	"github.com/nfnt/resize"
 )
 
-type chunkData struct {
-	x, z int32
-	data interface{}
-}
-
-type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkData, error)
+type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error)
 type chunkPainterFunc = func(interface{}) *image.RGBA
 
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
@@ -68,42 +64,42 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	var p chunkPainterFunc
 	switch datatype {
 	case "terrain":
-		g = getChunksRegion
+		g = storage.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunk(&s)
 		}
 	case "counttiles":
-		g = getChunksCountRegion
+		g = storage.GetChunksCountRegion
 		p = func(i interface{}) *image.RGBA {
 			return drawNumberOfChunks(int(i.(int32)))
 		}
 	case "counttilesheat":
-		g = getChunksCountRegion
+		g = storage.GetChunksCountRegion
 		p = func(i interface{}) *image.RGBA {
 			return drawHeatOfChunks(int(i.(int32)))
 		}
 	case "heightmap":
-		g = getChunksRegion
+		g = storage.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkHeightmap(&s)
 		}
 	case "xray":
-		g = getChunksRegion
+		g = storage.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			// return drawChunkXray(&s)
 			return drawChunk(&s)
 		}
 	case "portalsheat":
-		g = getChunksRegion
+		g = storage.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkPortalBlocksHeightmap(&s)
 		}
 	case "chestheat":
-		g = getChunksRegion
+		g = storage.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			// return drawChunkChestBlocksHeightmap(&s)
@@ -145,9 +141,9 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 		return nil
 	}
 	for _, c := range cc {
-		placex := int(c.x) - offsetx
-		placey := int(c.z) - offsety
-		tile := resize.Resize(uint(imagescale), uint(imagescale), painter(c.data), resize.NearestNeighbor)
+		placex := int(c.X) - offsetx
+		placey := int(c.Z) - offsety
+		tile := resize.Resize(uint(imagescale), uint(imagescale), painter(c.Data), resize.NearestNeighbor)
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)
 	}

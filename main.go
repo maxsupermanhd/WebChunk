@@ -37,11 +37,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage/postgresChunkStorage"
+
+	viewer "github.com/maxsupermanhd/mcwebchunk/viewer"
+
 	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/natefinch/lumberjack"
 	"github.com/shirou/gopsutil/host"
@@ -56,8 +60,8 @@ var (
 	GitTag     = "0.0"
 )
 
+var storage chunkStorage.ChunkStorage
 var layouts *template.Template
-var dbpool *pgxpool.Pool
 var layoutFuncs = template.FuncMap{
 	"noescape": func(s string) template.HTML {
 		return template.HTML(s)
@@ -198,11 +202,9 @@ func main() {
 	// app()
 
 	log.Println("Connecting to database")
-	dbpool, err = pgxpool.Connect(context.Background(), os.Getenv("DB"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dbpool.Close()
+
+	storage, err = postgresChunkStorage.NewStorage(context.Background(), os.Getenv("DB"))
+	defer storage.Close()
 
 	log.Println("Adding routes")
 	router := mux.NewRouter()
@@ -235,7 +237,10 @@ func main() {
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router1, customLogger)
 	// router4 := handlers.RecoveryHandler()(router3)
 	log.Println("Started! (http://127.0.0.1:" + port + "/)")
-	log.Panic(http.ListenAndServe(":"+port, router3))
+	go func() {
+		log.Panic(http.ListenAndServe(":"+port, router3))
+	}()
+	viewer.StartReconstructor(storage)
 }
 
 var prevCPUIdle uint64
@@ -266,47 +271,36 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	CPUReport := prevCPUReport
 	prevLock.Unlock()
 
-	var chunksCount uint64
-	var chunksSize string
-	derr := dbpool.QueryRow(context.Background(),
-		`SELECT COUNT(id) FROM chunks;`).Scan(&chunksCount)
-	if derr != nil {
-		plainmsg(w, r, plainmsgColorRed, "Error chunks count: "+derr.Error())
-		return
-	}
-	derr = dbpool.QueryRow(context.Background(),
-		`SELECT pg_size_pretty(pg_total_relation_size('chunks'));`).Scan(&chunksSize)
-	if derr != nil {
-		plainmsg(w, r, plainmsgColorRed, "Error getting stats: "+derr.Error())
-		return
-	}
-	serverss, err := listServers()
+	chunksCount, _ := storage.GetChunksCount()
+	chunksSizeBytes, _ := storage.GetChunksSize()
+	chunksSize := humanize.Bytes(chunksSizeBytes)
+	serverss, err := storage.ListServers()
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting servers: "+err.Error())
 		return
 	}
 	type DimData struct {
-		Dim        DimStruct
+		Dim        chunkStorage.DimStruct
 		ChunkSize  string
 		ChunkCount int64
 		CacheSize  string
 		CacheCount int64
 	}
 	type ServerData struct {
-		Server ServerStruct
+		Server chunkStorage.ServerStruct
 		Dims   []DimData
 	}
 	servers := []ServerData{}
 	for _, s := range serverss {
 		servers = append(servers, ServerData{Server: s, Dims: []DimData{}})
 	}
-	dimss, err := listDimensions()
+	dimss, err := storage.ListDimensions()
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting dimensions: "+err.Error())
 		return
 	}
 	for _, d := range dimss {
-		chunkCount, chunkSize, err := getDimensionChunkCountSize(d.ID)
+		chunkCount, chunkSize, err := storage.GetDimensionChunkCountSize(d.ID)
 		if err != nil {
 			plainmsg(w, r, plainmsgColorRed, "Error getting dimension details from database: "+err.Error())
 		}
@@ -343,7 +337,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func serversHandler(w http.ResponseWriter, r *http.Request) {
-	servers, derr := listServers()
+	servers, derr := storage.ListServers()
 	if derr != nil {
 		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
 		return
