@@ -21,18 +21,39 @@ Designed to accept chunks from multiple players at once, provide very fast deser
 
 ### In plans
 
-(from highest priority to lowest priority)
+#### By priority (from highest to lowest)
 
 - [ ] Pre-render of areas
+- [ ] Map markers
 - [ ] Restore chunks to level and make it downloadable (backup restore)
 - [ ] 3D view
-- [ ] Map markers
 - [ ] Customizable overlaying
+- [ ] Mobile version
 - [ ] Block formation search
 - [ ] Heatmap of terrain difference
 - [ ] Player activity search
 - [ ] "New chunks" overlay
+
+#### By ease of implementation (from easiest to hardest)
+
+- [ ] Block formation search
+- [ ] "New chunks" overlay
+- [ ] Map markers
+- [ ] Heatmap of terrain difference
+- [ ] Player activity search
+- [ ] Pre-render of areas
+- [ ] Customizable overlaying
+- [ ] Restore chunks to level and make it downloadable (backup restore)
 - [ ] Mobile version
+- [ ] 3D view
+
+## Data source
+
+Currently storage interface operates with anvil chunk format that can be grabbed from both region files and game itself. Storing multiple versions of same chunk is also permitted and viewed as a feature that can be further supported and used to analyze how terrain/world changed, potentially converting whole thing into data analysis framework.
+
+## Storage
+
+WebChunk currently supports storing data in PostgreSQL database, empty template of schemas are located in `db/sql/init/init.sh`. Work has been put into making storage interfacing not complex and as easy to implemet as possible, although it supports multiple worlds (or "servers" as I call them) it is not mandatory to provide multi-world functionality or even more than one dimension.
 
 ## How does it work?
 
