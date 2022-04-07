@@ -28,32 +28,32 @@ import (
 )
 
 func (s *PostgresChunkStorage) ListServers() ([]chunkStorage.ServerStruct, error) {
-	var servers []chunkStorage.ServerStruct
+	servers := []chunkStorage.ServerStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &servers,
 		`SELECT id, name, ip FROM servers`)
 	return servers, derr
 }
 
 func (s *PostgresChunkStorage) GetServerByID(sid int) (chunkStorage.ServerStruct, error) {
-	var server chunkStorage.ServerStruct
+	server := chunkStorage.ServerStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &server,
 		`SELECT id, name, ip FROM servers WHERE id = $1`, sid)
 	return server, derr
 }
 
-func (s *PostgresChunkStorage) GetServerByName(servername string) (*chunkStorage.ServerStruct, error) {
-	var server []chunkStorage.ServerStruct
+func (s *PostgresChunkStorage) GetServerByName(servername string) (chunkStorage.ServerStruct, error) {
+	server := []chunkStorage.ServerStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &server,
 		`SELECT * FROM servers WHERE name = $1 LIMIT 1`, servername)
 	if len(server) > 0 {
-		return &server[0], derr
+		return server[0], derr
 	} else {
-		return nil, derr
+		return chunkStorage.ServerStruct{}, derr
 	}
 }
 
 func (s *PostgresChunkStorage) AddServer(name, ip string) (chunkStorage.ServerStruct, error) {
-	var server chunkStorage.ServerStruct
+	server := chunkStorage.ServerStruct{}
 	server.IP = ip
 	server.Name = name
 	derr := s.dbpool.QueryRow(context.Background(),

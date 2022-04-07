@@ -28,21 +28,21 @@ import (
 )
 
 func (s *PostgresChunkStorage) ListDimensionsByServerName(server string) ([]chunkStorage.DimStruct, error) {
-	var dims []chunkStorage.DimStruct
+	dims := []chunkStorage.DimStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
 		`SELECT dimensions.id, dimensions.name, dimensions.alias, server FROM dimensions JOIN SERVERS ON dimensions.server = servers.id WHERE servers.name = $1`, server)
 	return dims, derr
 }
 
 func (s *PostgresChunkStorage) ListDimensionsByServerID(sid int) ([]chunkStorage.DimStruct, error) {
-	var dims []chunkStorage.DimStruct
+	dims := []chunkStorage.DimStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
 		`SELECT id, name, alias, server FROM dimensions WHERE server = $1`, sid)
 	return dims, derr
 }
 
 func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error) {
-	var dims []chunkStorage.DimStruct
+	dims := []chunkStorage.DimStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
 		`SELECT id, name, alias, server FROM dimensions`)
 	return dims, derr
@@ -50,14 +50,14 @@ func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error
 
 //lint:ignore U1000 for future use
 func (s *PostgresChunkStorage) GetDimensionByID(did int) (chunkStorage.DimStruct, error) {
-	var dim chunkStorage.DimStruct
+	dim := chunkStorage.DimStruct{}
 	derr := pgxscan.Select(context.Background(), s.dbpool, &dim,
 		`SELECT id, name, alias, server FROM dimensions WHERE id = $1`, did)
 	return dim, derr
 }
 
 func (s *PostgresChunkStorage) GetDimensionByNames(server, dimension string) (chunkStorage.DimStruct, error) {
-	var dim chunkStorage.DimStruct
+	dim := chunkStorage.DimStruct{}
 	derr := pgxscan.Get(context.Background(), s.dbpool, &dim, `
 		SELECT dimensions.id, dimensions.name, dimensions.alias, dimensions.server FROM dimensions
 			JOIN SERVERS ON dimensions.server = servers.id
@@ -67,7 +67,7 @@ func (s *PostgresChunkStorage) GetDimensionByNames(server, dimension string) (ch
 }
 
 func (s *PostgresChunkStorage) AddDimension(server int, name, alias string) (chunkStorage.DimStruct, error) {
-	var dim chunkStorage.DimStruct
+	dim := chunkStorage.DimStruct{}
 	derr := s.dbpool.QueryRow(context.Background(),
 		`INSERT INTO dimensions (server, name, alias) VALUES ($1, $2, $3) RETURNING id`, server, name, alias).Scan(&dim.ID)
 	dim.Alias = alias

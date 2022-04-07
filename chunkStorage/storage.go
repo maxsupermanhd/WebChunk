@@ -43,7 +43,7 @@ type ChunkData struct {
 type ChunkStorage interface {
 	ListServers() ([]ServerStruct, error)
 	GetServerByID(sid int) (ServerStruct, error)
-	GetServerByName(servername string) (*ServerStruct, error)
+	GetServerByName(servername string) (ServerStruct, error)
 	AddServer(name, ip string) (ServerStruct, error)
 
 	ListDimensionsByServerName(server string) ([]DimStruct, error)
