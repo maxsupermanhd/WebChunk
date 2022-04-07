@@ -353,8 +353,6 @@ var colors []color.RGBA64
 //go:embed colors.gob
 var colorsBin []byte // gob([]color.RGBA64)
 
-var stateIDs map[string]uint32
-
 func initChunkDraw() {
 	if err := gob.NewDecoder(bytes.NewReader(colorsBin)).Decode(&colors); err != nil {
 		panic(err)

@@ -32,7 +32,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	_ "strconv"
 	"strings"
 	"sync"
 	"time"
@@ -204,6 +203,9 @@ func main() {
 	log.Println("Connecting to database")
 
 	storage, err = postgresChunkStorage.NewStorage(context.Background(), os.Getenv("DB"))
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %s", err.Error())
+	}
 	defer storage.Close()
 
 	log.Println("Adding routes")

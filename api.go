@@ -56,7 +56,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = storage.AddChunk(dname, sname, col.XPos, col.ZPos, col)
 	if err != nil {
-		log.Print("Failed to submit chunk %v:%v server %v dimension %v: %v", col.XPos, col.ZPos, sname, dname, err.Error())
+		log.Printf("Failed to submit chunk %v:%v server %v dimension %v: %v", col.XPos, col.ZPos, sname, dname, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	log.Print("Submitted chunk ", col.XPos, col.ZPos, " server ", sname, " dimension ", dname)
