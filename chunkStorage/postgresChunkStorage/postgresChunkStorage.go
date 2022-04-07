@@ -22,7 +22,6 @@ package postgresChunkStorage
 
 import (
 	"context"
-	"os"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -32,7 +31,7 @@ type PostgresChunkStorage struct {
 }
 
 func NewStorage(ctx context.Context, connection string) (*PostgresChunkStorage, error) {
-	p, err := pgxpool.Connect(context.Background(), os.Getenv("DB"))
+	p, err := pgxpool.Connect(context.Background(), connection)
 	if err != nil {
 		return nil, err
 	}
