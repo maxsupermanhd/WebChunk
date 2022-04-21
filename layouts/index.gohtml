@@ -18,7 +18,7 @@
 	</head>
 	<body>
 		<div class="px-4 py-5 container">
-			<h2>WebChunk</h2><small><small>version {{.GitTag}} ({{.CommitHash}}) built {{.BuildTime}} go {{.GoVersion}}</small></small>
+			<h2>WebChunk</h2><small><small>version {{.GitTag}} ({{.CommitHash}}) built {{.BuildTime}} {{.GoVersion}}</small></small>
 			<table><tr>
 			<td>
 				<table class="stattable">
@@ -38,35 +38,48 @@
 			</td>
 			</tr></table>
 			<table class="stattable">
-				<tr>
-					<td><a href="/servers">Servers</a></td>
+				<thead>
+					<td>Storage</td>
+					<td><a href="/worlds">Worlds</a></td>
 					<td>Dimensions</td>
 					<td>Chunk information</td>
 					<td>Image cache information</td>
-				</tr>
-			{{range $i, $s := .Servers}}
+				</thead>
+			{{range $a, $s := .Storages}}
 				<tr>
-					<td {{if ge (len $s.Dims) 1}}rowspan="{{len $s.Dims}}"{{end}}>
-						<a href="/servers/{{$s.Server.Name}}">[{{$s.Server.ID}}] {{$s.Server.Name}} ({{$s.Server.IP}})</a></td>
-					{{if ge (len $s.Dims) 1}}
-					<td><a href="/servers/{{$s.Server.Name}}/{{(index $s.Dims 0).Dim.Name}}">{{(index $s.Dims 0).Dim.Name}} ({{(index $s.Dims 0).Dim.Alias}})</a></td>
-					<td>{{(index $s.Dims 0).ChunkCount}} chunks totaling {{(index $s.Dims 0).ChunkSize}}</td>
-					<td>Cached {{(index $s.Dims 0).CacheCount}} images totaling {{(index $s.Dims 0).CacheSize}}</td>
-					{{else}}
-					<td colspan="2">No dimensions</td>
+						{{/* {{$dimsnum := 0}}
+						{{range $j, $w := $s.Worlds}}
+							{{$dimsnum = add $dimsnum (len $w.Dims)}}
+						{{end}}
+						{{$sspan := add (len $s.Worlds) $dimsnum}} */}}
+						{{$sspan := add (len $s.Worlds) 1}}
+						<td {{if ge $sspan 1}}rowspan="{{$sspan}}"{{end}}>
+							{{$s.S.Name}}
+						</td>
+					{{range $j, $w := $s.Worlds}}
+							<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
+								<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
+							{{if ge (len $w.Dims) 1}}
+							<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}} ({{(index $w.Dims 0).Dim.Alias}})</a></td>
+							<td>{{(index $w.Dims 0).ChunkCount}} chunks totaling {{(index $w.Dims 0).ChunkSize}}</td>
+							<td>Cached {{(index $w.Dims 0).CacheCount}} images totaling {{(index $w.Dims 0).CacheSize}}</td>
+							{{else}}
+							<td colspan="2">No dimensions</td>
+							{{end}}
+						</tr>
+						{{if ge (len $w.Dims) 2}}
+						{{range $k, $d := $w.Dims}}
+						{{if ge $k 1}}
+						<tr>
+							<td><a href="/worlds/{{$w.World.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
+							<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
+							<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
+						</tr>
+						{{end}}
+						{{end}}
+						{{end}}
 					{{end}}
 				</tr>
-				{{if ge (len $s.Dims) 2}}
-				{{range $j, $d := $s.Dims}}
-				{{if ge $j 1}}
-				<tr>
-					<td><a href="/servers/{{$s.Server.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
-					<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
-					<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
-				</tr>
-				{{end}}
-				{{end}}
-				{{end}}
 			{{end}}
 			</table>
 		</div>

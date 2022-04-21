@@ -45,12 +45,12 @@ type chunkPainterFunc = func(interface{}) *image.RGBA
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	datatype := params["ttype"]
-	sname, dname, fname, cx, cz, cs, err := tilingParams(w, r)
+	wname, dname, fname, cx, cz, cs, err := tilingParams(w, r)
 	if err != nil {
 		return
 	}
 	if r.Header.Get("Cache-Control") != "no-cache" {
-		if bytes, err := loadImageCache(sname, dname, datatype, cs, cx, cz); err == nil {
+		if bytes, err := loadImageCache(wname, dname, datatype, cs, cx, cz); err == nil {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "image/png")
 			w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
@@ -60,46 +60,50 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	_, s, err := getWorldStorage(wname)
+	if err != nil {
+
+	}
 	var g chunkDataProviderFunc
 	var p chunkPainterFunc
 	switch datatype {
 	case "terrain":
-		g = storage.GetChunksRegion
+		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunk(&s)
 		}
 	case "counttiles":
-		g = storage.GetChunksCountRegion
+		g = s.GetChunksCountRegion
 		p = func(i interface{}) *image.RGBA {
 			return drawNumberOfChunks(int(i.(int32)))
 		}
 	case "counttilesheat":
-		g = storage.GetChunksCountRegion
+		g = s.GetChunksCountRegion
 		p = func(i interface{}) *image.RGBA {
 			return drawHeatOfChunks(int(i.(int32)))
 		}
 	case "heightmap":
-		g = storage.GetChunksRegion
+		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkHeightmap(&s)
 		}
 	case "xray":
-		g = storage.GetChunksRegion
+		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			// return drawChunkXray(&s)
 			return drawChunk(&s)
 		}
 	case "portalsheat":
-		g = storage.GetChunksRegion
+		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkPortalBlocksHeightmap(&s)
 		}
 	case "chestheat":
-		g = storage.GetChunksRegion
+		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			// return drawChunkChestBlocksHeightmap(&s)
@@ -111,7 +115,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("Cache-Control") != "no-store" {
-		err = saveImageCache(img, sname, dname, datatype, cs, cx, cz)
+		err = saveImageCache(img, wname, dname, datatype, cs, cx, cz)
 		if err != nil {
 			log.Println("Failed to cache image:", err.Error())
 		}
@@ -121,7 +125,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDataProviderFunc, painter chunkPainterFunc) *image.RGBA {
-	sname, dname, _, cx, cz, cs, err := tilingParams(w, r)
+	wname, dname, _, cx, cz, cs, err := tilingParams(w, r)
 	if err != nil {
 		return nil
 	}
@@ -131,7 +135,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	imagescale := int(imagesize / scale)
 	offsetx := cx * scale
 	offsety := cz * scale
-	cc, err := getter(dname, sname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
+	cc, err := getter(dname, wname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting chunk data: "+err.Error())
 		return nil
@@ -150,10 +154,10 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	return img
 }
 
-func tilingParams(w http.ResponseWriter, r *http.Request) (sname, dname, fname string, cx, cz, cs int, err error) {
+func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname string, cx, cz, cs int, err error) {
 	params := mux.Vars(r)
 	dname = params["dim"]
-	sname = params["server"]
+	wname = params["world"]
 	fname = params["format"]
 	if fname != "jpeg" && fname != "png" {
 		plainmsg(w, r, plainmsgColorRed, "Bad encoding")

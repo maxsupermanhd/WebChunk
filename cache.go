@@ -37,8 +37,8 @@ func getImageCachePrefix() string {
 	return prefix
 }
 
-func saveImageCache(img *image.RGBA, server, dim, render string, s, x, z int) error {
-	storePath := path.Join(".", getImageCachePrefix(), server, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
+func saveImageCache(img *image.RGBA, world, dim, render string, s, x, z int) error {
+	storePath := path.Join(".", getImageCachePrefix(), world, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
 	err := os.MkdirAll(path.Dir(storePath), 0764)
 	if err != nil {
 		return err
@@ -54,12 +54,12 @@ func saveImageCache(img *image.RGBA, server, dim, render string, s, x, z int) er
 	return file.Close()
 }
 
-func loadImageCache(server, dim, render string, s, x, z int) ([]byte, error) {
+func loadImageCache(world, dim, render string, s, x, z int) ([]byte, error) {
 	prefix := os.Getenv("CACHE_PREFIX")
 	if prefix == "" {
 		prefix = "imageCache"
 	}
-	storePath := path.Join(".", getImageCachePrefix(), server, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
+	storePath := path.Join(".", getImageCachePrefix(), world, dim, render, strconv.Itoa(s), strconv.Itoa(x)+"x"+strconv.Itoa(z)+".png")
 	return os.ReadFile(storePath)
 }
 
@@ -80,6 +80,6 @@ func DirCountSize(path string) (count, size int64, err error) {
 	return count, size, err
 }
 
-func getImageCacheCountSize(server, dim string) (int64, int64, error) {
-	return DirCountSize(path.Join(".", getImageCachePrefix(), server, dim))
+func getImageCacheCountSize(world, dim string) (int64, int64, error) {
+	return DirCountSize(path.Join(".", getImageCachePrefix(), world, dim))
 }

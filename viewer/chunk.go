@@ -101,12 +101,12 @@ func (s *chunkLoader) RemovePlayer(p *server.Player) {
 	s.playersMutex.Unlock()
 }
 func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *server.Player) {
-	save, err := s.s.GetChunkData(s.dbDim, s.dbServer, pos.X, pos.Z)
+	save, err := s.s.GetChunk(s.dbDim, s.dbServer, pos.X, pos.Z)
 	if err != nil {
 		log.Printf("Failed to get chunk %v: %v", pos, err.Error())
 		return
 	}
-	chunk := level.ChunkFromSave(&save, 256)
+	chunk := level.ChunkFromSave(save, 256)
 	if chunk == nil {
 		log.Printf("Failed to get chunk %v, nil conversion", pos)
 		return

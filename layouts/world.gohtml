@@ -1,30 +1,30 @@
-{{define "server"}}
+{{define "world"}}
 <!doctype html>
 <html translate="no">
 	<head>
 		{{template "head"}}
 		<meta content="Welp, that's a website" property="og:title">
-		<title>WebChunk - ({{.Server.ID}}) {{.Server.Name}}</title>
+		<title>WebChunk - {{.World.Name}}</title>
 	</head>
 	<body>
 		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-p34f1UUtsS3wqzfto5wAAmdvj+osOnFyQFpp4Ua3gs/ZVWx6oOypYoCJhGGScy+8" crossorigin="anonymous"></script>
 		<div class="px-4 py-5 container">
 			<h4><a class="nodecoration" href="/">WebChunk</a></h4>
-			<h2>Server {{.Server.Name}} (<code>{{.Server.ID}}</code>)</h2>
-			{{if avail "IP" .Server}}<small>IP: <code>{{.Server.IP}}</code></small>{{end}}
+			<h2>World {{.World.Name}}</h2>
+			{{if avail "IP" .World}}<small>IP: <code>{{.World.IP}}</code></small>{{end}}
 			<p>
 				<details>
 					<summary>Add dimension</summary>
 					Dimension name: <input type="text" id="adddimension-name">
 					Dimension alias: <input type="text" id="adddimension-alias">
-					<button class="btn btn-primary" onclick="addDimension(document.getElementById('adddimension-name').value, document.getElementById('adddimension-alias').value, {{.Server.ID}})">Add</button>
+					<button class="btn btn-primary" onclick="addDimension(document.getElementById('adddimension-name').value, document.getElementById('adddimension-alias').value, {{.World.Name}})">Add</button>
 				</details>
 			</p>
 			<p>
 				Available dimensions: ({{len .Dims}})
 				<ul>
 					{{range $i, $s := .Dims}}
-					<li><a href="/servers/{{$.Server.Name}}/{{$s.Name}}">{{$s.Name}}{{if avail "Alias" $s}} ({{$s.Alias}}){{end}}</a></li>
+					<li><a href="/worlds/{{$.World.Name}}/{{$s.Name}}">{{$s.Name}}{{if avail "Alias" $s}} ({{$s.Alias}}){{end}}</a></li>
 					{{end}}
 				</ul>
 			</p>

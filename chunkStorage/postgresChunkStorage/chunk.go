@@ -30,7 +30,7 @@ import (
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
-func (s *PostgresChunkStorage) GetChunkData(dname, sname string, cx, cz int) (save.Chunk, error) {
+func (s *PostgresChunkStorage) GetChunk(dname, wname string, cx, cz int) (*save.Chunk, error) {
 	var c save.Chunk
 	var d []byte
 	derr := s.dbpool.QueryRow(context.Background(), `
@@ -39,28 +39,34 @@ func (s *PostgresChunkStorage) GetChunkData(dname, sname string, cx, cz int) (sa
 		where x = $1 AND z = $2 AND
 			dim = (select dimensions.id 
 			 from dimensions 
-			 join servers on servers.id = dimensions.server 
-			 where servers.name = $3 and dimensions.name = $4)
+			 join worlds on worlds.id = dimensions.server 
+			 where worlds.name = $3 and dimensions.name = $4)
 		order by created_at desc
-		limit 1;`, cx, cz, sname, dname).Scan(&d)
+		limit 1;`, cx, cz, wname, dname).Scan(&d)
 	if derr != nil {
-		if derr != pgx.ErrNoRows {
+		if derr == pgx.ErrNoRows {
+			derr = nil
+		} else {
 			log.Print(derr.Error())
 		}
-		return c, derr
+		return nil, derr
 	}
 	perr := c.Load(d)
-	return c, perr
+	return &c, perr
 }
 
-func (s *PostgresChunkStorage) GetChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
+func (s *PostgresChunkStorage) GetChunksRegion(dname, wname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
 	c := []chunkStorage.ChunkData{}
-	dim, err := s.GetDimensionByNames(sname, dname)
+	var dimID int
+	err := s.dbpool.QueryRow(context.Background(), `SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			err = nil
+		}
 		return c, err
 	}
-	rows, derr := s.dbpool.Query(context.Background(), `
+	rows, err := s.dbpool.Query(context.Background(), `
 		with grp as
 		 (
 			select x, z, data, created_at, dim, id,
@@ -70,12 +76,14 @@ func (s *PostgresChunkStorage) GetChunksRegion(dname, sname string, cx0, cz0, cx
 		select data, id
 		from grp
 		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND dim = $5
-		`, cx0, cz0, cx1, cz1, dim.ID)
-	if derr != nil {
-		if derr != pgx.ErrNoRows {
-			log.Print(derr.Error())
+		`, cx0, cz0, cx1, cz1, dimID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			err = nil
+		} else {
+			log.Print(err.Error())
 		}
-		return c, derr
+		return c, err
 	}
 	var perr error
 	for rows.Next() {
@@ -93,7 +101,7 @@ func (s *PostgresChunkStorage) GetChunksRegion(dname, sname string, cx0, cz0, cx
 	return c, perr
 }
 
-func (s *PostgresChunkStorage) GetChunksCountRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
+func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	cc := []chunkStorage.ChunkData{}
 	rows, derr := s.dbpool.Query(context.Background(), `
 	select
@@ -101,14 +109,16 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(dname, sname string, cx0, cz
 	from chunks
 	where dim = (select dimensions.id 
 				 from dimensions 
-				 join servers on servers.id = dimensions.server 
-				 where servers.name = $5 and dimensions.name = $6) AND
+				 join worlds on worlds.id = dimensions.server 
+				 where worlds.name = $5 and dimensions.name = $6) AND
 		  x >= $1 AND z >= $2 AND x < $3 AND z < $4
 	group by x, z
 	order by c desc
-		`, cx0, cz0, cx1, cz1, sname, dname)
+		`, cx0, cz0, cx1, cz1, wname, dname)
 	if derr != nil {
-		if derr != pgx.ErrNoRows {
+		if derr == pgx.ErrNoRows {
+			derr = nil
+		} else {
 			log.Print(derr.Error())
 		}
 		return cc, derr
@@ -125,7 +135,7 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(dname, sname string, cx0, cz
 	return cc, derr
 }
 
-func (s *PostgresChunkStorage) AddChunk(dname, sname string, cx, cz int32, col save.Chunk) error {
+func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col save.Chunk) error {
 	raw, err := nbt.Marshal(col)
 	if err != nil {
 		return err
@@ -135,10 +145,10 @@ func (s *PostgresChunkStorage) AddChunk(dname, sname string, cx, cz int32, col s
 			values ($1, $2, $3,
 				(select dimensions.id 
 				 from dimensions 
-				 join servers on servers.id = dimensions.server 
-				 where servers.name = $4 and dimensions.name = $5),
-				 (select id from servers where name = $4))`,
-		col.XPos, col.ZPos, raw, sname, dname)
+				 join worlds on worlds.id = dimensions.server 
+				 where worlds.name = $4 and dimensions.name = $5),
+				 (select id from worlds where name = $4))`,
+		col.XPos, col.ZPos, raw, wname, dname)
 	return err
 
 }

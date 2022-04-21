@@ -21,7 +21,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -31,15 +30,13 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage/postgresChunkStorage"
-
-	viewer "github.com/maxsupermanhd/mcwebchunk/viewer"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
@@ -59,7 +56,7 @@ var (
 	GitTag     = "0.0"
 )
 
-var storage chunkStorage.ChunkStorage
+var storages []Storage
 var layouts *template.Template
 var layoutFuncs = template.FuncMap{
 	"noescape": func(s string) template.HTML {
@@ -82,6 +79,9 @@ var layoutFuncs = template.FuncMap{
 			return false
 		}
 		return v.FieldByName(name).IsValid()
+	},
+	"add": func(a, b int) int {
+		return a + b
 	},
 	"FormatBytes":   ByteCountIEC,
 	"FormatPercent": FormatPercent,
@@ -121,6 +121,10 @@ func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	buildinfo, ok := debug.ReadBuildInfo()
+	if ok {
+		GoVersion = buildinfo.GoVersion
+	}
 	_ = GoVersion
 	err := godotenv.Load()
 	if err != nil {
@@ -131,7 +135,7 @@ func main() {
 		port = "3000"
 	}
 	log.SetOutput(io.MultiWriter(&lumberjack.Logger{
-		Filename: "webchunk.log",
+		Filename: "logs/webchunk.log",
 		MaxSize:  10,
 		Compress: true,
 	}, os.Stdout))
@@ -186,27 +190,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// log.Println("Initializing OpenGL")
-	// err = initOpenGL()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer glfw.Terminate()
-	// log.Println("Compiling shaders")
-	// err = prepareShaders()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Println("Running demo app")
-	// app()
-
-	log.Println("Connecting to database")
-
-	storage, err = postgresChunkStorage.NewStorage(context.Background(), os.Getenv("DB"))
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %s", err.Error())
+	log.Println("Loading storages...")
+	storagesPath := os.Getenv("STORAGES")
+	if storagesPath == "" {
+		storagesPath = "storages.json"
 	}
-	defer storage.Close()
+	storages, err = loadStorages(storagesPath)
+	if err != nil {
+		log.Println("Error initializing storages: " + err.Error())
+	}
+	defer closeStorages(storages)
 
 	log.Println("Adding routes")
 	router := mux.NewRouter()
@@ -215,34 +208,34 @@ func main() {
 	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
 
 	router.HandleFunc("/", indexHandler).Methods("GET")
-	router.HandleFunc("/servers", serversHandler).Methods("GET")
-	router.HandleFunc("/servers/{server}", serverHandler).Methods("GET")
-	router.HandleFunc("/servers/{server}/{dim}", dimensionHandler).Methods("GET")
-	router.HandleFunc("/servers/{server}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
-	router.HandleFunc("/servers/{server}/{dim}/chunk/image/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", terrainImageHandler).Methods("GET")
-	router.HandleFunc("/servers/{server}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
+	router.HandleFunc("/worlds", worldsHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}", worldHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
 	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
 
-	router.HandleFunc("/api/submit/chunk/{server}/{dim}", apiAddChunkHandler)
-	router.HandleFunc("/api/submit/region/{server}/{dim}", apiAddRegionHandler)
+	router.HandleFunc("/api/submit/chunk/{world}/{dim}", apiAddChunkHandler)
+	router.HandleFunc("/api/submit/region/{world}/{dim}", apiAddRegionHandler)
 
-	router.HandleFunc("/api/servers", apiHandle(apiAddServer)).Methods("POST")
-	router.HandleFunc("/api/servers", apiHandle(apiListServers)).Methods("GET")
+	router.HandleFunc("/api/worlds", apiHandle(apiAddWorld)).Methods("POST")
+	router.HandleFunc("/api/worlds", apiHandle(apiListWorlds)).Methods("GET")
 
 	router.HandleFunc("/api/dims", apiHandle(apiAddDimension)).Methods("POST")
 	router.HandleFunc("/api/dims", apiHandle(apiListDimensions)).Methods("GET")
 
 	router1 := handlers.ProxyHeaders(router)
-	// router2 := handlers.CompressHandler(router1)
-	router3 := handlers.CustomLoggingHandler(os.Stdout, router1, customLogger)
-	// router4 := handlers.RecoveryHandler()(router3)
+	router2 := handlers.CompressHandler(router1)
+	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
+	router4 := handlers.RecoveryHandler()(router3)
 	log.Println("Started! (http://127.0.0.1:" + port + "/)")
-	go func() {
-		log.Panic(http.ListenAndServe(":"+port, router3))
-	}()
-	viewer.StartReconstructor(storage)
+	// go func() {
+	// 	}()
+	log.Panic(http.ListenAndServe(":"+port, router4))
+
+	// viewer.StartReconstructor(storages[0].driver)
 }
 
 var prevCPUIdle uint64
@@ -265,7 +258,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		idleTicks = float64(CPUIdle - prevCPUIdle)
 		totalTicks = float64(CPUTotal - prevCPUTotal)
 		CPUUsage = 100 * (totalTicks - idleTicks) / totalTicks
-		prevCPUReport = fmt.Sprintf("%.1f%% [busy: %.2f, total: %.2f] (past %s)", CPUUsage, totalTicks-idleTicks, totalTicks, (time.Duration(time.Since(prevTime).Seconds()) * time.Second).String())
+		// prevCPUReport = fmt.Sprintf("%.1f%% [busy: %.2f, total: %.2f] (past %s)", CPUUsage, totalTicks-idleTicks, totalTicks, (time.Duration(time.Since(prevTime).Seconds()) * time.Second).String())
+		prevCPUReport = fmt.Sprintf("%.1f%% (past %s)", CPUUsage, (time.Duration(time.Since(prevTime).Seconds()) * time.Second).String())
 		prevTime = time.Now()
 		prevCPUIdle = CPUIdle
 		prevCPUTotal = CPUTotal
@@ -273,56 +267,74 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	CPUReport := prevCPUReport
 	prevLock.Unlock()
 
-	chunksCount, _ := storage.GetChunksCount()
-	chunksSizeBytes, _ := storage.GetChunksSize()
-	chunksSize := humanize.Bytes(chunksSizeBytes)
-	serverss, err := storage.ListServers()
-	if err != nil {
-		plainmsg(w, r, plainmsgColorRed, "Error getting servers: "+err.Error())
-		return
-	}
+	var chunksCount, chunksSizeBytes uint64
 	type DimData struct {
 		Dim        chunkStorage.DimStruct
 		ChunkSize  string
-		ChunkCount int64
+		ChunkCount uint64
 		CacheSize  string
 		CacheCount int64
 	}
-	type ServerData struct {
-		Server chunkStorage.ServerStruct
-		Dims   []DimData
+	type WorldData struct {
+		World chunkStorage.WorldStruct
+		Dims  []DimData
 	}
-	servers := []ServerData{}
-	for _, s := range serverss {
-		servers = append(servers, ServerData{Server: s, Dims: []DimData{}})
+	type StorageData struct {
+		S      Storage
+		Worlds []WorldData
 	}
-	dimss, err := storage.ListDimensions()
-	if err != nil {
-		plainmsg(w, r, plainmsgColorRed, "Error getting dimensions: "+err.Error())
-		return
-	}
-	for _, d := range dimss {
-		chunkCount, chunkSize, err := storage.GetDimensionChunkCountSize(d.ID)
-		if err != nil {
-			plainmsg(w, r, plainmsgColorRed, "Error getting dimension details from database: "+err.Error())
+	st := []StorageData{}
+	for _, s := range storages {
+		if s.driver == nil {
+			log.Println("Skipping storage " + s.Name + " because driver is uninitialized")
+			continue
 		}
-		for si, ss := range servers {
-			if ss.Server.ID == d.Server {
-				cacheCount, cacheSize, err := getImageCacheCountSize(ss.Server.Name, d.Name)
+		achunksCount, _ := s.driver.GetChunksCount()
+		achunksSizeBytes, _ := s.driver.GetChunksSize()
+		chunksCount += achunksCount
+		chunksSizeBytes += achunksSizeBytes
+		worldss, err := s.driver.ListWorlds()
+		if err != nil {
+			plainmsg(w, r, plainmsgColorRed, "Error listing worlds of storage "+s.Name+": "+err.Error())
+			return
+		}
+		worlds := []WorldData{}
+		for _, wrld := range worldss {
+			wd := WorldData{World: wrld, Dims: []DimData{}}
+			dims, err := s.driver.ListWorldDimensions(wrld.Name)
+			if err != nil {
+				plainmsg(w, r, plainmsgColorRed, "Error listing dimensions of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
+				return
+			}
+			for _, dim := range dims {
+				dimChunksCount, err := s.driver.GetDimensionChunksCount(wrld.Name, dim.Name)
 				if err != nil {
-					plainmsg(w, r, plainmsgColorRed, "Error getting dimension details from cache: "+err.Error())
+					plainmsg(w, r, plainmsgColorRed, "Error getting chunk count of dim "+dim.Name+" of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
+					return
 				}
-				servers[si].Dims = append(servers[si].Dims, DimData{
-					Dim:        d,
-					ChunkSize:  chunkSize,
-					ChunkCount: chunkCount,
-					CacheSize:  humanize.Bytes(uint64(cacheSize)),
-					CacheCount: cacheCount,
+				dimChunksSize, err := s.driver.GetDimensionChunksSize(wrld.Name, dim.Name)
+				if err != nil {
+					plainmsg(w, r, plainmsgColorRed, "Error getting chunks size of dim "+dim.Name+" of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
+					return
+				}
+				dimCacheCount, dimCacheSize, err := getImageCacheCountSize(wrld.Name, dim.Name)
+				if err != nil {
+					plainmsg(w, r, plainmsgColorRed, "Error getting cache size and counts of dim "+dim.Name+" of world "+wrld.Name+": "+err.Error())
+					return
+				}
+				wd.Dims = append(wd.Dims, DimData{
+					Dim:        dim,
+					ChunkSize:  humanize.Bytes(dimChunksSize),
+					ChunkCount: dimChunksCount,
+					CacheSize:  humanize.Bytes(uint64(dimCacheSize)),
+					CacheCount: dimCacheCount,
 				})
 			}
+			worlds = append(worlds, wd)
 		}
+		st = append(st, StorageData{S: s, Worlds: worlds})
 	}
-
+	chunksSize := humanize.Bytes(chunksSizeBytes)
 	basicLayoutLookupRespond("index", w, r, map[string]interface{}{
 		"BuildTime":   BuildTime,
 		"GitTag":      GitTag,
@@ -334,17 +346,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		"ChunksCount": chunksCount,
 		"ChunksSize":  chunksSize,
 		"CPUReport":   CPUReport,
-		"Servers":     servers,
+		"Storages":    st,
 	})
 }
 
-func serversHandler(w http.ResponseWriter, r *http.Request) {
-	servers, derr := storage.ListServers()
-	if derr != nil {
-		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
-		return
-	}
-	basicLayoutLookupRespond("servers", w, r, map[string]interface{}{"Servers": servers})
+func worldsHandler(w http.ResponseWriter, r *http.Request) {
+	worlds := listWorlds()
+	basicLayoutLookupRespond("worlds", w, r, map[string]interface{}{"Worlds": worlds})
 }
 
 func getCPUSample() (idle, total uint64) {

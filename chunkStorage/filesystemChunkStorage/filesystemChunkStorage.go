@@ -18,27 +18,18 @@
 	Contact me via mail: q3.max.2011@yandex.ru or Discord: MaX#6717
 */
 
-package postgresChunkStorage
+package FilesystemChunkStorage
 
-import (
-	"context"
-
-	"github.com/jackc/pgx/v4/pgxpool"
-)
-
-type PostgresChunkStorage struct {
-	dbpool *pgxpool.Pool
+type FilesystemChunkStorage struct {
+	Root string
 }
 
-func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresChunkStorage, error) {
-	p, err := pgxpool.Connect(context.Background(), connection)
-	if err != nil {
-		return nil, err
-	}
-	return &PostgresChunkStorage{dbpool: p}, nil
+func NewFilesystemChunkStorage(root string) (*FilesystemChunkStorage, error) {
+	storage := FilesystemChunkStorage{Root: root}
+	_, err := storage.ListWorlds()
+	return &storage, err
 }
 
-func (s *PostgresChunkStorage) Close() error {
-	s.dbpool.Close()
+func (s *FilesystemChunkStorage) Close() error {
 	return nil
 }

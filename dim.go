@@ -23,11 +23,8 @@ package main
 import (
 	"net/http"
 	"regexp"
-	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
 var (
@@ -37,27 +34,27 @@ var (
 
 func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	sname := params["server"]
-	dimname := params["dim"]
-	server, derr := storage.GetServerByName(sname)
-	if derr != nil {
-		if derr == pgx.ErrNoRows {
-			plainmsg(w, r, plainmsgColorRed, "Server not found")
-		} else {
-			plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
-		}
+	wname := params["world"]
+	dname := params["dim"]
+	world, s, err := getWorldStorage(wname)
+	if err != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error getting storage interface by world name: "+err.Error())
 		return
 	}
-	dim, derr := storage.GetDimensionByNames(sname, dimname)
-	if derr != nil {
-		if derr == pgx.ErrNoRows {
-			plainmsg(w, r, plainmsgColorRed, "Dimension not found")
-		} else {
-			plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
-		}
+	if s == nil || world == nil {
+		plainmsg(w, r, plainmsgColorRed, "World not found")
 		return
 	}
-	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "Server": server})
+	dim, err := s.GetDimension(wname, dname)
+	if err != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error getting dimension from storage: "+err.Error())
+		return
+	}
+	if dim == nil {
+		plainmsg(w, r, plainmsgColorRed, "Dimension not found")
+		return
+	}
+	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "World": world})
 }
 
 func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
@@ -72,19 +69,20 @@ func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
 	if !dimAliasRegexp.Match([]byte(alias)) {
 		return 400, "Invalid dimension alias"
 	}
-	serverid, err := strconv.Atoi(r.FormValue("server"))
-	if err != nil {
-		return 400, "Invalid dimension server id"
+	wname := r.FormValue("world")
+	if !worldNameRegexp.Match([]byte(wname)) {
+		return 400, "Invalid world name"
 	}
-	_, err = storage.GetServerByID(serverid)
+	_, s, err := getWorldStorage(wname)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return 404, "Server not found"
-		}
+		return 500, "Error getting world storage: " + err.Error()
 	}
-	dim, err := storage.AddDimension(serverid, name, alias)
+	if s == nil {
+		return 404, "World does not exist"
+	}
+	dim, err := s.AddDimension(wname, name, alias)
 	if err != nil {
-		return 500, "Failed to add server: " + err.Error()
+		return 500, "Failed to add dimension: " + err.Error()
 	}
 	setContentTypeJson(w)
 	return marshalOrFail(200, dim)
@@ -94,23 +92,9 @@ func apiListDimensions(w http.ResponseWriter, r *http.Request) (int, string) {
 	if r.ParseForm() != nil {
 		return 400, "Unable to parse form parameters"
 	}
-	server := r.Form.Get("server")
-	var dims []chunkStorage.DimStruct
-	var err error
-	if server == "" {
-		dims, err = storage.ListDimensions()
-		if err != nil {
-			return 500, "Database call failed: " + err.Error()
-		}
-	} else {
-		serverid, err := strconv.Atoi(server)
-		if err != nil {
-			return 400, "Invalid dimension server id"
-		}
-		dims, err = storage.ListDimensionsByServerID(serverid)
-		if err != nil {
-			return 500, "Database call failed: " + err.Error()
-		}
+	dims, err := listDimensions(r.Form.Get("world"))
+	if err != nil {
+		return 500, "Failed to list dimensions: " + err.Error()
 	}
 	setContentTypeJson(w)
 	return marshalOrFail(200, dims)

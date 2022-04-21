@@ -33,35 +33,46 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func logreply(w http.ResponseWriter, status int, msg string) {
+	w.Write([]byte(msg))
+	log.Print(msg)
+	w.WriteHeader(status)
+}
+
 func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	dname := params["dim"]
-	sname := params["server"]
+	wname := params["world"]
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		errmsg := fmt.Sprintf("Error reading request: %s", err)
-		w.Write([]byte(errmsg))
-		log.Print(errmsg)
+		logreply(w, http.StatusBadRequest, fmt.Sprintf("Error reading request: %s", err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	var col save.Chunk
 	err = col.Load(body)
 	if err != nil {
-		errmsg := fmt.Sprintf("Error parsing chunk data: %s", err)
-		w.Write([]byte(errmsg))
-		log.Print(errmsg)
-		w.WriteHeader(http.StatusBadRequest)
+		logreply(w, http.StatusBadRequest, fmt.Sprintf("Error parsing chunk data: %s", err))
 		return
 	}
-	err = storage.AddChunk(dname, sname, col.XPos, col.ZPos, col)
+	_, s, err := getWorldStorage(wname)
 	if err != nil {
-		log.Printf("Failed to submit chunk %v:%v server %v dimension %v: %v", col.XPos, col.ZPos, sname, dname, err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		logreply(w, http.StatusInternalServerError, fmt.Sprintf("Error checking world: %s", err))
+		return
 	}
-	log.Print("Submitted chunk ", col.XPos, col.ZPos, " server ", sname, " dimension ", dname)
+	if s == nil {
+		logreply(w, http.StatusNotFound, fmt.Sprintf("World not found: %s", err))
+		return
+	}
+	err = s.AddChunk(dname, wname, int(col.XPos), int(col.ZPos), col)
+	if err != nil {
+		logreply(w, http.StatusInternalServerError, fmt.Sprintf("Failed to add chunk to storage: %s", err.Error()))
+		log.Printf("Failed to submit chunk %v:%v world %v dimension %v: %v", col.XPos, col.ZPos, wname, dname, err.Error())
+		return
+	}
+	log.Print("Submitted chunk ", col.XPos, col.ZPos, " world ", wname, " dimension ", dname)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, sname, dname)))
+	w.Write([]byte(fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, wname, dname)))
 }
 
 func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {

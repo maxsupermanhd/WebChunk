@@ -20,19 +20,19 @@
 
 package chunkStorage
 
-import "github.com/Tnze/go-mc/save"
+import (
+	"github.com/Tnze/go-mc/save"
+)
 
-type ServerStruct struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+type WorldStruct struct {
+	Name string `json:"name"` // unique
 	IP   string `json:"ip"`
 }
 
 type DimStruct struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Alias  string `json:"alias"`
-	Server int    `json:"server"`
+	Name  string `json:"name"` // unique per world
+	Alias string `json:"alias"`
+	World string `json:"world"`
 }
 
 type ChunkData struct {
@@ -41,25 +41,23 @@ type ChunkData struct {
 }
 
 type ChunkStorage interface {
-	ListServers() ([]ServerStruct, error)
-	GetServerByID(sid int) (ServerStruct, error)
-	GetServerByName(servername string) (ServerStruct, error)
-	AddServer(name, ip string) (ServerStruct, error)
-
-	ListDimensionsByServerName(server string) ([]DimStruct, error)
-	ListDimensionsByServerID(sid int) ([]DimStruct, error)
-	ListDimensions() ([]DimStruct, error)
-	GetDimensionByID(did int) (DimStruct, error)
-	GetDimensionByNames(server, dimension string) (DimStruct, error)
-	AddDimension(server int, name, alias string) (DimStruct, error)
-	GetDimensionChunkCountSize(dimensionid int) (count int64, size string, derr error)
-
-	AddChunk(dname, sname string, cx, cz int32, col save.Chunk) error
+	ListWorlds() ([]WorldStruct, error)
+	GetWorld(wname string) (*WorldStruct, error)
+	AddWorld(name, ip string) (*WorldStruct, error)
 	GetChunksCount() (uint64, error)
 	GetChunksSize() (uint64, error)
-	GetChunkData(dname, sname string, cx, cz int) (save.Chunk, error)
-	GetChunksRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
-	GetChunksCountRegion(dname, sname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
+
+	ListWorldDimensions(wname string) ([]DimStruct, error)
+	ListDimensions() ([]DimStruct, error)
+	GetDimension(wname, dname string) (*DimStruct, error)
+	AddDimension(wname, name, alias string) (*DimStruct, error)
+	GetDimensionChunksCount(wname, dname string) (uint64, error)
+	GetDimensionChunksSize(wname, dname string) (uint64, error)
+
+	AddChunk(wname, dname string, cx, cz int, col save.Chunk) error
+	GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error)
+	GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
+	GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
 
 	Close() error
 }

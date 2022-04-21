@@ -442,16 +442,20 @@ func initChunkDraw() {
 
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	sname := params["server"]
+	wname := params["world"]
 	dname := params["dim"]
-	server, derr := storage.GetServerByName(sname)
-	if derr != nil {
-		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
+	world, s, err := getWorldStorage(wname)
+	if err != nil {
+		plainmsg(w, r, plainmsgColorRed, "Error getting world: "+err.Error())
 		return
 	}
-	dim, derr := storage.GetDimensionByNames(sname, dname)
-	if derr != nil {
-		plainmsg(w, r, plainmsgColorRed, "Database query error: "+derr.Error())
+	if world == nil || s == nil {
+		plainmsg(w, r, plainmsgColorRed, "World not found")
+		return
+	}
+	dim, err := s.GetDimension(wname, dname)
+	if err != nil {
+		plainmsg(w, r, plainmsgColorRed, "Database query error: "+err.Error())
 		return
 	}
 	cxs := params["cx"]
@@ -466,12 +470,12 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Chunk Z coordinate is shit: "+err.Error())
 		return
 	}
-	c, err := storage.GetChunkData(dname, sname, cx, cz)
+	c, err := s.GetChunk(wname, dname, cx, cz)
 	if err != nil {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
 	}
-	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"Server": server, "Dim": dim, "Chunk": c, "PrettyChunk": template.HTML(spew.Sdump(c))})
+	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": c, "PrettyChunk": template.HTML(spew.Sdump(c))})
 }
 
 func drawNumberOfChunks(c int) *image.RGBA {
@@ -510,34 +514,4 @@ func drawHeatOfChunks(c int) *image.RGBA {
 	layerImg := image.NewRGBA(image.Rect(0, 0, 16, 16))
 	draw.Draw(layerImg, layerImg.Bounds(), &image.Uniform{color.RGBA{255, 0, 0, uint8(c * 30)}}, image.Point{}, draw.Src)
 	return layerImg
-}
-
-func terrainImageHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	dname := params["dim"]
-	sname := params["server"]
-	fname := params["format"]
-	if fname != "jpeg" && fname != "png" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	cxs := params["cx"]
-	cx, err := strconv.Atoi(cxs)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	czs := params["cz"]
-	cz, err := strconv.Atoi(czs)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	_, err = storage.GetChunkData(dname, sname, cz, cx)
-	if err != nil {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	// writeImage(w, fname, drawColumn(&c))
 }

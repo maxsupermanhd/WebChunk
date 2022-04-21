@@ -33,6 +33,7 @@ import (
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/command"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
@@ -125,11 +126,13 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 	commands := command.NewGraph()
 	executor := &commandExecutor{}
 	commands.AppendLiteral(commands.Literal("tp").
-		AppendArgument(commands.Argument("position", command.StringParser(2)).
+		AppendArgument(commands.Argument("position", command.StringParser(1)).
 			HandleFunc(executor.ExecuteCommand(func(player *server.Player, args []command.ParsedData) error {
+				spew.Dump(args)
 				return nil
 			}))).
 		HandleFunc(executor.ExecuteCommand(func(player *server.Player, args []command.ParsedData) error {
+			spew.Dump(args)
 			return nil
 		})))
 	dim := &dimensionProvider{"overworld", 0}
