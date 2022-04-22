@@ -334,7 +334,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			worlds = append(worlds, wd)
 		}
-		st = append(st, StorageData{S: s, Worlds: worlds, Online: false})
+		st = append(st, StorageData{S: s, Worlds: worlds, Online: true})
 	}
 	chunksSize := humanize.Bytes(chunksSizeBytes)
 	basicLayoutLookupRespond("index", w, r, map[string]interface{}{
