@@ -47,37 +47,41 @@
 				</thead>
 			{{range $a, $s := .Storages}}
 				<tr>
-						{{/* {{$dimsnum := 0}}
-						{{range $j, $w := $s.Worlds}}
-							{{$dimsnum = add $dimsnum (len $w.Dims)}}
-						{{end}}
-						{{$sspan := add (len $s.Worlds) $dimsnum}} */}}
-						{{$sspan := add (len $s.Worlds) 1}}
-						<td {{if ge $sspan 1}}rowspan="{{$sspan}}"{{end}}>
-							{{$s.S.Name}}
-						</td>
+					{{/* {{$dimsnum := 0}}
 					{{range $j, $w := $s.Worlds}}
-							<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
-								<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
-							{{if ge (len $w.Dims) 1}}
-							<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}} ({{(index $w.Dims 0).Dim.Alias}})</a></td>
-							<td>{{(index $w.Dims 0).ChunkCount}} chunks totaling {{(index $w.Dims 0).ChunkSize}}</td>
-							<td>Cached {{(index $w.Dims 0).CacheCount}} images totaling {{(index $w.Dims 0).CacheSize}}</td>
-							{{else}}
-							<td colspan="2">No dimensions</td>
+						{{$dimsnum = add $dimsnum (len $w.Dims)}}
+					{{end}}
+					{{$sspan := add (len $s.Worlds) $dimsnum}} */}}
+					{{$sspan := add (len $s.Worlds) 1}}
+					<td {{if ge $sspan 1}}rowspan="{{$sspan}}"{{end}}>
+						{{$s.S.Name}}
+					</td>
+					{{if $s.Online}}
+						{{range $j, $w := $s.Worlds}}
+								<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
+									<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
+								{{if ge (len $w.Dims) 1}}
+								<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}} ({{(index $w.Dims 0).Dim.Alias}})</a></td>
+								<td>{{(index $w.Dims 0).ChunkCount}} chunks totaling {{(index $w.Dims 0).ChunkSize}}</td>
+								<td>Cached {{(index $w.Dims 0).CacheCount}} images totaling {{(index $w.Dims 0).CacheSize}}</td>
+								{{else}}
+								<td colspan="2">No dimensions</td>
+								{{end}}
+							</tr>
+							{{if ge (len $w.Dims) 2}}
+							{{range $k, $d := $w.Dims}}
+							{{if ge $k 1}}
+							<tr>
+								<td><a href="/worlds/{{$w.World.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
+								<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
+								<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
+							</tr>
 							{{end}}
-						</tr>
-						{{if ge (len $w.Dims) 2}}
-						{{range $k, $d := $w.Dims}}
-						{{if ge $k 1}}
-						<tr>
-							<td><a href="/worlds/{{$w.World.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
-							<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
-							<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
-						</tr>
+							{{end}}
+							{{end}}
 						{{end}}
-						{{end}}
-						{{end}}
+					{{else}}
+						<td colspan="4" style="text-align:center"><a style="color:red;">Offline</a></td>
 					{{end}}
 				</tr>
 			{{end}}

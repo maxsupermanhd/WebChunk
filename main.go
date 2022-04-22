@@ -282,11 +282,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	type StorageData struct {
 		S      Storage
 		Worlds []WorldData
+		Online bool
 	}
 	st := []StorageData{}
 	for _, s := range storages {
+		worlds := []WorldData{}
 		if s.driver == nil {
-			log.Println("Skipping storage " + s.Name + " because driver is uninitialized")
+			st = append(st, StorageData{S: s, Worlds: worlds, Online: false})
+			// log.Println("Skipping storage " + s.Name + " because driver is uninitialized")
 			continue
 		}
 		achunksCount, _ := s.driver.GetChunksCount()
@@ -298,7 +301,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			plainmsg(w, r, plainmsgColorRed, "Error listing worlds of storage "+s.Name+": "+err.Error())
 			return
 		}
-		worlds := []WorldData{}
 		for _, wrld := range worldss {
 			wd := WorldData{World: wrld, Dims: []DimData{}}
 			dims, err := s.driver.ListWorldDimensions(wrld.Name)
@@ -332,7 +334,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			worlds = append(worlds, wd)
 		}
-		st = append(st, StorageData{S: s, Worlds: worlds})
+		st = append(st, StorageData{S: s, Worlds: worlds, Online: false})
 	}
 	chunksSize := humanize.Bytes(chunksSizeBytes)
 	basicLayoutLookupRespond("index", w, r, map[string]interface{}{
