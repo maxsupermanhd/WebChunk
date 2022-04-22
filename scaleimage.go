@@ -93,21 +93,19 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
-			// return drawChunkXray(&s)
-			return drawChunk(&s)
+			return drawChunkXray(&s)
 		}
 	case "portalsheat":
 		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
-			return drawChunkPortalBlocksHeightmap(&s)
+			return drawChunkPortalBlocksHeatmap(&s)
 		}
 	case "chestheat":
 		g = s.GetChunksRegion
 		p = func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
-			// return drawChunkChestBlocksHeightmap(&s)
-			return drawChunk(&s)
+			return drawChunkChestBlocksHeatmap(&s)
 		}
 	}
 	img := scaleImageryHandler(w, r, g, p)

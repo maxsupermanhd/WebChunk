@@ -32,11 +32,18 @@
 				<label>X<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoX" value="-280"></label>
 				<label>Z<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoZ" value="620"></label>
 				<label>S<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoS" value="2"></label>
-				<a class="btn btn-primary" onclick="mymap.setView([-document.getElementById('gotoZ').value, document.getElementById('gotoX').value], document.getElementById('gotoS').value)">go to</a>
+				<a class="btn btn-primary" onclick="mapGoTo();">go to</a>
 			</div>
 		</div>
 		<div id="map"></div>
 		<script>
+		let maxZoomBack = 8;
+		function mapGoTo() {
+			let z = document.getElementById('gotoZ').value;
+			let x = document.getElementById('gotoX').value;
+			let s = document.getElementById('gotoS').value;
+			mymap.setView([-z/16, x/16], maxZoomBack-s);
+		}
 		L.CursorHandler = L.Handler.extend({
 		    addHooks: function () {
 		        this._popup = new L.Popup();
@@ -62,12 +69,12 @@
 		    }
 		});
 		L.Map.addInitHook('addHandler', 'cursor', L.CursorHandler);
-		let maxZoomBack = 8;
 		var defaultLayerSettings = {
 			maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
 			tileSize: 256, zoomReverse: true,
 			zoomSnap: 0.25, attribution: '&copy; McWebChunk Contributors'}
 
+		var voidlayer    = L.tileLayer('/thisdoesnotexist', defaultLayerSettings);
 		var terrainlayer = L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/terrain/{z}/{x}/{y}/png', defaultLayerSettings);
 		var number =       L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', defaultLayerSettings);
 		var numberheat =   L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', defaultLayerSettings);
@@ -107,7 +114,8 @@
 		L.control.layers({
 			"Terrain": terrainlayer,
 			"Terrain height": height,
-			"Xray": xray
+			"Xray": xray,
+			"Void": voidlayer
 		}, {
 			"Chunk count heat": numberheat,
 			"Chunk count": number,
