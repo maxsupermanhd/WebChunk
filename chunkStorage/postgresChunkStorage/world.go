@@ -49,13 +49,13 @@ func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.WorldStruct, error) 
 // }
 
 func (s *PostgresChunkStorage) GetWorld(wname string) (*chunkStorage.WorldStruct, error) {
-	world := []chunkStorage.WorldStruct{}
-	derr := pgxscan.Select(context.Background(), s.dbpool, &world,
-		`SELECT name, ip FROM worlds WHERE name = $1 LIMIT 1`, wname)
+	world := chunkStorage.WorldStruct{}
+	derr := s.dbpool.QueryRow(context.Background(),
+		`SELECT name, ip FROM worlds WHERE name = $1 LIMIT 1`, wname).Scan(&world.Name, &world.IP)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
 	} else if derr == nil {
-		return &world[0], nil
+		return &world, nil
 	} else {
 		return nil, derr
 	}

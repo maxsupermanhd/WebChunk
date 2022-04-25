@@ -246,6 +246,26 @@ func (s *chunkLoader) SetPlayerWorldDim(u uuid.UUID, world, dim string) {
 		log.Println("Failed to set player world dimension, not found in players map")
 		return
 	}
+	_, st, err := chunkStorage.GetWorldStorage(s.s, world)
+	if err != nil {
+		log.Println("Failed to get world [" + world + "] storage: " + err.Error())
+		SendSystemMessage(p.player, chat.Text("Failed to get world ["+world+"] storage: "+err.Error()).SetColor("red"))
+		return
+	}
+	if st == nil {
+		SendSystemMessage(p.player, chat.Text("World '"+world+"' not found").SetColor("red"))
+		return
+	}
+	d, err := st.GetDimension(world, dim)
+	if err != nil {
+		log.Println("Failed to get world [" + world + "] dimension [" + dim + "]: " + err.Error())
+		SendSystemMessage(p.player, chat.Text("Failed to get world ["+world+"] dimension ["+dim+"]: "+err.Error()).SetColor("red"))
+		return
+	}
+	if d == nil {
+		SendSystemMessage(p.player, chat.Text("Dimension '"+dim+"' of world '"+world+"' not found").SetColor("red"))
+		return
+	}
 	p.locWorld = world
 	p.locDimension = dim
 	p.viewingChunks = map[level.ChunkPos]bool{}

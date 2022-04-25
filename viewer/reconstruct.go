@@ -22,6 +22,7 @@ package viewer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -151,10 +152,11 @@ func StartReconstructor(storage []chunkStorage.Storage) {
 		}))
 	commands.AppendLiteral(commands.Literal("worlds").
 		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+			player := ctx.Value("sender").(*server.Player)
 			worlds := chunkStorage.ListWorlds(storage)
-			msg := fmt.Sprintf("Worlds: %d\n", len(worlds))
+			msg := chat.Text(fmt.Sprintf("Worlds: %d\n", len(worlds)))
 			for i := range worlds {
-				msg += fmt.Sprintf("%s (%s)\n", worlds[i].Name, worlds[i].IP)
+				msg.Extra = append(msg.Extra, chat.Text(fmt.Sprintf("%s (%s)\n", worlds[i].Name, worlds[i].IP)))
 				dims, err := chunkStorage.ListDimensions(storage, worlds[i].Name)
 				if err != nil {
 					log.Println("Failed to list dimensions: " + err.Error())
@@ -164,10 +166,14 @@ func StartReconstructor(storage []chunkStorage.Storage) {
 					if len(dims) == 1 || j == len(dims)-1 {
 						sym = "┗"
 					}
-					msg += fmt.Sprintf("%s━━ %s (%s)\n", sym, dims[j].Name, dims[j].Alias)
+					d := chat.Text(fmt.Sprintf("%s━━ %s (%s)\n", sym, dims[j].Name, dims[j].Alias))
+					d.ClickEvent = chat.RunCommand(fmt.Sprintf("/go %s %s", worlds[i].Name, dims[j].Name))
+					msg.Extra = append(msg.Extra, d)
 				}
 			}
-			SendSystemMessage(ctx.Value("sender").(*server.Player), chat.Text(msg))
+			m, _ := json.MarshalIndent(msg, "", "    ")
+			log.Println(string(m))
+			SendSystemMessage(player, msg)
 			return nil
 		}))
 	commands.AppendLiteral(commands.Literal("go").
@@ -185,6 +191,9 @@ func StartReconstructor(storage []chunkStorage.Storage) {
 				return nil
 			})).
 		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+			pl := ctx.Value("sender").(*server.Player)
+			SendSystemMessage(pl, chat.Text("Moving you to back to lobby"))
+			chunkLoader.SetPlayerWorldDim(ctx.Value("sender").(*server.Player).UUID, "", "")
 			return nil
 		}))
 	dim := &dimensionProvider{"overworld", 0}

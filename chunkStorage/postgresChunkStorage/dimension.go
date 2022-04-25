@@ -71,9 +71,9 @@ func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error
 
 func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStorage.DimStruct, error) {
 	dim := chunkStorage.DimStruct{}
-	derr := pgxscan.Get(context.Background(), s.dbpool, &dim, `
-		SELECT name, alias, world, spawnpoint FROM dimensions
-			WHERE name = $1 AND world = $2`, dimension, world)
+	derr := s.dbpool.QueryRow(context.Background(),
+		`SELECT name, alias, world, spawnpoint FROM dimensions WHERE name = $1 AND world = $2`, dimension, world).
+		Scan(&dim.Name, &dim.Alias, &dim.World, &dim.Spawnpoint)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
 	}

@@ -21,6 +21,7 @@
 package chunkStorage
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/Tnze/go-mc/save"
@@ -102,6 +103,9 @@ func ListDimensions(storages []Storage, wname string) ([]DimStruct, error) {
 		_, s, err := GetWorldStorage(storages, wname)
 		if err != nil {
 			return dims, err
+		}
+		if s == nil {
+			return dims, fmt.Errorf("world storage not found")
 		}
 		dims, err = s.ListWorldDimensions(wname)
 		if err != nil {
