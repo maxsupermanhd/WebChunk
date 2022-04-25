@@ -127,9 +127,9 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *playerData) {
 		}
 		if save == nil {
 			log.Println("Chunk not found")
-			chunk = level.EmptyChunk(64)
+			chunk = level.EmptyChunk(256)
 		} else {
-			chunk = level.ChunkFromSave(save, 64)
+			chunk = level.ChunkFromSave(save, 256)
 		}
 	}
 	if chunk == nil {
