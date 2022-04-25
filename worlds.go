@@ -36,7 +36,7 @@ var (
 func worldHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	wname := params["world"]
-	world, s, err := getWorldStorage(wname)
+	world, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error looking up world storage: "+err.Error())
 		return
@@ -70,7 +70,7 @@ func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
 	driver = nil
 	for _, s := range storages {
 		if sname == s.Name {
-			driver = s.driver
+			driver = s.Driver
 		}
 	}
 	if driver == nil {
@@ -85,7 +85,7 @@ func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
 }
 
 func apiListWorlds(w http.ResponseWriter, r *http.Request) (int, string) {
-	worlds := listWorlds()
+	worlds := chunkStorage.ListWorlds(storages)
 	setContentTypeJson(w)
 	return marshalOrFail(200, worlds)
 }

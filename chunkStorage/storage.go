@@ -21,6 +21,8 @@
 package chunkStorage
 
 import (
+	"log"
+
 	"github.com/Tnze/go-mc/save"
 )
 
@@ -30,9 +32,10 @@ type WorldStruct struct {
 }
 
 type DimStruct struct {
-	Name  string `json:"name"` // unique per world
-	Alias string `json:"alias"`
-	World string `json:"world"`
+	Name       string   `json:"name"` // unique per world
+	Alias      string   `json:"alias"`
+	World      string   `json:"world"`
+	Spawnpoint [3]int64 `json:"spawn"`
 }
 
 type ChunkData struct {
@@ -60,4 +63,65 @@ type ChunkStorage interface {
 	GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
 
 	Close() error
+}
+
+type Storage struct {
+	Name    string       `json:"name"`
+	Type    string       `json:"type"`
+	Address string       `json:"addr"`
+	Driver  ChunkStorage `json:"-"`
+}
+
+func ListWorlds(storages []Storage) []WorldStruct {
+	worlds := []WorldStruct{}
+	for _, s := range storages {
+		if s.Driver != nil {
+			w, err := s.Driver.ListWorlds()
+			if err != nil {
+				log.Printf("Failed to list worlds on storage %s: %s", s.Name, err.Error())
+			}
+			worlds = append(worlds, w...)
+		}
+	}
+	return worlds
+}
+
+func ListDimensions(storages []Storage, wname string) ([]DimStruct, error) {
+	dims := []DimStruct{}
+	if wname == "" {
+		for _, s := range storages {
+			if s.Driver != nil {
+				d, err := s.Driver.ListDimensions()
+				if err != nil {
+					log.Printf("Failed to list dims on storage %s: %s", s.Name, err.Error())
+				}
+				dims = append(dims, d...)
+			}
+		}
+	} else {
+		_, s, err := GetWorldStorage(storages, wname)
+		if err != nil {
+			return dims, err
+		}
+		dims, err = s.ListWorldDimensions(wname)
+		if err != nil {
+			return dims, err
+		}
+	}
+	return dims, nil
+}
+
+func GetWorldStorage(storages []Storage, wname string) (*WorldStruct, ChunkStorage, error) {
+	for _, s := range storages {
+		if s.Driver != nil {
+			w, err := s.Driver.GetWorld(wname)
+			if err != nil {
+				return nil, nil, err
+			}
+			if w != nil {
+				return w, s.Driver, nil
+			}
+		}
+	}
+	return nil, nil, nil
 }

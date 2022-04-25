@@ -11,6 +11,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 		world text NOT NULL REFERENCES worlds (name),
 		name text NOT NULL,
 		alias text,
+		spawnpoint int[],
 		UNIQUE (world, name)
 	);
 	CREATE TABLE public.chunks (

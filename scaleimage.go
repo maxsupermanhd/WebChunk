@@ -60,7 +60,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	_, s, err := getWorldStorage(wname)
+	_, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
 
 	}
@@ -133,7 +133,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	imagescale := int(imagesize / scale)
 	offsetx := cx * scale
 	offsety := cz * scale
-	cc, err := getter(dname, wname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
+	cc, err := getter(wname, dname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting chunk data: "+err.Error())
 		return nil

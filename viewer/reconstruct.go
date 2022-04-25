@@ -31,7 +31,6 @@ import (
 
 	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
-	"github.com/Tnze/go-mc/level"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/command"
@@ -109,7 +108,7 @@ func (s *timeUpdater) Run(ctx context.Context) {
 // 	}
 // }
 
-func StartReconstructor(storage chunkStorage.ChunkStorage) {
+func StartReconstructor(storage []chunkStorage.Storage) {
 	if storage == nil {
 		return
 	}
@@ -125,7 +124,7 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 	}
 	keepAlive := server.NewKeepAlive()
 	playerInfo := server.NewPlayerInfo(time.Second, keepAlive)
-	chunkLoader := NewChunkLoader(storage, 6, "simply", "overworld", [2]int{4350, 8100})
+	chunkLoader := NewChunkLoader(storage, 16)
 	commands := command.NewGraph()
 	// executor := &commandExecutor{}
 	commands.AppendLiteral(commands.Literal("tp").
@@ -142,12 +141,50 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 		AppendArgument(commands.Argument("distance", NewIntegerParser(6, 32)).
 			HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
 				v := int(args[2].(int64))
-				chunkLoader.viewDistance = v
-				SendChatMessage(ctx.Value("sender").(*server.Player), chat.Text(fmt.Sprintf("Render distance is set to %d", v)))
+				chunkLoader.defaultViewDistance = v
+				SendSystemMessage(ctx.Value("sender").(*server.Player), chat.Text(fmt.Sprintf("Render distance is set to %d", v)))
 				return nil
 			})).
 		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
 			spew.Dump(args)
+			return nil
+		}))
+	commands.AppendLiteral(commands.Literal("worlds").
+		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+			worlds := chunkStorage.ListWorlds(storage)
+			msg := fmt.Sprintf("Worlds: %d\n", len(worlds))
+			for i := range worlds {
+				msg += fmt.Sprintf("%s (%s)\n", worlds[i].Name, worlds[i].IP)
+				dims, err := chunkStorage.ListDimensions(storage, worlds[i].Name)
+				if err != nil {
+					log.Println("Failed to list dimensions: " + err.Error())
+				}
+				for j := range dims {
+					sym := "┣"
+					if len(dims) == 1 || j == len(dims)-1 {
+						sym = "┗"
+					}
+					msg += fmt.Sprintf("%s━━ %s (%s)\n", sym, dims[j].Name, dims[j].Alias)
+				}
+			}
+			SendSystemMessage(ctx.Value("sender").(*server.Player), chat.Text(msg))
+			return nil
+		}))
+	commands.AppendLiteral(commands.Literal("go").
+		AppendArgument(commands.Argument("world", command.StringParser(1)).
+			AppendArgument(commands.Argument("dimension", command.StringParser(1)).
+				HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+					pl := ctx.Value("sender").(*server.Player)
+					world := args[2].(string)
+					dim := args[3].(string)
+					SendSystemMessage(pl, chat.Text(fmt.Sprintf("Moving you to [%s] [%s]", world, dim)))
+					chunkLoader.SetPlayerWorldDim(ctx.Value("sender").(*server.Player).UUID, world, dim)
+					return nil
+				})).
+			HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+				return nil
+			})).
+		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
 			return nil
 		}))
 	dim := &dimensionProvider{"overworld", 0}
@@ -182,8 +219,4 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 	if err := s.Listen(os.Getenv("MINECRAFT_LISTEN")); err != nil {
 		log.Fatalf("Listen error: %v", err)
 	}
-}
-
-func generateHubChunk(x, z int) *level.Chunk {
-	return nil
 }

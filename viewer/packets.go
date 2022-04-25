@@ -61,11 +61,42 @@ func SendSetGamemode(p *server.Player, gamemode int) {
 	)))
 }
 
-func SendChatMessage(p *server.Player, msg chat.Message) {
+func SendInfoMessage(p *server.Player, msg chat.Message) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundChat,
 		msg,
 		pk.Byte(2),
 		pk.UUID(uuid.Nil),
+	)))
+}
+
+func SendSystemMessage(p *server.Player, msg chat.Message) {
+	p.WritePacket(server.Packet758(pk.Marshal(
+		packetid.ClientboundChat,
+		msg,
+		pk.Byte(1),
+		pk.UUID(uuid.Nil),
+	)))
+}
+
+func SendPlayerAbilities(p *server.Player, invulnerable, flying, allowFlying, instabreak bool, flyingSpeed pk.Float, fovModifier pk.Float) {
+	flags := pk.Byte(0)
+	if invulnerable {
+		flags += 0x01
+	}
+	if flying {
+		flags += 0x02
+	}
+	if allowFlying {
+		flags += 0x04
+	}
+	if instabreak {
+		flags += 0x08
+	}
+	p.WritePacket(server.Packet758(pk.Marshal(
+		packetid.ClientboundPlayerAbilities,
+		flags,
+		flyingSpeed,
+		fovModifier,
 	)))
 }

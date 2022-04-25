@@ -31,6 +31,7 @@ import (
 	"github.com/Tnze/go-mc/save"
 	_ "github.com/Tnze/go-mc/save/region"
 	"github.com/gorilla/mux"
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
 func logreply(w http.ResponseWriter, status int, msg string) {
@@ -55,7 +56,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) {
 		logreply(w, http.StatusBadRequest, fmt.Sprintf("Error parsing chunk data: %s", err))
 		return
 	}
-	_, s, err := getWorldStorage(wname)
+	_, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
 		logreply(w, http.StatusInternalServerError, fmt.Sprintf("Error checking world: %s", err))
 		return

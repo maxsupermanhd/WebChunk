@@ -42,6 +42,7 @@ import (
 	"github.com/Tnze/go-mc/save"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
 type metricsCollect struct {
@@ -464,7 +465,7 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	wname := params["world"]
 	dname := params["dim"]
-	world, s, err := getWorldStorage(wname)
+	world, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting world: "+err.Error())
 		return

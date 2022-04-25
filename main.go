@@ -57,7 +57,7 @@ var (
 	GitTag     = "0.0"
 )
 
-var storages []Storage
+var storages []chunkStorage.Storage
 var layouts *template.Template
 var layoutFuncs = template.FuncMap{
 	"noescape": func(s string) template.HTML {
@@ -235,8 +235,11 @@ func main() {
 	go func() {
 		log.Panic(http.ListenAndServe(":"+port, router4))
 	}()
-
-	viewer.StartReconstructor(storages[0].driver)
+	// drivers := []chunkStorage.ChunkStorage{}
+	// for i := range storages {
+	// 	drivers = append(drivers, storages[i].driver)
+	// }
+	viewer.StartReconstructor(storages)
 }
 
 var prevCPUIdle uint64
@@ -281,41 +284,41 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		Dims  []DimData
 	}
 	type StorageData struct {
-		S      Storage
+		S      chunkStorage.Storage
 		Worlds []WorldData
 		Online bool
 	}
 	st := []StorageData{}
 	for _, s := range storages {
 		worlds := []WorldData{}
-		if s.driver == nil {
+		if s.Driver == nil {
 			st = append(st, StorageData{S: s, Worlds: worlds, Online: false})
 			// log.Println("Skipping storage " + s.Name + " because driver is uninitialized")
 			continue
 		}
-		achunksCount, _ := s.driver.GetChunksCount()
-		achunksSizeBytes, _ := s.driver.GetChunksSize()
+		achunksCount, _ := s.Driver.GetChunksCount()
+		achunksSizeBytes, _ := s.Driver.GetChunksSize()
 		chunksCount += achunksCount
 		chunksSizeBytes += achunksSizeBytes
-		worldss, err := s.driver.ListWorlds()
+		worldss, err := s.Driver.ListWorlds()
 		if err != nil {
 			plainmsg(w, r, plainmsgColorRed, "Error listing worlds of storage "+s.Name+": "+err.Error())
 			return
 		}
 		for _, wrld := range worldss {
 			wd := WorldData{World: wrld, Dims: []DimData{}}
-			dims, err := s.driver.ListWorldDimensions(wrld.Name)
+			dims, err := s.Driver.ListWorldDimensions(wrld.Name)
 			if err != nil {
 				plainmsg(w, r, plainmsgColorRed, "Error listing dimensions of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
 				return
 			}
 			for _, dim := range dims {
-				dimChunksCount, err := s.driver.GetDimensionChunksCount(wrld.Name, dim.Name)
+				dimChunksCount, err := s.Driver.GetDimensionChunksCount(wrld.Name, dim.Name)
 				if err != nil {
 					plainmsg(w, r, plainmsgColorRed, "Error getting chunk count of dim "+dim.Name+" of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
 					return
 				}
-				dimChunksSize, err := s.driver.GetDimensionChunksSize(wrld.Name, dim.Name)
+				dimChunksSize, err := s.Driver.GetDimensionChunksSize(wrld.Name, dim.Name)
 				if err != nil {
 					plainmsg(w, r, plainmsgColorRed, "Error getting chunks size of dim "+dim.Name+" of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
 					return
@@ -354,7 +357,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func worldsHandler(w http.ResponseWriter, r *http.Request) {
-	worlds := listWorlds()
+	worlds := chunkStorage.ListWorlds(storages)
 	basicLayoutLookupRespond("worlds", w, r, map[string]interface{}{"Worlds": worlds})
 }
 

@@ -30,7 +30,7 @@ import (
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
-func (s *PostgresChunkStorage) GetChunk(dname, wname string, cx, cz int) (*save.Chunk, error) {
+func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error) {
 	var c save.Chunk
 	var d []byte
 	derr := s.dbpool.QueryRow(context.Background(), `
@@ -54,7 +54,7 @@ func (s *PostgresChunkStorage) GetChunk(dname, wname string, cx, cz int) (*save.
 	return &c, perr
 }
 
-func (s *PostgresChunkStorage) GetChunksRegion(dname, wname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
+func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
 	c := []chunkStorage.ChunkData{}
 	var dimID int

@@ -25,6 +25,7 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux"
+	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
 
 var (
@@ -36,7 +37,7 @@ func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	wname := params["world"]
 	dname := params["dim"]
-	world, s, err := getWorldStorage(wname)
+	world, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting storage interface by world name: "+err.Error())
 		return
@@ -73,7 +74,7 @@ func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
 	if !worldNameRegexp.Match([]byte(wname)) {
 		return 400, "Invalid world name"
 	}
-	_, s, err := getWorldStorage(wname)
+	_, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
 		return 500, "Error getting world storage: " + err.Error()
 	}
@@ -92,7 +93,7 @@ func apiListDimensions(w http.ResponseWriter, r *http.Request) (int, string) {
 	if r.ParseForm() != nil {
 		return 400, "Unable to parse form parameters"
 	}
-	dims, err := listDimensions(r.Form.Get("world"))
+	dims, err := chunkStorage.ListDimensions(storages, r.Form.Get("world"))
 	if err != nil {
 		return 500, "Failed to list dimensions: " + err.Error()
 	}
