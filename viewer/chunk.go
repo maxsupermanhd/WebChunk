@@ -22,10 +22,12 @@ package viewer
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
 	"github.com/Tnze/go-mc/level"
 	pk "github.com/Tnze/go-mc/net/packet"
@@ -33,6 +35,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
 )
+
+type playerPosition struct {
+	x, y, z float64
+}
 
 type chunkLoader struct {
 	g                    *server.Game
@@ -42,7 +48,7 @@ type chunkLoader struct {
 	dbServer             string
 	dbDim                string
 	players              map[uuid.UUID]*server.Player
-	positions            map[uuid.UUID]level.ChunkPos
+	positions            map[uuid.UUID]playerPosition
 	viewingChunks        map[uuid.UUID]map[level.ChunkPos]bool
 	playersMutex         sync.Mutex
 }
@@ -59,7 +65,7 @@ func NewChunkLoader(s chunkStorage.ChunkStorage, viewDistance int, dbServer, dbD
 func (s *chunkLoader) Init(g *server.Game) {
 	s.g = g
 	s.players = map[uuid.UUID]*server.Player{}
-	s.positions = map[uuid.UUID]level.ChunkPos{}
+	s.positions = map[uuid.UUID]playerPosition{}
 	s.viewingChunks = map[uuid.UUID]map[level.ChunkPos]bool{}
 	g.AddHandler(&server.PacketHandler{
 		ID: packetid.ServerboundMovePlayerPos,
@@ -69,12 +75,12 @@ func (s *chunkLoader) Init(g *server.Game) {
 			if err := pk.Packet(packet).Scan(&x, &y, &z, &ground); err != nil {
 				return err
 			}
-			newpos := level.ChunkPos{X: int(float64(x) / 16), Z: int(float64(z) / 16)}
+			newpos := playerPosition{x: float64(x), y: float64(y), z: float64(z)}
 			if s.positions[player.UUID] != newpos {
-				SendUpdateViewPosition(player, int32(newpos.X), int32(newpos.Z))
+				SendUpdateViewPosition(player, int32(float64(x)/16), int32(float64(z)/16))
 			}
 			s.positions[player.UUID] = newpos
-			log.Printf("Player [%v] updated positon [%v] (%v %v %v)", player.Name, newpos, x, y, z)
+			log.Printf("Player [%s] updated positon [%.1f %.1f %.1f]", player.Name, newpos.x, newpos.y, newpos.z)
 			return nil
 		},
 	})
@@ -88,7 +94,7 @@ func (s *chunkLoader) AddPlayer(p *server.Player) {
 	}
 	sendpos()
 	s.players[p.UUID] = p
-	s.positions[p.UUID] = level.ChunkPos{X: s.enteranceCoordinates[0] / 16, Z: s.enteranceCoordinates[1] / 16}
+	s.positions[p.UUID] = playerPosition{x: float64(s.enteranceCoordinates[0]), y: 64.0, z: float64(s.enteranceCoordinates[0])}
 	s.viewingChunks[p.UUID] = map[level.ChunkPos]bool{}
 	s.playersMutex.Unlock()
 }
@@ -106,7 +112,12 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *server.Player) {
 		log.Printf("Failed to get chunk %v: %v", pos, err.Error())
 		return
 	}
-	chunk := level.ChunkFromSave(save, 256)
+	var chunk *level.Chunk
+	if save == nil {
+		chunk = level.EmptyChunk(265)
+	} else {
+		chunk = level.ChunkFromSave(save, 256)
+	}
 	if chunk == nil {
 		log.Printf("Failed to get chunk %v, nil conversion", pos)
 		return
@@ -118,10 +129,11 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *server.Player) {
 	log.Printf("Sending chunk [%v] to [%v]", pos, p.Name)
 }
 func (s *chunkLoader) processChunkLoadingForPlayer(id uuid.UUID) {
-	center, ok := s.positions[id]
+	centerpos, ok := s.positions[id]
 	if !ok {
 		return
 	}
+	center := level.ChunkPos{X: int(centerpos.x) / 16, Z: int(centerpos.z) / 16}
 	log.Printf("Updating player [%v] chunks, position %v", id, center)
 	view, ok := s.viewingChunks[id]
 	if !ok {
@@ -169,4 +181,38 @@ func (s *chunkLoader) Run(ctx context.Context) {
 			s.playersMutex.Unlock()
 		}
 	}
+}
+func (s *chunkLoader) TeleportPlayer(u uuid.UUID, pos BlockPositionData) {
+	s.playersMutex.Lock()
+	player, ok := s.players[u]
+	if !ok {
+		log.Println("Failed to teleport player " + u.String() + ", not in players map")
+		s.playersMutex.Unlock()
+		return
+	}
+	playerPos, ok := s.positions[u]
+	if !ok {
+		log.Println("Failed to teleport player " + u.String() + ", not in positions map")
+		s.playersMutex.Unlock()
+		return
+	}
+	s.playersMutex.Unlock()
+	var X, Y, Z float32
+	if pos.Relative[0] {
+		X = float32(pos.X) + float32(playerPos.x)
+	} else {
+		X = float32(pos.X)
+	}
+	if pos.Relative[1] {
+		Y = float32(pos.Y) + float32(playerPos.y)
+	} else {
+		Y = float32(pos.Y)
+	}
+	if pos.Relative[2] {
+		Z = float32(pos.Z) + float32(playerPos.z)
+	} else {
+		Z = float32(pos.Z)
+	}
+	SendPlayerPositionAndLook(player, X, Y, Z, 0.0, 0.0, 0, 420, false)
+	SendChatMessage(player, chat.Text(fmt.Sprintf("You were teleported to %.1f %.1f %.1f", X, Y, Z)).SetColor(chat.DarkAqua))
 }
