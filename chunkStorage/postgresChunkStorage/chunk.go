@@ -38,9 +38,8 @@ func (s *PostgresChunkStorage) GetChunk(dname, wname string, cx, cz int) (*save.
 		from chunks
 		where x = $1 AND z = $2 AND
 			dim = (select dimensions.id 
-			 from dimensions 
-			 join worlds on worlds.id = dimensions.server 
-			 where worlds.name = $3 and dimensions.name = $4)
+			 from dimensions
+			 where dimensions.world = $3 and dimensions.name = $4)
 		order by created_at desc
 		limit 1;`, cx, cz, wname, dname).Scan(&d)
 	if derr != nil {
