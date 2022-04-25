@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/mcwebchunk/viewer"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
@@ -231,11 +232,11 @@ func main() {
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
 	router4 := handlers.RecoveryHandler()(router3)
 	log.Println("Started! (http://127.0.0.1:" + port + "/)")
-	// go func() {
-	// 	}()
-	log.Panic(http.ListenAndServe(":"+port, router4))
+	go func() {
+		log.Panic(http.ListenAndServe(":"+port, router4))
+	}()
 
-	// viewer.StartReconstructor(storages[0].driver)
+	viewer.StartReconstructor(storages[0].driver)
 }
 
 var prevCPUIdle uint64
