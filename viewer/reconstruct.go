@@ -22,6 +22,7 @@ package viewer
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
+	"github.com/Tnze/go-mc/level"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/command"
@@ -78,33 +80,34 @@ func (s *timeUpdater) Run(ctx context.Context) {
 	}
 }
 
-type commandExecutor struct {
-	players      map[uuid.UUID]*server.Player
-	playersMutex sync.Mutex
-}
+// type commandExecutor struct {
+// 	players      map[uuid.UUID]*server.Player
+// 	playersMutex sync.Mutex
+// }
 
-func (s *commandExecutor) Init(g *server.Game) {
-	s.players = map[uuid.UUID]*server.Player{}
-}
-func (s *commandExecutor) AddPlayer(p *server.Player) {
-	s.playersMutex.Lock()
-	s.players[p.UUID] = p
-	s.playersMutex.Unlock()
-}
-func (s *commandExecutor) RemovePlayer(p *server.Player) {
-	s.playersMutex.Lock()
-	delete(s.players, p.UUID)
-	s.playersMutex.Unlock()
-}
-func (s *commandExecutor) Run(ctx context.Context) {}
-func (s *commandExecutor) ExecuteCommand(f func(player *server.Player, args []command.ParsedData) error) command.HandlerFunc {
-	return func(ctx context.Context, args []command.ParsedData) error {
-		s.playersMutex.Lock()
-		pl := s.players[uuid.MustParse(ctx.Value("sender").(string))]
-		s.playersMutex.Unlock()
-		return f(pl, args)
-	}
-}
+// func (s *commandExecutor) Init(g *server.Game) {
+// 	s.players = map[uuid.UUID]*server.Player{}
+// }
+// func (s *commandExecutor) AddPlayer(p *server.Player) {
+// 	s.playersMutex.Lock()
+// 	s.players[p.UUID] = p
+// 	s.playersMutex.Unlock()
+// }
+// func (s *commandExecutor) RemovePlayer(p *server.Player) {
+// 	s.playersMutex.Lock()
+// 	delete(s.players, p.UUID)
+// 	s.playersMutex.Unlock()
+// }
+// func (s *commandExecutor) Run(ctx context.Context) {}
+// func (s *commandExecutor) ExecuteCommand(f func(player *server.Player, args []command.ParsedData) error) command.HandlerFunc {
+// 	return func(ctx context.Context, args []command.ParsedData) error {
+// 		log.Println("Command arrived!")
+// 		s.playersMutex.Lock()
+// 		pl := s.players[uuid.MustParse(ctx.Value("sender").(string))]
+// 		s.playersMutex.Unlock()
+// 		return f(pl, args)
+// 	}
+// }
 
 func StartReconstructor(storage chunkStorage.ChunkStorage) {
 	if storage == nil {
@@ -122,19 +125,31 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 	}
 	keepAlive := server.NewKeepAlive()
 	playerInfo := server.NewPlayerInfo(time.Second, keepAlive)
-	chunkLoader := NewChunkLoader(storage, 15, "simply", "overworld", [2]int{4350, 8100})
+	chunkLoader := NewChunkLoader(storage, 6, "simply", "overworld", [2]int{4350, 8100})
 	commands := command.NewGraph()
-	executor := &commandExecutor{}
+	// executor := &commandExecutor{}
 	commands.AppendLiteral(commands.Literal("tp").
-		AppendArgument(commands.Argument("position", command.StringParser(1)).
-			HandleFunc(executor.ExecuteCommand(func(player *server.Player, args []command.ParsedData) error {
-				spew.Dump(args)
+		AppendArgument(commands.Argument("position", BlockPosParser{}).
+			HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+				chunkLoader.TeleportPlayer(ctx.Value("sender").(*server.Player).UUID, args[2].(BlockPositionData))
 				return nil
-			}))).
-		HandleFunc(executor.ExecuteCommand(func(player *server.Player, args []command.ParsedData) error {
+			})).
+		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
 			spew.Dump(args)
 			return nil
-		})))
+		}))
+	commands.AppendLiteral(commands.Literal("renderdistance").
+		AppendArgument(commands.Argument("distance", NewIntegerParser(6, 32)).
+			HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+				v := int(args[2].(int64))
+				chunkLoader.viewDistance = v
+				SendChatMessage(ctx.Value("sender").(*server.Player), chat.Text(fmt.Sprintf("Render distance is set to %d", v)))
+				return nil
+			})).
+		HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
+			spew.Dump(args)
+			return nil
+		}))
 	dim := &dimensionProvider{"overworld", 0}
 	timeUpd := &timeUpdater{}
 	// dim2, err := loadAllRegions("/home/max/.local/share/multimc/instances/fabric-1.18.2-hax/.minecraft/saves/New World/region/")
@@ -149,8 +164,8 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 		server.NewGlobalChat(),
 		chunkLoader,
 		timeUpd,
+		// executor,
 		commands,
-		executor,
 	)
 	go game.Run(context.Background())
 
@@ -167,4 +182,8 @@ func StartReconstructor(storage chunkStorage.ChunkStorage) {
 	if err := s.Listen(os.Getenv("MINECRAFT_LISTEN")); err != nil {
 		log.Fatalf("Listen error: %v", err)
 	}
+}
+
+func generateHubChunk(x, z int) *level.Chunk {
+	return nil
 }
