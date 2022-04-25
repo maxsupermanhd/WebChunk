@@ -21,9 +21,11 @@
 package viewer
 
 import (
+	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
+	"github.com/google/uuid"
 )
 
 func SendUnloadChunk(p *server.Player, x, z int32) {
@@ -56,5 +58,14 @@ func SendSetGamemode(p *server.Player, gamemode int) {
 		packetid.ClientboundGameEvent,
 		pk.UnsignedByte(3),
 		pk.Float(gamemode),
+	)))
+}
+
+func SendChatMessage(p *server.Player, msg chat.Message) {
+	p.WritePacket(server.Packet758(pk.Marshal(
+		packetid.ClientboundChat,
+		msg,
+		pk.Byte(2),
+		pk.UUID(uuid.Nil),
 	)))
 }
