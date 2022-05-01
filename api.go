@@ -31,7 +31,7 @@ import (
 	"github.com/Tnze/go-mc/save"
 	_ "github.com/Tnze/go-mc/save/region"
 	"github.com/gorilla/mux"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 func logreply(w http.ResponseWriter, status int, msg string) {

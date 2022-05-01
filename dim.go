@@ -25,7 +25,7 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 var (

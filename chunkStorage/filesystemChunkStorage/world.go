@@ -30,7 +30,7 @@ import (
 	"strings"
 
 	"github.com/Tnze/go-mc/save"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 func readSaveLevel(root string) (save.Level, error) {

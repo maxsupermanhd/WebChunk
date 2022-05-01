@@ -26,8 +26,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage/postgresChunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
 )
 
 type storagesJSON struct {

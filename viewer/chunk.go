@@ -31,10 +31,11 @@ import (
 	"github.com/Tnze/go-mc/data/packetid"
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/level/block"
+	"github.com/Tnze/go-mc/nbt"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/google/uuid"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 type playerData struct {
@@ -140,6 +141,16 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *playerData) {
 		packetid.ClientboundLevelChunkWithLight,
 		pos, chunk,
 	)))
+	// for i := range chunk.Sections {
+	// 	for y := 0; y < 16; y++ {
+	// 		for x := 0; x < 16; x++ {
+	// 			for z := 0; z < 16; z++ {
+	// 				b := chunk.Sections[i].GetBlock(y*16*16 + z*16 + x)
+	// 				n := strings.TrimPrefix(block.StateList[b].ID(), "minecraft:")
+	// 			}
+	// 		}
+	// 	}
+	// }
 	log.Printf("Sending chunk [%v] [%s] [%s] to [%v]", pos, p.locWorld, p.locDimension, p.player.Name)
 }
 func (s *chunkLoader) processChunkLoadingForPlayer(p *playerData) {
@@ -235,7 +246,7 @@ func SetChunkBlock(c *level.Chunk, lx, ly, lz, bs int) {
 		log.Printf("Failed to set block %d at %d %d %d because there is no section %d (%d allocated)", bs, lx, ly, lz, sid, len(c.Sections))
 		return
 	}
-	c.Sections[sid].SetBlock((ly%16)*16*16+lx*16+lz, bs)
+	c.Sections[sid].SetBlock((ly%16)*16*16+lz*16+lx, bs)
 }
 
 func (s *chunkLoader) SetPlayerWorldDim(u uuid.UUID, world, dim string) {
@@ -269,4 +280,45 @@ func (s *chunkLoader) SetPlayerWorldDim(u uuid.UUID, world, dim string) {
 	p.locWorld = world
 	p.locDimension = dim
 	p.viewingChunks = map[level.ChunkPos]bool{}
+}
+
+func GetDefaultBlockEntity(n string, x, y, z int) *nbt.RawMessage {
+	switch {
+	case n == "banner":
+	case n == "barrel":
+	case n == "beacon":
+	case n == "bed":
+	case n == "beehive":
+	case n == "bell":
+	case n == "blast_furnace":
+	case n == "brewing_stand":
+	case n == "campfire":
+	case n == "chest":
+	case n == "comparator":
+	case n == "command_block":
+	case n == "conduit":
+	case n == "daylight_detector":
+	case n == "dispenser":
+	case n == "dropper":
+	case n == "enchanting_table":
+	case n == "ender_chest":
+	case n == "end_gateway":
+	case n == "end_portal":
+	case n == "furnace":
+	case n == "hopper":
+	case n == "jigsaw":
+	case n == "jukebox":
+	case n == "lectern":
+	case n == "mob_spawner":
+	case n == "piston":
+	case n == "shulker_box":
+	case n == "sign":
+	case n == "skull":
+	case n == "smoker":
+	case n == "soul_campfire":
+	case n == "structure_block":
+	case n == "trapped_chest":
+	default:
+	}
+	return &nbt.RawMessage{}
 }

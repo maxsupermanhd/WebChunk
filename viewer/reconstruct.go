@@ -37,7 +37,7 @@ import (
 	"github.com/Tnze/go-mc/server/command"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 type timeUpdater struct {

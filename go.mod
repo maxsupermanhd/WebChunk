@@ -1,8 +1,13 @@
-module github.com/maxsupermanhd/mcwebchunk
+module github.com/maxsupermanhd/WebChunk
 
 go 1.18
 
-replace github.com/maxsupermanhd/mcwebchunk/chunkStorage => ./chunkStorage
+replace github.com/maxsupermanhd/WebChunk/chunkStorage => ./chunkStorage
+replace github.com/maxsupermanhd/WebChunk/filesystemChunkStorage => ./filesystemChunkStorage
+replace github.com/maxsupermanhd/WebChunk/postgresChunkStorage => ./postgresChunkStorage
+replace github.com/maxsupermanhd/WebChunk/viewer => ./viewer
+replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
+replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
 require (
 	github.com/Tnze/go-mc v1.18.2-0.20220401165811-e00bb53f9efb
@@ -32,6 +37,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.10.0 // indirect
 	github.com/jackc/puddle v1.2.1 // indirect
+	github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect

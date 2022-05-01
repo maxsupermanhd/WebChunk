@@ -25,7 +25,7 @@ import (
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.WorldStruct, error) {

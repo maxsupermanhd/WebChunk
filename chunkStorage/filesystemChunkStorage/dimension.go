@@ -24,7 +24,7 @@ package FilesystemChunkStorage
 // 	"context"
 
 // 	"github.com/georgysavva/scany/pgxscan"
-// 	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
+// 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 // )
 
 // func (s *FilesystemChunkStorage) ListDimensionsByWorldName(server string) ([]chunkStorage.DimStruct, error) {

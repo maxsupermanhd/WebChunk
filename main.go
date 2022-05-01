@@ -36,8 +36,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maxsupermanhd/mcwebchunk/chunkStorage"
-	"github.com/maxsupermanhd/mcwebchunk/viewer"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/viewer"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
