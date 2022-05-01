@@ -21,26 +21,13 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
+	"bytes"
 	"log"
-	"os"
 
+	"github.com/dustin/go-humanize"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
+	"github.com/maxsupermanhd/WebChunk/proxy"
 )
-
-type storagesJSON struct {
-	Storages []chunkStorage.Storage `json:"storages"`
-}
-
-func saveStorages(path string, s []chunkStorage.Storage) error {
-	d, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, d, 0666)
-}
 
 func closeStorages(s []chunkStorage.Storage) {
 	for _, s2 := range s {
@@ -50,27 +37,41 @@ func closeStorages(s []chunkStorage.Storage) {
 	}
 }
 
-func loadStorages(path string) ([]chunkStorage.Storage, error) {
-	s := storagesJSON{}
-	f, err := os.ReadFile(path)
-	if err != nil {
-		return s.Storages, err
-	}
-	err = json.Unmarshal(f, &s)
-	if err != nil {
-		return s.Storages, err
-	}
-	for i := range s.Storages {
-		switch {
-		case s.Storages[i].Type == "postgres":
-			s.Storages[i].Driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), s.Storages[i].Address)
-			if err != nil {
-				log.Printf("Failed to initialize postgres storage %s: %s\n", s.Storages[i].Name, err.Error())
-				s.Storages[i].Driver = nil
+func chunkConsumer(c chan proxy.ProxiedChunk) {
+	for r := range c {
+		var b bytes.Buffer
+		size, err := r.Data.WriteTo(&b)
+		if err != nil {
+			log.Printf("Error testing chunk [%v] from [%v] by [%v]: %v", r.Pos, r.FromServer, r.FromPlayer, err)
+		}
+		found := false
+		for _, c := range loadedConfig.Routes {
+			if c.Username == r.FromPlayer {
+				found = true
+				if c.World == "" || c.Dimension == "" {
+					log.Printf("Got chunk [%v] from [%v] by [%v] (%v)", r.Pos, r.FromServer, r.FromPlayer, humanize.Bytes(uint64(size)))
+				} else {
+					_, _, err := chunkStorage.GetWorldStorage(storages, c.World)
+					if err != nil {
+						log.Println("Failed to lookup world storage: ", err)
+						// } else {
+						// s.AddChunk(c.World, c.Dimension, r.Pos.X, r.Pos.Z, save.Chunk{
+						// 	DataVersion:   r.Data.,
+						// 	XPos:          int32(r.Pos.X),
+						// 	YPos:          -4,
+						// 	ZPos:          int32(r.Pos.Z),
+						// 	BlockEntities: ,
+						// 	Structures:    nbt.RawMessage{},
+						// 	Heightmaps:    struct{MotionBlocking []int64 "nbt:\"MOTION_BLOCKING\""; MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""; OceanFloor []int64 "nbt:\"OCEAN_FLOOR\""; WorldSurface []int64 "nbt:\"WORLD_SURFACE\""}{},
+						// 	Sections:      []save.Section{},
+						// })
+					}
+				}
+				break
 			}
-		default:
-			log.Printf("Storage type [%s] not implemented!\n", s.Storages[i].Type)
+		}
+		if !found {
+			log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v] (%v)", r.Pos, r.FromServer, r.FromPlayer, humanize.Bytes(uint64(size)))
 		}
 	}
-	return s.Storages, nil
 }

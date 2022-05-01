@@ -29,6 +29,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"reflect"
 	"runtime/debug"
 	"strconv"
@@ -37,13 +38,13 @@ import (
 	"time"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/proxy"
 	"github.com/maxsupermanhd/WebChunk/viewer"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
 	"github.com/natefinch/lumberjack"
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/load"
@@ -122,25 +123,22 @@ func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	buildinfo, ok := debug.ReadBuildInfo()
 	if ok {
 		GoVersion = buildinfo.GoVersion
 	}
 	_ = GoVersion
-	err := godotenv.Load()
+	err := loadConfig()
 	if err != nil {
-		log.Println("Error loading .env file")
+		log.Fatal("Error loading config file: " + err.Error())
 	}
-	port := os.Getenv("WEB_PORT")
-	if port == "" {
-		port = "3000"
-	}
+	storages = loadedConfig.Storages
 	log.SetOutput(io.MultiWriter(&lumberjack.Logger{
-		Filename: "logs/webchunk.log",
+		Filename: loadedConfig.LogsLocation,
 		MaxSize:  10,
 		Compress: true,
 	}, os.Stdout))
-
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println()
 	log.Println("WebChunk web server is starting up...")
@@ -152,7 +150,8 @@ func main() {
 	initChunkDraw()
 
 	log.Println("Loading layouts")
-	layouts, err = template.New("main").Funcs(layoutFuncs).ParseGlob("layouts/*.gohtml")
+	layoutsGlobPtr := &loadedConfig.Web.LayoutsGlob
+	layouts, err = template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +170,7 @@ func main() {
 				log.Println("event:", event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					log.Println("Updating templates")
-					nlayouts, err := template.New("main").Funcs(layoutFuncs).ParseGlob("layouts/*.gohtml")
+					nlayouts, err := template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
 					if err != nil {
 						log.Println("Error while parsing templates:", err.Error())
 					} else {
@@ -186,19 +185,9 @@ func main() {
 			}
 		}
 	}()
-	err = watcher.Add("layouts/")
+	err = watcher.Add(loadedConfig.Web.LayoutsLocation)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	log.Println("Loading storages...")
-	storagesPath := os.Getenv("STORAGES")
-	if storagesPath == "" {
-		storagesPath = "storages.json"
-	}
-	storages, err = loadStorages(storagesPath)
-	if err != nil {
-		log.Println("Error initializing storages: " + err.Error())
 	}
 	defer closeStorages(storages)
 
@@ -231,15 +220,39 @@ func main() {
 	router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
 	router4 := handlers.RecoveryHandler()(router3)
-	log.Println("Started! (http://127.0.0.1:" + port + "/)")
+
+	chunkChannel := make(chan proxy.ProxiedChunk, 2048)
 	go func() {
-		log.Panic(http.ListenAndServe(":"+port, router4))
+		if loadedConfig.Web.Listen == "" {
+			log.Println("Not starting web server because listen address is empty")
+			return
+		}
+		log.Println("Starting web server (http://" + loadedConfig.Web.Listen + "/)")
+		log.Println(http.ListenAndServe(loadedConfig.Web.Listen, router4))
 	}()
-	// drivers := []chunkStorage.ChunkStorage{}
-	// for i := range storages {
-	// 	drivers = append(drivers, storages[i].driver)
-	// }
-	viewer.StartReconstructor(storages)
+	go func() {
+		if loadedConfig.Proxy.Listen == "" {
+			log.Println("Not starting proxy because listen address is empty")
+			return
+		}
+		log.Println("Starting proxy")
+		proxy.RunProxy(ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
+	}()
+	go chunkConsumer(chunkChannel)
+	go func() {
+		if loadedConfig.Reconstructor.Listen == "" {
+			log.Println("Not starting reconstructor because listen address is empty")
+			return
+		}
+		log.Println("Starting reconstructor")
+		viewer.StartReconstructor(storages, &loadedConfig.Reconstructor)
+	}()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	for range c {
+		return
+	}
 }
 
 var prevCPUIdle uint64

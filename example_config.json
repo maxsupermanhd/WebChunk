@@ -1,0 +1,44 @@
+{
+	"logs_location": "logs/WebChunk.log",
+	"storages": [
+		{
+			"name": "Docker db",
+			"type": "postgres",
+			"addr": "host=localhost dbname=chunkdb user=webchunk password=chunky81254 port=9182 connect_timeout=3"
+		}
+	],
+	"web": {
+		"layouts_location": "./layouts/",
+		"layouts_glob": "./layouts/*.gohtml",
+		"listen": "127.0.0.1:3002",
+		"color_pallete": "./colors.gob"
+	},
+	"proxy": {
+		"motd": {
+			"text": "WebChunk proxy server"
+		},
+		"maxplayers": 999,
+		"icon": "",
+		"listen": "127.0.0.1:25566",
+		"credentials": "./cmd/auth/",
+		"CompressThreshold": 0
+	},
+	"proxy_routing": [
+		{
+			"username": "FlexCoral",
+			"address": "simplyvanilla.net",
+			"world": "",
+			"dimension": ""
+		}
+	],
+	"reconstructor": {
+		"motd": {
+			"text": "WebChunk reconstructor"
+		},
+		"maxplayers": 999,
+		"icon": "",
+		"listen": "127.0.0.1:25567",
+		"default_view_distance": 25,
+		"CompressThreshold": 0
+	}
+}

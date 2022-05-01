@@ -22,11 +22,10 @@ package viewer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"image"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -59,14 +58,13 @@ func (s *timeUpdater) RemovePlayer(p *server.Player) {
 	s.playersMutex.Unlock()
 }
 func (s *timeUpdater) Run(ctx context.Context) {
-	chunkUpdateTick := time.NewTicker(time.Second / 20)
+	timeUpdateTick := time.NewTicker(time.Second / 20)
 	for {
 		select {
 		case <-ctx.Done():
-			log.Print("Chunk loader shuts down")
-			chunkUpdateTick.Stop()
+			timeUpdateTick.Stop()
 			return
-		case <-chunkUpdateTick.C:
+		case <-timeUpdateTick.C:
 			s.playersMutex.Lock()
 			for _, p := range s.players {
 				p.WritePacket(server.Packet758(pk.Marshal(
@@ -80,52 +78,40 @@ func (s *timeUpdater) Run(ctx context.Context) {
 	}
 }
 
-// type commandExecutor struct {
-// 	players      map[uuid.UUID]*server.Player
-// 	playersMutex sync.Mutex
-// }
+type ReconstructorConfig struct {
+	MOTD                chat.Message `json:"motd"`
+	MaxPlayers          int          `json:"maxplayers"`
+	IconPath            string       `json:"icon"`
+	Listen              string       `json:"listen"`
+	DefaultViewDistance int          `json:"default_view_distance"`
+	CompressThreshold   int          `json:"compress_threshold`
+}
 
-// func (s *commandExecutor) Init(g *server.Game) {
-// 	s.players = map[uuid.UUID]*server.Player{}
-// }
-// func (s *commandExecutor) AddPlayer(p *server.Player) {
-// 	s.playersMutex.Lock()
-// 	s.players[p.UUID] = p
-// 	s.playersMutex.Unlock()
-// }
-// func (s *commandExecutor) RemovePlayer(p *server.Player) {
-// 	s.playersMutex.Lock()
-// 	delete(s.players, p.UUID)
-// 	s.playersMutex.Unlock()
-// }
-// func (s *commandExecutor) Run(ctx context.Context) {}
-// func (s *commandExecutor) ExecuteCommand(f func(player *server.Player, args []command.ParsedData) error) command.HandlerFunc {
-// 	return func(ctx context.Context, args []command.ParsedData) error {
-// 		log.Println("Command arrived!")
-// 		s.playersMutex.Lock()
-// 		pl := s.players[uuid.MustParse(ctx.Value("sender").(string))]
-// 		s.playersMutex.Unlock()
-// 		return f(pl, args)
-// 	}
-// }
-
-func StartReconstructor(storage []chunkStorage.Storage) {
+func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfig) {
+	var icon image.Image
+	if conf.IconPath != "" {
+		f, err := os.Open(conf.IconPath)
+		if err != nil {
+			log.Println("Failed to open proxy server icon: " + err.Error())
+		} else {
+			icon, _, err = image.Decode(f)
+			if err != nil {
+				log.Println("Failed to decode proxy server icon: " + err.Error())
+				icon = nil
+			}
+			f.Close()
+		}
+	}
 	if storage == nil {
 		return
 	}
-	maxplayers, err := strconv.Atoi(os.Getenv("RECONSTRUCTOR_MAXPLAYERS"))
-	if err != nil {
-		log.Print("Failed to read RECONSTRUCTOR_MAXPLAYERS, setting to 20")
-		maxplayers = 20
-	}
-	playerList := server.NewPlayerList(maxplayers)
-	serverInfo, err := server.NewPingInfo(playerList, server.ProtocolName, server.ProtocolVersion, chat.Text("Hello world"), nil)
+	serverInfo, err := server.NewPingInfo(server.NewPlayerList(conf.MaxPlayers), server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
 	if err != nil {
 		log.Fatalf("Set server info error: %v", err)
 	}
 	keepAlive := server.NewKeepAlive()
 	playerInfo := server.NewPlayerInfo(time.Second, keepAlive)
-	chunkLoader := NewChunkLoader(storage, 16)
+	chunkLoader := NewChunkLoader(storage, conf.DefaultViewDistance)
 	commands := command.NewGraph()
 	// executor := &commandExecutor{}
 	commands.AppendLiteral(commands.Literal("tp").
@@ -171,8 +157,8 @@ func StartReconstructor(storage []chunkStorage.Storage) {
 					msg.Extra = append(msg.Extra, d)
 				}
 			}
-			m, _ := json.MarshalIndent(msg, "", "    ")
-			log.Println(string(m))
+			// m, _ := json.MarshalIndent(msg, "", "    ")
+			// log.Println(string(m))
 			SendSystemMessage(player, msg)
 			return nil
 		}))
@@ -204,7 +190,6 @@ func StartReconstructor(storage []chunkStorage.Storage) {
 	}
 	game := server.NewGame(
 		dim,
-		playerList,
 		playerInfo,
 		keepAlive,
 		server.NewGlobalChat(),
@@ -219,13 +204,42 @@ func StartReconstructor(storage []chunkStorage.Storage) {
 		ListPingHandler: serverInfo,
 		LoginHandler: &server.MojangLoginHandler{
 			OnlineMode:   false,
-			Threshold:    256,
-			LoginChecker: playerList,
+			Threshold:    conf.CompressThreshold,
+			LoginChecker: nil,
 		},
 		GamePlay: game,
 	}
 
-	if err := s.Listen(os.Getenv("MINECRAFT_LISTEN")); err != nil {
+	if err := s.Listen(conf.Listen); err != nil {
 		log.Fatalf("Listen error: %v", err)
 	}
 }
+
+// type commandExecutor struct {
+// 	players      map[uuid.UUID]*server.Player
+// 	playersMutex sync.Mutex
+// }
+
+// func (s *commandExecutor) Init(g *server.Game) {
+// 	s.players = map[uuid.UUID]*server.Player{}
+// }
+// func (s *commandExecutor) AddPlayer(p *server.Player) {
+// 	s.playersMutex.Lock()
+// 	s.players[p.UUID] = p
+// 	s.playersMutex.Unlock()
+// }
+// func (s *commandExecutor) RemovePlayer(p *server.Player) {
+// 	s.playersMutex.Lock()
+// 	delete(s.players, p.UUID)
+// 	s.playersMutex.Unlock()
+// }
+// func (s *commandExecutor) Run(ctx context.Context) {}
+// func (s *commandExecutor) ExecuteCommand(f func(player *server.Player, args []command.ParsedData) error) command.HandlerFunc {
+// 	return func(ctx context.Context, args []command.ParsedData) error {
+// 		log.Println("Command arrived!")
+// 		s.playersMutex.Lock()
+// 		pl := s.players[uuid.MustParse(ctx.Value("sender").(string))]
+// 		s.playersMutex.Unlock()
+// 		return f(pl, args)
+// 	}
+// }

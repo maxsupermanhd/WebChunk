@@ -21,6 +21,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"image/color"
@@ -126,8 +127,10 @@ func colorsHandlerPOST(w http.ResponseWriter, r *http.Request) {
 	colorsHandlerGET(w, r)
 }
 
+var colors []color.RGBA64
+
 func colorsSaveHandler(w http.ResponseWriter, r *http.Request) {
-	f, err := os.Create("colors.gob")
+	f, err := os.Create(loadedConfig.Web.ColorsLocation)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error saving color palette to disk: "+err.Error())
 		return
@@ -138,4 +141,12 @@ func colorsSaveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	plainmsg(w, r, plainmsgColorGreen, "Color palette saved to disk.")
+}
+
+func loadColors() error {
+	b, err := os.ReadFile(loadedConfig.Web.ColorsLocation)
+	if err != nil {
+		return err
+	}
+	return gob.NewDecoder(bytes.NewReader(b)).Decode(&colors)
 }

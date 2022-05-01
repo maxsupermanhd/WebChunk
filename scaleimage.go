@@ -62,7 +62,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, s, err := chunkStorage.GetWorldStorage(storages, wname)
 	if err != nil {
-
+		return
 	}
 	var g chunkDataProviderFunc
 	var p chunkPainterFunc

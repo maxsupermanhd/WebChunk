@@ -21,9 +21,7 @@
 package main
 
 import (
-	"bytes"
 	_ "embed"
-	"encoding/gob"
 	"html/template"
 	"image"
 	"image/color"
@@ -449,16 +447,13 @@ func drawChunkChestBlocksHeatmap(chunk *save.Chunk) (img *image.RGBA) {
 	return
 }
 
-var colors []color.RGBA64
-
-//go:embed colors.gob
-var colorsBin []byte // gob([]color.RGBA64)
-
-func initChunkDraw() {
-	if err := gob.NewDecoder(bytes.NewReader(colorsBin)).Decode(&colors); err != nil {
-		panic(err)
+func initChunkDraw() error {
+	err := loadColors()
+	if err != nil {
+		return err
 	}
 	go metricsDispatcher()
+	return nil
 }
 
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
