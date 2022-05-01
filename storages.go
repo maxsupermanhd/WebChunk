@@ -44,7 +44,9 @@ func saveStorages(path string, s []chunkStorage.Storage) error {
 
 func closeStorages(s []chunkStorage.Storage) {
 	for _, s2 := range s {
-		s2.Driver.Close()
+		if s2.Driver != nil {
+			s2.Driver.Close()
+		}
 	}
 }
 
