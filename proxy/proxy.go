@@ -57,7 +57,8 @@ type ProxyConfig struct {
 	IconPath          string       `json:"icon"`
 	Listen            string       `json:"listen"`
 	CredentialsPath   string       `json:"credentials"`
-	CompressThreshold int          `json:"compress_threshold`
+	CompressThreshold int          `json:"compress_threshold"`
+	OnlineMode        bool         `json:"online_mode"`
 }
 
 func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump chan ProxiedChunk) {
@@ -83,8 +84,8 @@ func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump cha
 	s := server.Server{
 		ListPingHandler: serverInfo,
 		LoginHandler: &server.MojangLoginHandler{
-			OnlineMode:   false,
-			Threshold:    -1,
+			OnlineMode:   conf.OnlineMode,
+			Threshold:    conf.CompressThreshold,
 			LoginChecker: nil,
 		},
 		GamePlay: SnifferProxy{
