@@ -21,6 +21,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -38,6 +39,7 @@ import (
 	"time"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 	"github.com/maxsupermanhd/WebChunk/viewer"
 
@@ -220,6 +222,20 @@ func main() {
 	router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
 	router4 := handlers.RecoveryHandler()(router3)
+
+	log.Println("Initializing storages...")
+	for i := range storages {
+		switch {
+		case storages[i].Type == "postgres":
+			storages[i].Driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), storages[i].Address)
+			if err != nil {
+				log.Printf("Failed to initialize postgres storage %s: %s\n", storages[i].Name, err.Error())
+				storages[i].Driver = nil
+			}
+		default:
+			log.Printf("Storage type [%s] not implemented!\n", storages[i].Type)
+		}
+	}
 
 	chunkChannel := make(chan proxy.ProxiedChunk, 2048)
 	go func() {
