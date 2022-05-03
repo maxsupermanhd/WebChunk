@@ -72,7 +72,7 @@ func (c *MicrosoftCredentialsManager) GetAuthForUsername(username string) (*bot.
 	if err != nil {
 		return nil, err
 	}
-	if s.Minecraft.ExpiresAfter-3 > time.Now().Unix() {
+	if s.Minecraft.ExpiresAfter-3 < time.Now().Unix() {
 		err = gmma.CheckRefreshMS(&s.Microsoft, c.AppID)
 		if err != nil {
 			return nil, err
