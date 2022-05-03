@@ -84,7 +84,8 @@ type ReconstructorConfig struct {
 	IconPath            string       `json:"icon"`
 	Listen              string       `json:"listen"`
 	DefaultViewDistance int          `json:"default_view_distance"`
-	CompressThreshold   int          `json:"compress_threshold`
+	CompressThreshold   int          `json:"compress_threshold"`
+	OnlineMode          bool         `json:"online_mode"`
 }
 
 func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfig) {
@@ -203,7 +204,7 @@ func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfi
 	s := server.Server{
 		ListPingHandler: serverInfo,
 		LoginHandler: &server.MojangLoginHandler{
-			OnlineMode:   false,
+			OnlineMode:   conf.OnlineMode,
 			Threshold:    conf.CompressThreshold,
 			LoginChecker: nil,
 		},
