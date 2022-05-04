@@ -237,7 +237,7 @@ func main() {
 		}
 	}
 
-	chunkChannel := make(chan proxy.ProxiedChunk, 2048)
+	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
 	go func() {
 		if loadedConfig.Web.Listen == "" {
 			log.Println("Not starting web server because listen address is empty")

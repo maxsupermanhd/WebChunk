@@ -21,28 +21,39 @@
 package proxy
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/Tnze/go-mc/bot"
 	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
 	"github.com/Tnze/go-mc/level"
+	"github.com/Tnze/go-mc/level/block"
+	"github.com/Tnze/go-mc/nbt"
 	"github.com/Tnze/go-mc/net"
-	"github.com/Tnze/go-mc/net/packet"
+	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/credentials"
+	"github.com/maxsupermanhd/WebChunk/viewer"
 )
 
+type ProxiedPacket struct {
+	Username string
+	Server   string
+	Packet   pk.Packet
+}
+
 type ProxiedChunk struct {
-	FromPlayer string
-	FromServer string
-	Pos        level.ChunkPos
-	Data       level.Chunk
+	Username  string
+	Server    string
+	Dimension string
+	Pos       level.ChunkPos
+	Data      level.Chunk
 }
 
 type MessageFeedback struct {
@@ -61,7 +72,15 @@ type ProxyConfig struct {
 	OnlineMode        bool         `json:"online_mode"`
 }
 
-func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump chan ProxiedChunk) {
+var collectPackets = []int{
+	packetid.ClientboundLevelChunkWithLight,
+	packetid.ClientboundBlockEntityData,
+	packetid.ClientboundForgetLevelChunk,
+	packetid.ClientboundLogin,
+	packetid.ClientboundRespawn,
+}
+
+func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump chan *ProxiedChunk) {
 	var icon image.Image
 	if conf.IconPath != "" {
 		f, err := os.Open(conf.IconPath)
@@ -91,28 +110,7 @@ func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump cha
 		GamePlay: SnifferProxy{
 			Routing:     routeHandler,
 			CredManager: credentials.NewMicrosoftCredentialsManager(conf.CredentialsPath, "88650e7e-efee-4857-b9a9-cf580a00ef43"),
-			ModifyClientboundPacket: func(username, address string, p *packet.Packet) error {
-				if p == nil {
-					return nil
-				}
-				if p.ID == packetid.ClientboundLevelChunkWithLight {
-					var pos level.ChunkPos
-					var chunk level.Chunk
-					err := p.Scan(&pos, &chunk)
-					if err != nil {
-						log.Printf("Error parsing chunk packet: %v", err)
-						return err
-					}
-					dump <- ProxiedChunk{
-						FromPlayer: username,
-						FromServer: address,
-						Pos:        pos,
-						Data:       chunk,
-					}
-				}
-				return nil
-			},
-			ModifyServerboundPacket: nil,
+			SaveChannel: dump,
 		},
 	}
 	log.Println("Started proxy on " + conf.Listen)
@@ -120,10 +118,9 @@ func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump cha
 }
 
 type SnifferProxy struct {
-	Routing                 func(name string) string
-	CredManager             *credentials.MicrosoftCredentialsManager
-	ModifyClientboundPacket func(username, address string, p *packet.Packet) error
-	ModifyServerboundPacket func(username, address string, p *packet.Packet) error
+	Routing     func(name string) string
+	CredManager *credentials.MicrosoftCredentialsManager
+	SaveChannel chan *ProxiedChunk
 }
 
 func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, _ int32, conn *net.Conn) {
@@ -136,14 +133,18 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, _ int32, conn *net
 	}
 	log.Printf("Accepting new player [%s] (%s), adding events...", name, id.String())
 	c := bot.NewClient()
+	a := make(chan pk.Packet, 2048)
+	defer close(a)
+	go packetAcceptor(a, p.SaveChannel, name, dest)
 	// forward all packet from server to player
 	c.Events.AddGeneric(bot.PacketHandler{
 		Priority: 100,
-		F: func(pk packet.Packet) error {
-			if p.ModifyClientboundPacket != nil {
-				err := p.ModifyClientboundPacket(name, dest, &pk)
-				if err != nil {
-					return err
+		F: func(pk pk.Packet) error {
+			// log.Printf("s->c  %d", pk.ID)
+			for i := 0; i < len(collectPackets); i++ {
+				if collectPackets[i] == int(pk.ID) {
+					a <- pk
+					break
 				}
 			}
 			return conn.WritePacket(pk)
@@ -165,40 +166,28 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, _ int32, conn *net
 	log.Printf("Accepting new player [%s] (%s), dialing [%s]...", name, id.String(), dest)
 	if err := c.JoinServer(dest); err != nil {
 		log.Printf("Failed to accept new player [%s] (%s), error connecting to [%s]: %v", name, id.String(), dest, err)
-		var disconnectErr *bot.DisconnectErr
-		if errors.As(err, &disconnectErr) {
-			_ = conn.WritePacket(packet.Marshal(
-				packetid.ClientboundDisconnect,
-				(*chat.Message)(disconnectErr),
-			))
-		}
+		dissconnectWithMessage(conn, &chat.Message{Text: strings.TrimPrefix(err.Error(), "bot: disconnect error: disconnect because: ")})
 		return
 	}
 	defer c.Close()
 	go func() {
-		// forward all packet from player to server
-		var pk packet.Packet
+		var pk pk.Packet
 		var err error
 		for {
 			err = conn.ReadPacket(&pk)
 			if err != nil {
 				break
 			}
-			if p.ModifyServerboundPacket != nil {
-				err = p.ModifyServerboundPacket(name, dest, &pk)
-				if err != nil {
-					break
-				}
-			}
+			// log.Printf("c->s  %d", pk.ID)
 			err = c.Conn.WritePacket(pk)
 			if err != nil {
 				break
 			}
 		}
-		log.Printf("Player [%s] left from server [%s]: %v", name, dest, err)
+		log.Printf("Player [%s] left from server [%s] (s->c): %v", name, dest, err)
 	}()
 	if err := c.HandleGame(); err != nil {
-		log.Printf("FPlayer [%s] left from server [%s]: %v", name, dest, err)
+		log.Printf("Player [%s] left from server [%s] (c->s): %v", name, dest, err)
 	}
 }
 
@@ -207,5 +196,191 @@ func dissconnectWithError(conn *net.Conn, reason error) {
 }
 
 func dissconnectWithMessage(conn *net.Conn, reason *chat.Message) {
-	conn.WritePacket(packet.Marshal(packetid.ClientboundDisconnect, reason))
+	conn.WritePacket(pk.Marshal(packetid.ClientboundDisconnect, reason))
+}
+
+func packetAcceptor(recv chan pk.Packet, resp chan *ProxiedChunk, username, server string) {
+	c := map[struct {
+		pos level.ChunkPos
+		dim string
+	}]struct {
+		chunk level.Chunk
+	}{}
+	loadedDims := map[string]struct {
+		id   int32
+		minY int32
+	}{}
+	currentDim := ""
+	// nextpacket:
+	for p := range recv {
+		switch {
+		case p.ID == packetid.ClientboundLevelChunkWithLight:
+			if currentDim == "" {
+				log.Println("Recieved chunk without dimension")
+				continue
+			}
+			var cpos level.ChunkPos
+			var cc level.Chunk
+			err := p.Scan(&cpos, &cc)
+			if err != nil {
+				log.Printf("Failed to scan chunk packet: %v", err.Error())
+				continue
+			}
+			// verify all block entities are present
+			blockEntities := map[string]string{}
+			for _, sect := range cc.Sections {
+				if sect.BlockCount == 0 {
+					continue
+				}
+				// another way around this ugly loop will be to check palette but oh well...
+				for y := 0; y < 16; y++ {
+					for x := 0; x < 16; x++ {
+						for z := 0; z < 16; z++ {
+							blo := sect.GetBlock(y*16*16 + z*16 + x)
+							sta := block.StateList[blo]
+							for b := range viewer.BlockEntityTypes {
+								if b == strings.TrimPrefix(sta.ID(), "minecraft:") {
+									blockEntities[fmt.Sprintf("%d %d %d", x, y, z)] = sta.ID()
+								}
+							}
+						}
+					}
+				}
+			}
+			if len(blockEntities) < len(cc.BlockEntity) { // what if there is more than in sections?
+				// send to cache for completion
+				c[struct {
+					pos level.ChunkPos
+					dim string
+				}{
+					pos: cpos,
+					dim: currentDim,
+				}] = struct{ chunk level.Chunk }{cc}
+				log.Printf("Sending out chunk %d:%d to cache since missing %d block entities", cpos.X, cpos.Z, len(cc.BlockEntity)-len(blockEntities))
+			} else {
+				// send directly to storage because ready
+				resp <- &ProxiedChunk{
+					Username:  username,
+					Server:    server,
+					Dimension: currentDim,
+					Pos:       cpos,
+					Data:      cc,
+				}
+			}
+		case p.ID == packetid.ClientboundBlockEntityData:
+		case p.ID == packetid.ClientboundForgetLevelChunk:
+		case p.ID == packetid.ClientboundRespawn:
+			var (
+				dim        nbt.RawMessage
+				dimName    pk.Identifier
+				hashedSeed pk.Long
+			)
+			err := p.Scan(pk.NBT(&dim), &dimName, &hashedSeed)
+			if err != nil {
+				log.Printf("Failed to scan respawn packet: %s", err.Error())
+				continue
+			}
+			log.Printf("respawn to %s (%s)", dimName, dim.String())
+			currentDim = string(dimName)
+		case p.ID == packetid.ClientboundLogin:
+			var (
+				eid              pk.Int
+				isHardcore       pk.Boolean
+				gamemode         pk.UnsignedByte
+				previousGamemode pk.Byte
+				dimNames         []pk.Identifier
+				dimCodec         nbt.RawMessage
+				dim              nbt.RawMessage
+				dimName          pk.Identifier
+				hashedSeed       pk.Long
+				maxPlayers       pk.VarInt
+				viewDistance     pk.VarInt
+				simDistance      pk.VarInt
+				reducedDebug     pk.Boolean
+				respawnScreen    pk.Boolean
+				isdebug          pk.Boolean
+				isflat           pk.Boolean
+			)
+			err := p.Scan(
+				&eid,
+				&isHardcore,
+				&gamemode,
+				&previousGamemode,
+				pk.Ary[pk.VarInt, *pk.VarInt]{Ary: &dimNames},
+				pk.NBT(&dimCodec),
+				pk.NBT(&dim),
+				&dimName,
+				&hashedSeed,
+				&maxPlayers,
+				&viewDistance,
+				&simDistance,
+				&reducedDebug,
+				&respawnScreen,
+				&isdebug,
+				&isflat,
+			)
+			if err != nil {
+				log.Printf("Failed to parse sniffed packet: %v", err.Error())
+				continue
+			}
+			currentDim = string(dimName)
+			cod := map[string]interface{}{}
+			err = dimCodec.Unmarshal(&cod)
+			if err != nil {
+				log.Printf("Failed to unmarshal dim codec: %v", err.Error())
+				continue
+			}
+			dtypes, ok := cod["minecraft:dimension_type"].(map[string]interface{})
+			if !ok {
+				log.Println("Failed to get dimensions type registry")
+				spew.Dump(cod)
+				continue
+			}
+			dims, ok := dtypes["value"].([]interface{})
+			if !ok {
+				log.Println("Failed to get dimension registry value")
+				spew.Dump(dtypes)
+				continue
+			}
+			for di := range dims {
+				dd, ok := dims[di].(map[string]interface{})
+				if !ok {
+					log.Println("Dimension registry value is not a msi")
+					spew.Dump(dims)
+					continue
+				}
+				dimname, ok := dd["name"].(string)
+				if !ok {
+					log.Println("Dimension registry value name error")
+					spew.Dump(dd)
+					continue
+				}
+				dimid, ok := dd["id"].(int32)
+				if !ok {
+					log.Println("Dimension registry value id error")
+					spew.Dump(dd)
+					continue
+				}
+				de, ok := dd["element"].(map[string]interface{})
+				if !ok {
+					log.Println("Dimension registry value element error")
+					spew.Dump(dd)
+					continue
+				}
+				miny, ok := de["min_y"].(int32)
+				if !ok {
+					log.Println("Dimension registry value miny error")
+					spew.Dump(de)
+					continue
+				}
+				loadedDims[dimname] = struct {
+					id   int32
+					minY int32
+				}{
+					id:   dimid,
+					minY: miny,
+				}
+			}
+		}
+	}
 }

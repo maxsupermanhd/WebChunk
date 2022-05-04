@@ -129,7 +129,7 @@ func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfi
 		AppendArgument(commands.Argument("distance", NewIntegerParser(6, 32)).
 			HandleFunc(func(ctx context.Context, args []command.ParsedData) error {
 				v := int(args[2].(int64))
-				chunkLoader.defaultViewDistance = v
+				chunkLoader.SetPlayerRenderDistance(ctx.Value("sender").(*server.Player).UUID, v)
 				SendSystemMessage(ctx.Value("sender").(*server.Player), chat.Text(fmt.Sprintf("Render distance is set to %d", v)))
 				return nil
 			})).

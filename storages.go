@@ -21,10 +21,8 @@
 package main
 
 import (
-	"bytes"
 	"log"
 
-	"github.com/dustin/go-humanize"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 )
@@ -37,41 +35,36 @@ func closeStorages(s []chunkStorage.Storage) {
 	}
 }
 
-func chunkConsumer(c chan proxy.ProxiedChunk) {
+func chunkConsumer(c chan *proxy.ProxiedChunk) {
 	for r := range c {
-		var b bytes.Buffer
-		size, err := r.Data.WriteTo(&b)
-		if err != nil {
-			log.Printf("Error testing chunk [%v] from [%v] by [%v]: %v", r.Pos, r.FromServer, r.FromPlayer, err)
-		}
 		found := false
 		for _, c := range loadedConfig.Routes {
-			if c.Username == r.FromPlayer {
-				found = true
-				if c.World == "" || c.Dimension == "" {
-					log.Printf("Got chunk [%v] from [%v] by [%v] (%v)", r.Pos, r.FromServer, r.FromPlayer, humanize.Bytes(uint64(size)))
-				} else {
-					_, _, err := chunkStorage.GetWorldStorage(storages, c.World)
-					if err != nil {
-						log.Println("Failed to lookup world storage: ", err)
-						// } else {
-						// s.AddChunk(c.World, c.Dimension, r.Pos.X, r.Pos.Z, save.Chunk{
-						// 	DataVersion:   r.Data.,
-						// 	XPos:          int32(r.Pos.X),
-						// 	YPos:          -4,
-						// 	ZPos:          int32(r.Pos.Z),
-						// 	BlockEntities: ,
-						// 	Structures:    nbt.RawMessage{},
-						// 	Heightmaps:    struct{MotionBlocking []int64 "nbt:\"MOTION_BLOCKING\""; MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""; OceanFloor []int64 "nbt:\"OCEAN_FLOOR\""; WorldSurface []int64 "nbt:\"WORLD_SURFACE\""}{},
-						// 	Sections:      []save.Section{},
-						// })
-					}
+			if c.Username != r.Username {
+				continue
+			}
+			found = true
+			if c.World == "" || c.Dimension == "" {
+				log.Printf("Got chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
+			} else {
+				_, _, err := chunkStorage.GetWorldStorage(storages, c.World)
+				if err != nil {
+					log.Println("Failed to lookup world storage: ", err)
+					// } else {
+					// s.AddChunk(c.World, c.Dimension, r.Pos.X, r.Pos.Z, save.Chunk{
+					// 	DataVersion:   r.Data.,
+					// 	XPos:          int32(r.Pos.X),
+					// 	YPos:          -4,
+					// 	ZPos:          int32(r.Pos.Z),
+					// 	BlockEntities: ,
+					// 	Structures:    nbt.RawMessage{},
+					// 	Heightmaps:    struct{MotionBlocking []int64 "nbt:\"MOTION_BLOCKING\""; MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""; OceanFloor []int64 "nbt:\"OCEAN_FLOOR\""; WorldSurface []int64 "nbt:\"WORLD_SURFACE\""}{},
+					// 	Sections:      []save.Section{},
+					// })
 				}
-				break
 			}
 		}
 		if !found {
-			log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v] (%v)", r.Pos, r.FromServer, r.FromPlayer, humanize.Bytes(uint64(size)))
+			log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
 		}
 	}
 }

@@ -84,9 +84,11 @@ func (s *chunkLoader) Init(g *server.Game) {
 			if p.x != float64(x) || p.y != float64(y) || p.z != float64(z) {
 				SendUpdateViewPosition(player, int32(float64(x)/16), int32(float64(z)/16))
 			}
+			s.playersMutex.Lock()
 			p.x = float64(x)
 			p.y = float64(y)
 			p.z = float64(z)
+			s.playersMutex.Unlock()
 			log.Printf("Player [%s] updated positon [%.1f %.1f %.1f]", player.Name, x, y, z)
 			return nil
 		},
@@ -285,6 +287,16 @@ func (s *chunkLoader) SetPlayerWorldDim(u uuid.UUID, world, dim string) {
 	p.locWorld = world
 	p.locDimension = dim
 	p.viewingChunks = map[level.ChunkPos]bool{}
+}
+
+func (s *chunkLoader) SetPlayerRenderDistance(u uuid.UUID, distance int) {
+	s.playersMutex.Lock()
+	p, ok := s.players[u]
+	s.playersMutex.Unlock()
+	if !ok {
+		return
+	}
+	p.viewDistance = distance
 }
 
 func ActualChunkFromSave(c *save.Chunk, secs int) *level.Chunk {
