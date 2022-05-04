@@ -139,15 +139,20 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, _ int32, conn *net
 	// forward all packet from server to player
 	c.Events.AddGeneric(bot.PacketHandler{
 		Priority: 100,
-		F: func(pk pk.Packet) error {
+		F: func(p pk.Packet) error {
 			// log.Printf("s->c  %d", pk.ID)
 			for i := 0; i < len(collectPackets); i++ {
-				if collectPackets[i] == int(pk.ID) {
-					a <- pk
+				if collectPackets[i] == int(p.ID) {
+					bufcopy := make([]byte, len(p.Data))
+					copy(bufcopy, p.Data)
+					a <- pk.Packet{
+						ID:   p.ID,
+						Data: bufcopy,
+					}
 					break
 				}
 			}
-			return conn.WritePacket(pk)
+			return conn.WritePacket(p)
 		},
 	})
 	log.Printf("Accepting new player [%s] (%s), getting auth...", name, id.String())
