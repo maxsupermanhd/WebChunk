@@ -34,7 +34,6 @@ var loadedConfig WebChunkConfig
 var loadedConfigMutex sync.Mutex
 
 type ProxyRoute struct {
-	Username  string `json:"username"`
 	Address   string `json:"address"`
 	World     string `json:"world"`
 	Dimension string `json:"dimension"`
@@ -50,17 +49,16 @@ type WebChunkConfig struct {
 		ColorsLocation  string `json:"color_pallete"`
 	} `json:"web"`
 	Proxy         proxy.ProxyConfig          `json:"proxy"`
-	Routes        []ProxyRoute               `json:"proxy_routing"`
+	Routes        map[string]ProxyRoute      `json:"proxy_routing"`
 	Reconstructor viewer.ReconstructorConfig `json:"reconstructor"`
 }
 
 func ProxyRoutesHandler(username string) string {
-	for i := range loadedConfig.Routes {
-		if loadedConfig.Routes[i].Username == username {
-			return loadedConfig.Routes[i].Address
-		}
+	route, ok := loadedConfig.Routes[username]
+	if !ok {
+		return ""
 	}
-	return ""
+	return route.Address
 }
 
 func saveConfig() error {
