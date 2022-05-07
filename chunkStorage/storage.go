@@ -44,7 +44,18 @@ type ChunkData struct {
 	Data interface{}
 }
 
+type StorageAbilities struct {
+	CanCreateWorldsDimensions bool
+	CanAddChunks              bool
+	CanPreserveOldChunks      bool
+}
+
+// Everything returns empty slice/nil if specified
+// object is not found, error only in case of listing/requesting
+// or other abnormal things.
 type ChunkStorage interface {
+	GetAbilities() StorageAbilities
+
 	ListWorlds() ([]WorldStruct, error)
 	GetWorld(wname string) (*WorldStruct, error)
 	AddWorld(name, ip string) (*WorldStruct, error)

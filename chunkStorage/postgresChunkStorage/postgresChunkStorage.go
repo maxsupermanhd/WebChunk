@@ -24,6 +24,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 type PostgresChunkStorage struct {
@@ -41,4 +42,12 @@ func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresC
 func (s *PostgresChunkStorage) Close() error {
 	s.dbpool.Close()
 	return nil
+}
+
+func (s *PostgresChunkStorage) GetAbilities() chunkStorage.StorageAbilities {
+	return chunkStorage.StorageAbilities{
+		CanCreateWorldsDimensions: true,
+		CanAddChunks:              true,
+		CanPreserveOldChunks:      true,
+	}
 }

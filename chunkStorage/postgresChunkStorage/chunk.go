@@ -21,6 +21,8 @@
 package postgresChunkStorage
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"log"
 
@@ -106,10 +108,8 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz
 	select
 	x, z, coalesce(count(*), 0) as c
 	from chunks
-	where dim = (select dimensions.id 
-				 from dimensions 
-				 join worlds on worlds.id = dimensions.server 
-				 where worlds.name = $5 and dimensions.name = $6) AND
+	where dim = (select dimensions.id from dimensions
+				 where dimensions.world = $5 and dimensions.name = $6) AND
 		  x >= $1 AND z >= $2 AND x < $3 AND z < $4
 	group by x, z
 	order by c desc
@@ -137,19 +137,30 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz
 func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col save.Chunk) error {
 	raw, err := nbt.Marshal(col)
 	if err != nil {
+		log.Printf("Error marshling: %s", err.Error())
+		return err
+	}
+	out := []byte{1}
+	w := gzip.NewWriter(bytes.NewBuffer(out[1:]))
+	written, err := w.Write(raw)
+	if err != nil {
+		log.Printf("Error writing raw data: %s", err.Error())
+		return err
+	}
+	log.Printf("Written %d bytes", written)
+	err = w.Close()
+	if err != nil {
+		log.Printf("Error closing?!: %s", err.Error())
 		return err
 	}
 	_, err = s.dbpool.Exec(context.Background(), `
-			insert into chunks (x, z, data, dim, server)
+			insert into chunks (x, z, data, dim, world)
 			values ($1, $2, $3,
-				(select dimensions.id 
-				 from dimensions 
-				 join worlds on worlds.id = dimensions.server 
-				 where worlds.name = $4 and dimensions.name = $5),
+				(select dimensions.id from dimensions
+				 where dimensions.world = $4 and dimensions.name = $5),
 				 (select id from worlds where name = $4))`,
-		col.XPos, col.ZPos, raw, wname, dname)
+		col.XPos, col.ZPos, out, wname, dname)
 	return err
-
 }
 
 func (s *PostgresChunkStorage) GetChunksCount() (chunksCount uint64, derr error) {

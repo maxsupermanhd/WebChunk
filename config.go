@@ -37,6 +37,7 @@ type ProxyRoute struct {
 	Address   string `json:"address"`
 	World     string `json:"world"`
 	Dimension string `json:"dimension"`
+	Storage   string `json:"storage"`
 }
 
 type WebChunkConfig struct {

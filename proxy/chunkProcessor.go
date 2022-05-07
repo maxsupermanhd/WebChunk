@@ -82,7 +82,8 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 				continue
 			}
 			var cpos level.ChunkPos
-			var cc level.Chunk
+			// var cc level.Chunk
+			cc := *level.EmptyChunk(25)
 			err := p.Scan(&cpos, &cc)
 			if err != nil {
 				log.Printf("Failed to scan chunk packet: %v", err.Error())
@@ -107,7 +108,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 							sta := block.StateList[blo]
 							bid, ok := viewer.BlockEntityTypes[strings.TrimPrefix(sta.ID(), "minecraft:")]
 							if ok {
-								// log.Printf("Found block entity %s: %v", sta.ID(), bepos)
+								log.Printf("Found block entity %s: %v", sta.ID(), bepos)
 								missingbe[bepos] = bid
 							}
 						}
@@ -171,6 +172,11 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 				}
 			}
 		case p.ID == packetid.ClientboundBlockEntityData:
+			dim, ok := loadedDims[currentDim]
+			if !ok {
+				log.Printf("Recieved block entity data without dimension?!")
+				continue
+			}
 			var (
 				loc  pk.Position
 				t    pk.VarInt
@@ -212,14 +218,20 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			if len(cachedLevel.tofind) == 0 {
 				log.Printf("Sending chunk %d:%d to storage because recieved all block entities", cpos.X, cpos.Z)
 				resp <- &ProxiedChunk{
-					Username:  username,
-					Server:    serverip,
-					Dimension: currentDim,
-					Pos:       cpos,
-					Data:      cachedLevel.chunk,
+					Username:         username,
+					Server:           serverip,
+					Dimension:        currentDim,
+					Pos:              cpos,
+					Data:             cachedLevel.chunk,
+					DimensionLowestY: dim.minY,
 				}
 			}
 		case p.ID == packetid.ClientboundForgetLevelChunk:
+			dim, ok := loadedDims[currentDim]
+			if !ok {
+				log.Printf("Recieved block entity data without dimension?!")
+				continue
+			}
 			var x, z pk.Int
 			err := p.Scan(&x, &z)
 			if err != nil {
@@ -236,11 +248,12 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			}
 			log.Printf("Server tolad to unload chunk %d:%d, sending chunk as it is to storage", x, z)
 			resp <- &ProxiedChunk{
-				Username:  username,
-				Server:    serverip,
-				Dimension: currentDim,
-				Pos:       cpos,
-				Data:      cachedLevel.chunk,
+				Username:         username,
+				Server:           serverip,
+				Dimension:        currentDim,
+				Pos:              cpos,
+				Data:             cachedLevel.chunk,
+				DimensionLowestY: dim.minY,
 			}
 		case p.ID == packetid.ClientboundRespawn:
 			var (
@@ -358,7 +371,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 		conn.Push(pk.Marshal(
 			packetid.ClientboundChat,
 			chat.Text(fmt.Sprintf("Cached chunks: %d", len(c))),
-			pk.Byte(1),
+			pk.Byte(2),
 			pk.UUID(uuid.Nil),
 		))
 	}
