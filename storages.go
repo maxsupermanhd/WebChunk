@@ -37,34 +37,24 @@ func closeStorages(s []chunkStorage.Storage) {
 
 func chunkConsumer(c chan *proxy.ProxiedChunk) {
 	for r := range c {
-		found := false
-		for _, c := range loadedConfig.Routes {
-			if c.Username != r.Username {
-				continue
-			}
-			found = true
-			if c.World == "" || c.Dimension == "" {
-				log.Printf("Got chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
-			} else {
-				_, _, err := chunkStorage.GetWorldStorage(storages, c.World)
-				if err != nil {
-					log.Println("Failed to lookup world storage: ", err)
-					// } else {
-					// s.AddChunk(c.World, c.Dimension, r.Pos.X, r.Pos.Z, save.Chunk{
-					// 	DataVersion:   r.Data.,
-					// 	XPos:          int32(r.Pos.X),
-					// 	YPos:          -4,
-					// 	ZPos:          int32(r.Pos.Z),
-					// 	BlockEntities: ,
-					// 	Structures:    nbt.RawMessage{},
-					// 	Heightmaps:    struct{MotionBlocking []int64 "nbt:\"MOTION_BLOCKING\""; MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""; OceanFloor []int64 "nbt:\"OCEAN_FLOOR\""; WorldSurface []int64 "nbt:\"WORLD_SURFACE\""}{},
-					// 	Sections:      []save.Section{},
-					// })
-				}
-			}
-		}
-		if !found {
+		route, ok := loadedConfig.Routes[r.Username]
+		if !ok {
 			log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
+		}
+		log.Printf("Got chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
+		if route.World == "" {
+			route.World = r.Server
+		}
+		if route.Dimension == "" {
+			route.Dimension = r.Dimension
+		}
+		w, s, err := chunkStorage.GetWorldStorage(storages, route.World)
+		if err != nil {
+			log.Println("Failed to lookup world storage: ", err)
+			break
+		}
+		if w == nil || s == nil {
+			continue
 		}
 	}
 }
