@@ -84,17 +84,26 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 				log.Printf("Failed to add world: %s", err.Error())
 				continue
 			}
+		}
+		d, err = s.GetDimension(w.Name, route.Dimension)
+		if err != nil {
+			log.Printf("Failed to get dim: %s", err.Error())
+			continue
+		}
+		if d == nil {
 			d, err = s.AddDimension(w.Name, route.Dimension, route.Dimension)
 			if err != nil {
 				log.Printf("Failed to add dim: %s", err.Error())
 				continue
 			}
-		} else {
-			d, err = s.GetDimension(w.Name, route.Dimension)
-			if err != nil {
-				log.Printf("Failed to get dim: %s", err.Error())
-				continue
-			}
+		}
+		if d == nil {
+			log.Println("d is nill")
+			continue
+		}
+		if w == nil {
+			log.Println("w is nill")
+			continue
 		}
 		if d.World != w.Name {
 			log.Printf("SUS dim's wname != world's name [%s] [%s]", d.World, w.Name)
@@ -124,7 +133,12 @@ func chunkLevelToSave(in *level.Chunk, lowestY int32, cx, cz int32) (*save.Chunk
 			MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
 			OceanFloor             []int64 "nbt:\"OCEAN_FLOOR\""
 			WorldSurface           []int64 "nbt:\"WORLD_SURFACE\""
-		}{},
+		}{
+			MotionBlocking:         []int64{}, //*(*[]int64)(unsafe.Pointer(in.HeightMaps.MotionBlocking)),
+			MotionBlockingNoLeaves: []int64{},
+			OceanFloor:             []int64{},
+			WorldSurface:           []int64{}, //*(*[]int64)(unsafe.Pointer(in.HeightMaps.WorldSurface)),
+		},
 		Sections: []save.Section{},
 	}
 	for y, s := range in.Sections {
@@ -133,20 +147,29 @@ func chunkLevelToSave(in *level.Chunk, lowestY int32, cx, cz int32) (*save.Chunk
 			BlockStates: struct {
 				Palette []save.BlockState "nbt:\"palette\""
 				Data    []int64           "nbt:\"data\""
-			}{},
+			}{
+				Palette: []save.BlockState{},
+				Data:    []int64{},
+			},
 			Biomes: struct {
 				Palette []string "nbt:\"palette\""
 				Data    []int64  "nbt:\"data\""
-			}{},
-			SkyLight:   []byte{},
-			BlockLight: []byte{},
+			}{
+				Palette: []string{},
+				Data:    []int64{},
+			},
+			SkyLight:   []byte{0},
+			BlockLight: []byte{0},
 		}
 
 		// blockstates
 		if s.BlockCount == 0 {
 			o.BlockStates.Palette = append(o.BlockStates.Palette, save.BlockState{
-				Name:       "minecraft:air",
-				Properties: nbt.RawMessage{},
+				Name: "minecraft:air",
+				Properties: nbt.RawMessage{
+					Type: 0,
+					Data: []byte{},
+				},
 			})
 		} else {
 			statesPalette := []int{}
@@ -169,8 +192,11 @@ func chunkLevelToSave(in *level.Chunk, lowestY int32, cx, cz int32) (*save.Chunk
 			for i := range statesPalette {
 				b := block.StateList[statesPalette[i]]
 				addPalette := save.BlockState{
-					Name:       b.ID(),
-					Properties: nbt.RawMessage{},
+					Name: b.ID(),
+					Properties: nbt.RawMessage{
+						Type: 0,
+						Data: []byte{},
+					},
 				}
 				dat, err := nbt.Marshal(b)
 				if err != nil {
