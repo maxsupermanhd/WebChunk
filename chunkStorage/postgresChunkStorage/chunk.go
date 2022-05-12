@@ -140,19 +140,26 @@ func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col sav
 		log.Printf("Error marshling: %s", err.Error())
 		return err
 	}
-	out := []byte{1}
-	w := gzip.NewWriter(bytes.NewBuffer(out[1:]))
+	outb := bytes.NewBuffer([]byte{})
+	w := gzip.NewWriter(outb)
 	written, err := w.Write(raw)
 	if err != nil {
 		log.Printf("Error writing raw data: %s", err.Error())
 		return err
 	}
-	log.Printf("Written %d bytes", written)
 	err = w.Close()
 	if err != nil {
 		log.Printf("Error closing?!: %s", err.Error())
 		return err
 	}
+	out := outb.Bytes()
+	// if len(out) != written {
+	// 	return fmt.Errorf("written != len (%d, %d)", len(out), written)
+	// }
+	log.Printf("Written %d bytes", written)
+	out = append(out, 0)
+	copy(out[1:], out)
+	out[0] = 1
 	_, err = s.dbpool.Exec(context.Background(), `
 			insert into chunks (x, z, data, dim, world)
 			values ($1, $2, $3,
