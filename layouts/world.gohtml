@@ -17,7 +17,8 @@
 					<summary>Add dimension</summary>
 					Dimension name: <input type="text" id="adddimension-name">
 					Dimension alias: <input type="text" id="adddimension-alias">
-					<button class="btn btn-primary" onclick="addDimension(document.getElementById('adddimension-name').value, document.getElementById('adddimension-alias').value, {{.World.Name}})">Add</button>
+					Minimum world height: <input type="int" id="adddimension-height">
+					<button class="btn btn-primary" onclick="addDimension(document.getElementById('adddimension-name').value, document.getElementById('adddimension-alias').value, document.getElementById('adddimension-height').value, {{.World.Name}})">Add</button>
 				</details>
 			</p>
 			<p>

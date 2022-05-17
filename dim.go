@@ -23,6 +23,7 @@ package main
 import (
 	"net/http"
 	"regexp"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -62,26 +63,32 @@ func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
 	if r.ParseMultipartForm(0) != nil {
 		return 400, "Unable to parse form parameters"
 	}
-	name := r.FormValue("name")
-	if !dimNameRegexp.Match([]byte(name)) {
+	tdim := chunkStorage.DimStruct{}
+	tdim.Name = r.FormValue("name")
+	if !dimNameRegexp.Match([]byte(tdim.Name)) {
 		return 400, "Invalid dimension name"
 	}
-	alias := r.FormValue("alias")
-	if !dimAliasRegexp.Match([]byte(alias)) {
+	tdim.Alias = r.FormValue("alias")
+	if !dimAliasRegexp.Match([]byte(tdim.Alias)) {
 		return 400, "Invalid dimension alias"
 	}
-	wname := r.FormValue("world")
-	if !worldNameRegexp.Match([]byte(wname)) {
+	tdim.World = r.FormValue("world")
+	if !worldNameRegexp.Match([]byte(tdim.World)) {
 		return 400, "Invalid world name"
 	}
-	_, s, err := chunkStorage.GetWorldStorage(storages, wname)
+	var err error
+	tdim.LowestY, err = strconv.Atoi(r.FormValue("miny"))
+	if err != nil {
+		return 400, "Invalid lowest Y: " + err.Error()
+	}
+	_, s, err := chunkStorage.GetWorldStorage(storages, tdim.World)
 	if err != nil {
 		return 500, "Error getting world storage: " + err.Error()
 	}
 	if s == nil {
 		return 404, "World does not exist"
 	}
-	dim, err := s.AddDimension(wname, name, alias)
+	dim, err := s.AddDimension(tdim)
 	if err != nil {
 		return 500, "Failed to add dimension: " + err.Error()
 	}

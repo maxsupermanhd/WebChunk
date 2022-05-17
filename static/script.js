@@ -15,12 +15,13 @@ function addServer(sendname, sendip) {
 	XHR.send(FD);
 }
 
-function addDimension(sendname, sendalias, sendserver) {
+function addDimension(sendname, sendalias, sendminy, sendserver) {
 	const XHR = new XMLHttpRequest()
 		  FD = new FormData();
 	FD.append("name", sendname)
 	FD.append("alias", sendalias)
 	FD.append("server", sendserver)
+	FD.append("miny", sendminy)
 	XHR.addEventListener('load', function(event) {
 		alert(event);
 		console.log(event);

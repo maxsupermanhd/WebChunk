@@ -37,6 +37,7 @@ type DimStruct struct {
 	Alias      string   `json:"alias"`
 	World      string   `json:"world"`
 	Spawnpoint [3]int64 `json:"spawn"`
+	LowestY    int      `json:"miny"`
 }
 
 type ChunkData struct {
@@ -65,7 +66,7 @@ type ChunkStorage interface {
 	ListWorldDimensions(wname string) ([]DimStruct, error)
 	ListDimensions() ([]DimStruct, error)
 	GetDimension(wname, dname string) (*DimStruct, error)
-	AddDimension(wname, name, alias string) (*DimStruct, error)
+	AddDimension(DimStruct) (*DimStruct, error)
 	GetDimensionChunksCount(wname, dname string) (uint64, error)
 	GetDimensionChunksSize(wname, dname string) (uint64, error)
 

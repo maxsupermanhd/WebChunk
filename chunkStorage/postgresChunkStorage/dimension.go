@@ -72,7 +72,7 @@ func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error
 func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStorage.DimStruct, error) {
 	dim := chunkStorage.DimStruct{}
 	derr := s.dbpool.QueryRow(context.Background(),
-		`SELECT name, alias, world, spawnpoint FROM dimensions WHERE name = $1 AND world = $2`, dimension, world).
+		`SELECT name, alias, world, spawnpoint, miny FROM dimensions WHERE name = $1 AND world = $2`, dimension, world).
 		Scan(&dim.Name, &dim.Alias, &dim.World, &dim.Spawnpoint)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
@@ -80,13 +80,9 @@ func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStor
 	return &dim, derr
 }
 
-func (s *PostgresChunkStorage) AddDimension(wname, name, alias string) (*chunkStorage.DimStruct, error) {
-	dim := chunkStorage.DimStruct{}
+func (s *PostgresChunkStorage) AddDimension(dim chunkStorage.DimStruct) (*chunkStorage.DimStruct, error) {
 	_, derr := s.dbpool.Exec(context.Background(),
-		`INSERT INTO dimensions (world, name, alias) VALUES ($1, $2, $3) RETURNING id`, wname, name, alias)
-	dim.Alias = alias
-	dim.Name = name
-	dim.World = wname
+		`INSERT INTO dimensions (world, name, alias, spawnpoint, miny) VALUES ($1, $2, $3, $4, $5)`, dim.World, dim.Name, dim.Alias, dim.Spawnpoint, dim.LowestY)
 	return &dim, derr
 }
 
