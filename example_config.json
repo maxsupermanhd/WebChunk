@@ -23,14 +23,13 @@
 		"credentials": "./cmd/auth/",
 		"CompressThreshold": 0
 	},
-	"proxy_routing": [
-		{
-			"username": "FlexCoral",
-			"address": "simplyvanilla.net",
+	"proxy_routing": {
+		"FlexCoral": {
+			"address": "phoenixanarchy.com",
 			"world": "",
 			"dimension": ""
 		}
-	],
+	},
 	"reconstructor": {
 		"motd": {
 			"text": "WebChunk reconstructor"
