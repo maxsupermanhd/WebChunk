@@ -137,7 +137,7 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *playerData) {
 			log.Println("Chunk not found")
 			chunk = level.EmptyChunk(256)
 		} else {
-			chunk = ActualChunkFromSave(save, 256)
+			chunk = ActualChunkFromSave(save)
 		}
 	}
 	if chunk == nil {
@@ -299,8 +299,8 @@ func (s *chunkLoader) SetPlayerRenderDistance(u uuid.UUID, distance int) {
 	p.viewDistance = distance
 }
 
-func ActualChunkFromSave(c *save.Chunk, secs int) *level.Chunk {
-	sections := make([]level.Section, secs)
+func ActualChunkFromSave(c *save.Chunk) *level.Chunk {
+	sections := make([]level.Section, len(c.Sections))
 	for _, v := range c.Sections {
 		var blockCount int16
 		stateData := *(*[]uint64)((unsafe.Pointer)(&v.BlockStates.Data))
@@ -350,8 +350,8 @@ func ActualChunkFromSave(c *save.Chunk, secs int) *level.Chunk {
 	ret := level.Chunk{
 		Sections: sections,
 		HeightMaps: level.HeightMaps{
-			MotionBlocking: level.NewBitStorage(bits.Len(uint(secs)), 16*16, motionBlocking),
-			WorldSurface:   level.NewBitStorage(bits.Len(uint(secs)), 16*16, worldSurface),
+			MotionBlocking: level.NewBitStorage(bits.Len(uint(len(c.Sections))), 16*16, motionBlocking),
+			WorldSurface:   level.NewBitStorage(bits.Len(uint(len(c.Sections))), 16*16, worldSurface),
 		},
 	}
 	var blockEntitiesData []nbt.RawMessage
