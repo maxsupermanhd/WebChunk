@@ -15,7 +15,7 @@ replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
 replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
 require (
-	github.com/Tnze/go-mc v1.18.2-0.20220401165811-e00bb53f9efb
+	github.com/Tnze/go-mc v1.18.2-0.20220517073825-ad0ea1db6810
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
@@ -46,9 +46,9 @@ require (
 	github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
-	github.com/tklauser/numcpus v0.4.0 // indirect
-	golang.org/x/crypto v0.0.0-20220511200225-c6db032c6c88 // indirect
-	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
+	github.com/tklauser/numcpus v0.5.0 // indirect
+	golang.org/x/crypto v0.0.0-20220517005047-85d78b3ac167 // indirect
+	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )

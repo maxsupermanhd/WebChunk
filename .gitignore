@@ -7,3 +7,4 @@ tags
 db/data*
 imageCache
 storages.json
+WebChunk
