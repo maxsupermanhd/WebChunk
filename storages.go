@@ -22,10 +22,9 @@ package main
 
 import (
 	"log"
+	"strings"
 
 	"github.com/Tnze/go-mc/level"
-	"github.com/Tnze/go-mc/level/block"
-	"github.com/Tnze/go-mc/nbt"
 	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
@@ -91,7 +90,14 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 			continue
 		}
 		if d == nil {
-			d, err = s.AddDimension(w.Name, route.Dimension, route.Dimension)
+			d = &chunkStorage.DimStruct{
+				Name:       route.Dimension,
+				Alias:      strings.TrimPrefix(route.Dimension, "minecraft:"),
+				World:      w.Name,
+				Spawnpoint: [3]int64{0, 64, 0},
+				LowestY:    int(r.DimensionLowestY),
+			}
+			d, err = s.AddDimension(*d)
 			if err != nil {
 				log.Printf("Failed to add dim: %s", err.Error())
 				continue
@@ -109,138 +115,148 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 			log.Printf("SUS dim's wname != world's name [%s] [%s]", d.World, w.Name)
 			continue
 		}
-		data, err := chunkLevelToSave(&r.Data, r.DimensionLowestY, int32(r.Pos.X), int32(r.Pos.Z))
-		if err != nil {
-			log.Printf("Error convering level to save: %s", err.Error())
-		}
-		err = s.AddChunk(w.Name, d.Name, r.Pos.X, r.Pos.Z, *data)
+		var data save.Chunk
+		data.XPos = int32(r.Pos.X)
+		data.ZPos = int32(r.Pos.Z)
+		level.ChunkToSave(&r.Data, &data)
+		err = s.AddChunk(w.Name, d.Name, r.Pos.X, r.Pos.Z, data)
 		if err != nil {
 			log.Printf("Failed to save chunk: %s", err.Error())
 		}
 	}
 }
 
-func chunkLevelToSave(in *level.Chunk, lowestY int32, cx, cz int32) (*save.Chunk, error) {
-	out := save.Chunk{
-		DataVersion:   2865, // was at the moment of writing
-		XPos:          int32(cx),
-		YPos:          lowestY / 16,
-		ZPos:          int32(cz),
-		BlockEntities: nbt.RawMessage{},
-		Structures:    nbt.RawMessage{}, // we will never get those
-		Heightmaps: struct {
-			MotionBlocking         []int64 "nbt:\"MOTION_BLOCKING\""
-			MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
-			OceanFloor             []int64 "nbt:\"OCEAN_FLOOR\""
-			WorldSurface           []int64 "nbt:\"WORLD_SURFACE\""
-		}{
-			MotionBlocking:         []int64{}, //*(*[]int64)(unsafe.Pointer(in.HeightMaps.MotionBlocking)),
-			MotionBlockingNoLeaves: []int64{},
-			OceanFloor:             []int64{},
-			WorldSurface:           []int64{}, //*(*[]int64)(unsafe.Pointer(in.HeightMaps.WorldSurface)),
-		},
-		Sections: []save.Section{},
-	}
-	for y, s := range in.Sections {
-		o := save.Section{
-			Y: int8(y + int(out.YPos)),
-			BlockStates: struct {
-				Palette []save.BlockState "nbt:\"palette\""
-				Data    []int64           "nbt:\"data\""
-			}{
-				Palette: []save.BlockState{},
-				Data:    []int64{},
-			},
-			Biomes: struct {
-				Palette []string "nbt:\"palette\""
-				Data    []int64  "nbt:\"data\""
-			}{
-				Palette: []string{},
-				Data:    []int64{},
-			},
-			SkyLight:   []byte{0},
-			BlockLight: []byte{0},
-		}
+// func chunkLevelToSave(in *level.Chunk, lowestY int32, cx, cz int32) (*save.Chunk, error) {
+// 	spew.Dump(in)
+// 	out := save.Chunk{
+// 		DataVersion:   2865, // was at the moment of writing
+// 		XPos:          int32(cx),
+// 		YPos:          lowestY / 16,
+// 		ZPos:          int32(cz),
+// 		BlockEntities: nbt.RawMessage{},
+// 		Structures:    nbt.RawMessage{}, // we will never get those
+// 		Heightmaps: struct {
+// 			MotionBlocking         []int64 "nbt:\"MOTION_BLOCKING\""
+// 			MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
+// 			OceanFloor             []int64 "nbt:\"OCEAN_FLOOR\""
+// 			WorldSurface           []int64 "nbt:\"WORLD_SURFACE\""
+// 		}{
+// 			MotionBlocking:         []int64{}, //*(*[]int64)(unsafe.Pointer(in.HeightMaps.MotionBlocking)),
+// 			MotionBlockingNoLeaves: []int64{},
+// 			OceanFloor:             []int64{},
+// 			WorldSurface:           []int64{}, //*(*[]int64)(unsafe.Pointer(in.HeightMaps.WorldSurface)),
+// 		},
+// 		Sections: []save.Section{},
+// 	}
+// 	for y, s := range in.Sections {
+// 		o := save.Section{
+// 			Y: int8(y + int(out.YPos)),
+// 			BlockStates: struct {
+// 				Palette []save.BlockState "nbt:\"palette\""
+// 				Data    []int64           "nbt:\"data\""
+// 			}{
+// 				Palette: []save.BlockState{},
+// 				Data:    []int64{},
+// 			},
+// 			Biomes: struct {
+// 				Palette []string "nbt:\"palette\""
+// 				Data    []int64  "nbt:\"data\""
+// 			}{
+// 				Palette: []string{},
+// 				Data:    []int64{},
+// 			},
+// 			SkyLight:   []byte{0},
+// 			BlockLight: []byte{0},
+// 		}
 
-		// blockstates
-		if s.BlockCount == 0 {
-			o.BlockStates.Palette = append(o.BlockStates.Palette, save.BlockState{
-				Name: "minecraft:air",
-				Properties: nbt.RawMessage{
-					Type: 0,
-					Data: []byte{},
-				},
-			})
-		} else {
-			statesPalette := []int{}
-			statesIndexes := [4096]int64{}
-			for i := 0; i < 16*16*16; i++ {
-				addState := s.States.Get(i)
-				foundstate := -1
-				for ii := range statesPalette {
-					if statesPalette[ii] == addState {
-						foundstate = ii
-						break
-					}
-				}
-				if foundstate == -1 {
-					statesPalette = append(statesPalette, addState)
-					foundstate = len(statesPalette) - 1
-				}
-				statesIndexes[i] = int64(foundstate)
-			}
-			for i := range statesPalette {
-				b := block.StateList[statesPalette[i]]
-				addPalette := save.BlockState{
-					Name: b.ID(),
-					Properties: nbt.RawMessage{
-						Type: 0,
-						Data: []byte{},
-					},
-				}
-				dat, err := nbt.Marshal(b)
-				if err != nil {
-					return nil, err
-				}
-				addPalette.Properties.Data = dat
-				addPalette.Properties.Type = nbt.TagCompound
-				o.BlockStates.Palette = append(o.BlockStates.Palette, addPalette)
-			}
-			sizeBits := int64(0)
-			for i := int64(0); i < 32; i++ {
-				if len(statesPalette)&(1<<i) != 0 {
-					sizeBits = i + 1
-				}
-			}
-			if sizeBits < 4 {
-				sizeBits = 4
-			}
-			haveBits := int64(64)
-			currData := int64(0)
-			for i := range statesIndexes {
-				if haveBits < sizeBits {
-					if haveBits == 0 {
-						o.BlockStates.Data = append(o.BlockStates.Data, int64(currData))
-						haveBits = 64
-						currData = 0
-					} else {
-						leftBits := sizeBits - haveBits
-						currData = currData | (statesIndexes[i] >> leftBits)
-						o.BlockStates.Data = append(o.BlockStates.Data, int64(currData))
-						haveBits = 64 + haveBits
-						currData = 0
-					}
-				}
-				currData = currData | (statesIndexes[i])<<(haveBits-sizeBits)
-				haveBits -= sizeBits
-			}
-			if haveBits != 64 {
-				o.BlockStates.Data = append(o.BlockStates.Data, currData)
-			}
-		}
-		// biomes
-		// heightmaps
-		out.Sections = append(out.Sections, o)
-	}
-	return &out, nil
-}
+// 		convbuf := bytes.NewBuffer([]byte{})
+// 		s.States.WriteTo(convbuf)
+
+// 		// blockstates
+// 		// if s.BlockCount == 0 {
+// 		// 	o.BlockStates.Palette = append(o.BlockStates.Palette, save.BlockState{
+// 		// 		Name: "minecraft:air",
+// 		// 		Properties: nbt.RawMessage{
+// 		// 			Type: nbt.TagCompound,
+// 		// 			Data: []byte{nbt.TagEnd},
+// 		// 		},
+// 		// 	})
+// 		// } else {
+// 		// 	statesPalette := []int{}
+// 		// 	statesIndexes := [4096]int64{}
+// 		// 	for i := 0; i < 16*16*16; i++ {
+// 		// 		addState := s.States.Get(i)
+// 		// 		foundstate := -1
+// 		// 		for ii := range statesPalette {
+// 		// 			if statesPalette[ii] == addState {
+// 		// 				foundstate = ii
+// 		// 				break
+// 		// 			}
+// 		// 		}
+// 		// 		if foundstate == -1 {
+// 		// 			statesPalette = append(statesPalette, addState)
+// 		// 			foundstate = len(statesPalette) - 1
+// 		// 		}
+// 		// 		statesIndexes[i] = int64(foundstate)
+// 		// 	}
+// 		// 	for i := range statesPalette {
+// 		// 		b := block.StateList[statesPalette[i]]
+// 		// 		addPalette := save.BlockState{
+// 		// 			Name: b.ID(),
+// 		// 			Properties: nbt.RawMessage{
+// 		// 				Type: nbt.TagCompound,
+// 		// 				Data: []byte{nbt.TagEnd},
+// 		// 			},
+// 		// 		}
+// 		// 		dat, err := nbt.Marshal(b)
+// 		// 		if err != nil {
+// 		// 			return nil, err
+// 		// 		}
+// 		// 		if len(dat) == 4 {
+// 		// 			dat = []byte{0x0a, 0x00}
+// 		// 		}
+// 		// 		addPalette.Properties.Data = dat
+// 		// 		o.BlockStates.Palette = append(o.BlockStates.Palette, addPalette)
+// 		// 	}
+// 		// 	if len(o.BlockStates.Palette) > 1 {
+// 		// 		sizeBits := int64(0)
+// 		// 		for i := int64(0); i < 32; i++ {
+// 		// 			if len(statesPalette)&(1<<i) != 0 {
+// 		// 				sizeBits = i + 1
+// 		// 			}
+// 		// 		}
+// 		// 		if sizeBits < 4 {
+// 		// 			sizeBits = 4
+// 		// 		}
+// 		// 		haveBits := int64(64)
+// 		// 		currData := int64(0)
+// 		// 		for i := range statesIndexes {
+// 		// 			if haveBits < sizeBits {
+// 		// 				if haveBits == 0 {
+// 		// 					o.BlockStates.Data = append(o.BlockStates.Data, int64(currData))
+// 		// 					haveBits = 64
+// 		// 					currData = 0
+// 		// 				} else {
+// 		// 					leftBits := sizeBits - haveBits
+// 		// 					currData = currData | (statesIndexes[i] >> leftBits)
+// 		// 					o.BlockStates.Data = append(o.BlockStates.Data, int64(currData))
+// 		// 					haveBits = 64 + haveBits
+// 		// 					currData = 0
+// 		// 				}
+// 		// 			}
+// 		// 			currData = currData | (statesIndexes[i])<<(haveBits-sizeBits)
+// 		// 			haveBits -= sizeBits
+// 		// 		}
+// 		// 		if haveBits != 64 {
+// 		// 			o.BlockStates.Data = append(o.BlockStates.Data, currData)
+// 		// 		}
+// 		// 	}
+// 		// }
+// 		// biomes
+// 		// heightmaps
+// 		out.Sections = append(out.Sections, o)
+// 	}
+// 	log.Printf("Saved %d sections", len(out.Sections))
+// 	spew.Dump(out)
+// 	return &out, nil
+// }
