@@ -134,84 +134,84 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz
 	return cc, derr
 }
 
-type storingSection struct {
-	Y           uint8
-	BlockStates struct {
-		Palette []save.BlockState `nbt:"palette"`
-		Data    []int64           `nbt:"data"`
-	} `nbt:"block_states"`
-	Biomes struct {
-		Palette []string `nbt:"palette"`
-		Data    []int64  `nbt:"data"`
-	} `nbt:"biomes"`
-	SkyLight   []int8
-	BlockLight []int8
-}
-type storingChunk struct {
-	DataVersion   int32
-	XPos          int32          `nbt:"xPos"`
-	YPos          int32          `nbt:"yPos"`
-	ZPos          int32          `nbt:"zPos"`
-	BlockEntities nbt.RawMessage `nbt:"block_entities"`
-	Structures    nbt.RawMessage `nbt:"structures"`
-	Heightmaps    struct {
-		MotionBlocking         []int64 `nbt:"MOTION_BLOCKING"`
-		MotionBlockingNoLeaves []int64 `nbt:"MOTION_BLOCKING_NO_LEAVES"`
-		OceanFloor             []int64 `nbt:"OCEAN_FLOOR"`
-		WorldSurface           []int64 `nbt:"WORLD_SURFACE"`
-	}
-	Sections []storingSection `nbt:"sections"`
+// type storingSection struct {
+// 	Y           uint8
+// 	BlockStates struct {
+// 		Palette []save.BlockState `nbt:"palette"`
+// 		Data    []int64           `nbt:"data"`
+// 	} `nbt:"block_states"`
+// 	Biomes struct {
+// 		Palette []string `nbt:"palette"`
+// 		Data    []int64  `nbt:"data"`
+// 	} `nbt:"biomes"`
+// 	SkyLight   []int8
+// 	BlockLight []int8
+// }
+// type storingChunk struct {
+// 	DataVersion   int32
+// 	XPos          int32          `nbt:"xPos"`
+// 	YPos          int32          `nbt:"yPos"`
+// 	ZPos          int32          `nbt:"zPos"`
+// 	BlockEntities nbt.RawMessage `nbt:"block_entities"`
+// 	Structures    nbt.RawMessage `nbt:"structures"`
+// 	Heightmaps    struct {
+// 		MotionBlocking         []int64 `nbt:"MOTION_BLOCKING"`
+// 		MotionBlockingNoLeaves []int64 `nbt:"MOTION_BLOCKING_NO_LEAVES"`
+// 		OceanFloor             []int64 `nbt:"OCEAN_FLOOR"`
+// 		WorldSurface           []int64 `nbt:"WORLD_SURFACE"`
+// 	}
+// 	Sections []storingSection `nbt:"sections"`
 
-	BlockTicks     nbt.RawMessage `nbt:"block_ticks"`
-	FluidTicks     nbt.RawMessage `nbt:"fluid_ticks"`
-	PostProcessing nbt.RawMessage
-	InhabitedTime  int64
-	IsLightOn      byte `nbt:"isLightOn"`
-	LastUpdate     int64
-	Status         string
-}
+// 	BlockTicks     nbt.RawMessage `nbt:"block_ticks"`
+// 	FluidTicks     nbt.RawMessage `nbt:"fluid_ticks"`
+// 	PostProcessing nbt.RawMessage
+// 	InhabitedTime  int64
+// 	IsLightOn      byte `nbt:"isLightOn"`
+// 	LastUpdate     int64
+// 	Status         string
+// }
 
-func toStorageSection(s []save.Section) []storingSection {
-	ret := []storingSection{}
-	additive := int8(0)
-	for _, c := range s {
-		if c.Y < 0 && additive == 0 {
-			log.Printf("Negative save section, padded to 0 from %d", c.Y)
-			additive = -c.Y
-		}
-		ret = append(ret, storingSection{
-			Y:           uint8(c.Y + int8(additive)),
-			BlockStates: c.BlockStates,
-			Biomes:      c.Biomes,
-			SkyLight:    []int8{},
-			BlockLight:  []int8{},
-		})
-	}
-	return ret
-}
+// func toStorageSection(s []save.Section) []storingSection {
+// 	ret := []storingSection{}
+// 	additive := int8(0)
+// 	for _, c := range s {
+// 		if c.Y < 0 && additive == 0 {
+// 			log.Printf("Negative save section, padded to 0 from %d", c.Y)
+// 			additive = -c.Y
+// 		}
+// 		ret = append(ret, storingSection{
+// 			Y:           uint8(c.Y + int8(additive)),
+// 			BlockStates: c.BlockStates,
+// 			Biomes:      c.Biomes,
+// 			SkyLight:    []int8{},
+// 			BlockLight:  []int8{},
+// 		})
+// 	}
+// 	return ret
+// }
 
-func toStorageChunk(s save.Chunk) storingChunk {
-	return storingChunk{
-		DataVersion:    s.DataVersion,
-		XPos:           s.XPos,
-		YPos:           s.YPos,
-		ZPos:           s.ZPos,
-		BlockEntities:  s.BlockEntities,
-		Structures:     s.Structures,
-		Heightmaps:     s.Heightmaps,
-		Sections:       toStorageSection(s.Sections),
-		BlockTicks:     nbt.RawMessage{},
-		FluidTicks:     nbt.RawMessage{},
-		PostProcessing: nbt.RawMessage{},
-		InhabitedTime:  0,
-		IsLightOn:      0,
-		LastUpdate:     0,
-		Status:         "ripped",
-	}
-}
+// func toStorageChunk(s save.Chunk) storingChunk {
+// 	return storingChunk{
+// 		DataVersion:    s.DataVersion,
+// 		XPos:           s.XPos,
+// 		YPos:           s.YPos,
+// 		ZPos:           s.ZPos,
+// 		BlockEntities:  s.BlockEntities,
+// 		Structures:     s.Structures,
+// 		Heightmaps:     s.Heightmaps,
+// 		Sections:       toStorageSection(s.Sections),
+// 		BlockTicks:     nbt.RawMessage{},
+// 		FluidTicks:     nbt.RawMessage{},
+// 		PostProcessing: nbt.RawMessage{},
+// 		InhabitedTime:  0,
+// 		IsLightOn:      0,
+// 		LastUpdate:     0,
+// 		Status:         "ripped",
+// 	}
+// }
 
 func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col save.Chunk) error {
-	raw, err := nbt.Marshal(toStorageChunk(col))
+	raw, err := nbt.Marshal(col)
 	if err != nil {
 		log.Printf("Error marshling: %s", err.Error())
 		return err
@@ -237,11 +237,10 @@ func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col sav
 	copy(out[1:], out)
 	out[0] = 1
 	_, err = s.dbpool.Exec(context.Background(), `
-			insert into chunks (x, z, data, dim, world)
+			insert into chunks (x, z, data, dim)
 			values ($1, $2, $3,
 				(select dimensions.id from dimensions
-				 where dimensions.world = $4 and dimensions.name = $5),
-				 (select id from worlds where name = $4))`,
+				 where dimensions.world = $4 and dimensions.name = $5))`,
 		col.XPos, col.ZPos, out, wname, dname)
 	return err
 }

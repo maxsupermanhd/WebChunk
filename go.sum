@@ -6,6 +6,8 @@ github.com/Tnze/go-mc v1.18.2-0.20220401165811-e00bb53f9efb h1:pR1WsH/sAwisdnUZg
 github.com/Tnze/go-mc v1.18.2-0.20220401165811-e00bb53f9efb/go.mod h1:DyB0mWjox4fSiOdShzh7yx4nzx7q6AXUKzlXnT+iCTo=
 github.com/Tnze/go-mc v1.18.2-0.20220517073825-ad0ea1db6810 h1:ZStNqQuoIEC5WsGezHVD3H/gyQOs0kMnwCu5UovtwBQ=
 github.com/Tnze/go-mc v1.18.2-0.20220517073825-ad0ea1db6810/go.mod h1:DyB0mWjox4fSiOdShzh7yx4nzx7q6AXUKzlXnT+iCTo=
+github.com/Tnze/go-mc v1.18.2-0.20220519082943-a87e933f8af0 h1:9OCGnZx/7bugFOlabO+XsX+OdvbqhgfrFfCnbb/2e1g=
+github.com/Tnze/go-mc v1.18.2-0.20220519082943-a87e933f8af0/go.mod h1:DyB0mWjox4fSiOdShzh7yx4nzx7q6AXUKzlXnT+iCTo=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/cockroachdb/cockroach-go/v2 v2.2.0 h1:/5znzg5n373N/3ESjHF5SMLxiW4RKB05Ql//KWfeTFs=

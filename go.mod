@@ -15,7 +15,7 @@ replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
 replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
 require (
-	github.com/Tnze/go-mc v1.18.2-0.20220517073825-ad0ea1db6810
+	github.com/Tnze/go-mc v1.18.2-0.20220519082943-a87e933f8af0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
