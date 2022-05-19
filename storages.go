@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/Tnze/go-mc/level"
+	"github.com/Tnze/go-mc/nbt"
 	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
@@ -115,10 +116,33 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 			log.Printf("SUS dim's wname != world's name [%s] [%s]", d.World, w.Name)
 			continue
 		}
+		nbtEmptyList := nbt.RawMessage{
+			Type: nbt.TagList,
+			Data: []byte{0, 0, 0, 0, 0},
+		}
 		var data save.Chunk
 		data.XPos = int32(r.Pos.X)
 		data.ZPos = int32(r.Pos.Z)
 		level.ChunkToSave(&r.Data, &data)
+		for iiii, cccc := range data.Sections {
+			log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
+		}
+		data.BlockEntities = nbtEmptyList
+		data.Structures = nbtEmptyList
+		data.Heightmaps = struct {
+			MotionBlocking         []int64 "nbt:\"MOTION_BLOCKING\""
+			MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
+			OceanFloor             []int64 "nbt:\"OCEAN_FLOOR\""
+			WorldSurface           []int64 "nbt:\"WORLD_SURFACE\""
+		}{
+			MotionBlocking:         []int64{},
+			MotionBlockingNoLeaves: []int64{},
+			OceanFloor:             []int64{},
+			WorldSurface:           []int64{},
+		}
+		data.BlockTicks = nbtEmptyList
+		data.FluidTicks = nbtEmptyList
+		data.PostProcessing = nbtEmptyList
 		err = s.AddChunk(w.Name, d.Name, r.Pos.X, r.Pos.Z, data)
 		if err != nil {
 			log.Printf("Failed to save chunk: %s", err.Error())
