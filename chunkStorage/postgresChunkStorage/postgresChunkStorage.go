@@ -22,6 +22,7 @@ package postgresChunkStorage
 
 import (
 	"context"
+	"log"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -36,6 +37,12 @@ func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresC
 	if err != nil {
 		return nil, err
 	}
+	ver := "No version"
+	err = p.QueryRow(context.Background(), "SELECT version()").Scan(&ver)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("Postgres storage connected: " + ver)
 	return &PostgresChunkStorage{dbpool: p}, nil
 }
 
