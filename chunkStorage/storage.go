@@ -38,6 +38,7 @@ type DimStruct struct {
 	World      string   `json:"world"`
 	Spawnpoint [3]int64 `json:"spawn"`
 	LowestY    int      `json:"miny"`
+	BuildLimit int      `json:"maxy"`
 }
 
 type ChunkData struct {

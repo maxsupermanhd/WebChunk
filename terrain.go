@@ -33,7 +33,6 @@ import (
 	"strconv"
 	_ "sync"
 	"time"
-	"unsafe"
 
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/level/block"
@@ -78,7 +77,7 @@ func appendMetrics(t time.Duration, m string) {
 	metricsSend <- metricsCollect{t: t, m: m}
 }
 
-func isAirState(s int) bool {
+func isAirState(s block.StateID) bool {
 	switch block.StateList[s].(type) {
 	case block.Air, block.CaveAir, block.VoidAir:
 		return true
@@ -91,10 +90,9 @@ func isAirBlock(s block.Block) bool {
 	return s.ID() == "air" || s.ID() == "cave_air" || s.ID() == "void_air"
 }
 
-func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer {
-	data := *(*[]uint64)((unsafe.Pointer)(&s.BlockStates.Data))
+func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.StateID] {
 	statePalette := s.BlockStates.Palette
-	stateRawPalette := make([]int, len(statePalette))
+	stateRawPalette := make([]block.StateID, len(statePalette))
 	for i, v := range statePalette {
 		b, ok := block.FromID[v.Name]
 		if !ok {
@@ -118,7 +116,7 @@ func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer {
 		s := block.ToStateID[b]
 		stateRawPalette[i] = s
 	}
-	return level.NewStatesPaletteContainerWithData(16*16*16, data, stateRawPalette)
+	return level.NewStatesPaletteContainerWithData(16*16*16, s.BlockStates.Data, stateRawPalette)
 }
 
 func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {

@@ -24,11 +24,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"math/bits"
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
@@ -128,6 +128,11 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *playerData) {
 		if err != nil {
 			log.Println("Failed to get world storage: " + err.Error())
 		}
+		dim, err := storage.GetDimension(p.locWorld, p.locDimension)
+		if err != nil {
+			log.Printf("Failed to get dimension [%s] [%s] info: %s", p.locWorld, p.locDimension, err.Error())
+			return
+		}
 		save, err := storage.GetChunk(p.locWorld, p.locDimension, pos.X, pos.Z)
 		if err != nil {
 			log.Printf("Failed to get chunk %v: %v", pos, err.Error())
@@ -137,7 +142,8 @@ func (s *chunkLoader) sendChunk(pos level.ChunkPos, p *playerData) {
 			log.Println("Chunk not found")
 			chunk = level.EmptyChunk(256)
 		} else {
-			chunk = ActualChunkFromSave(save)
+			// chunk = level.ChunkFromSave(save)
+			chunk = ActualChunkFromSave(save, int(math.Abs(float64(dim.BuildLimit))+math.Abs(float64(dim.LowestY))))
 		}
 	}
 	if chunk == nil {
@@ -247,9 +253,9 @@ func (s *chunkLoader) generateHubChunk(x, z int) *level.Chunk {
 }
 
 // considers lowest section is y -64
-func SetChunkBlock(c *level.Chunk, lx, ly, lz, bs int) {
+func SetChunkBlock(c *level.Chunk, lx, ly, lz int, bs block.StateID) {
 	sid := (ly+64)/16 + 4
-	if len(c.Sections) <= sid {
+	if len(c.Sections) <= int(sid) {
 		log.Printf("Failed to set block %d at %d %d %d because there is no section %d (%d allocated)", bs, lx, ly, lz, sid, len(c.Sections))
 		return
 	}
@@ -299,61 +305,64 @@ func (s *chunkLoader) SetPlayerRenderDistance(u uuid.UUID, distance int) {
 	p.viewDistance = distance
 }
 
-func ActualChunkFromSave(c *save.Chunk) *level.Chunk {
-	sections := make([]level.Section, len(c.Sections))
-	for _, v := range c.Sections {
-		var blockCount int16
-		stateData := *(*[]uint64)((unsafe.Pointer)(&v.BlockStates.Data))
-		statePalette := v.BlockStates.Palette
-		stateRawPalette := make([]int, len(statePalette))
-		for i, v := range statePalette {
-			b, ok := block.FromID[v.Name]
-			if !ok {
-				return nil
-			}
-			if v.Properties.Data != nil {
-				err := v.Properties.Unmarshal(&b)
-				if err != nil {
-					return nil
-				}
-			}
-			s := block.ToStateID[b]
-			if !isAir(s) {
-				blockCount++
-			}
-			stateRawPalette[i] = s
-		}
+func ActualChunkFromSave(c *save.Chunk, totalWorldHight int) *level.Chunk {
+	ret := *level.ChunkFromSave(c)
+	b := bits.Len(uint(totalWorldHight / 16))
+	ret.HeightMaps.MotionBlocking = buildMBHeightmap(&ret, b)
+	// sections := make([]level.Section, len(c.Sections))
+	// for _, v := range c.Sections {
+	// 	var blockCount int16
+	// 	stateData := *(*[]uint64)((unsafe.Pointer)(&v.BlockStates.Data))
+	// 	statePalette := v.BlockStates.Palette
+	// 	stateRawPalette := make([]block.StateID, len(statePalette))
+	// 	for i, v := range statePalette {
+	// 		b, ok := block.FromID[v.Name]
+	// 		if !ok {
+	// 			return nil
+	// 		}
+	// 		if v.Properties.Data != nil {
+	// 			err := v.Properties.Unmarshal(&b)
+	// 			if err != nil {
+	// 				return nil
+	// 			}
+	// 		}
+	// 		s := block.ToStateID[b]
+	// 		if !isAir(int(s)) {
+	// 			blockCount++
+	// 		}
+	// 		stateRawPalette[i] = s
+	// 	}
 
-		biomesData := *(*[]uint64)((unsafe.Pointer)(&v.Biomes.Data))
-		biomesPalette := v.Biomes.Palette
-		biomesRawPalette := make([]int, len(biomesPalette))
-		for i, v := range biomesPalette {
-			biomesRawPalette[i] = biomesIDs[strings.TrimPrefix(v, "minecraft:")]
-		}
+	// 	biomesData := *(*[]uint64)((unsafe.Pointer)(&v.Biomes.Data))
+	// 	biomesPalette := v.Biomes.Palette
+	// 	biomesRawPalette := make([]level.BiomesState, len(biomesPalette))
+	// 	for i, v := range biomesPalette {
+	// 		biomesRawPalette[i] = level.BiomesState(biomesIDs[strings.TrimPrefix(v, "minecraft:")])
+	// 	}
 
-		i := int32(v.Y) - c.YPos
-		sections[i].BlockCount = blockCount
-		sections[i].States = level.NewStatesPaletteContainerWithData(16*16*16, stateData, stateRawPalette)
-		sections[i].Biomes = level.NewBiomesPaletteContainerWithData(4*4*4, biomesData, biomesRawPalette)
-	}
-	for i := range sections {
-		if sections[i].States == nil {
-			sections[i] = level.Section{
-				BlockCount: 0,
-				States:     level.NewStatesPaletteContainer(16*16*16, 0),
-				Biomes:     level.NewBiomesPaletteContainer(4*4*4, 0),
-			}
-		}
-	}
-	motionBlocking := *(*[]uint64)(unsafe.Pointer(&c.Heightmaps.MotionBlocking))
-	worldSurface := *(*[]uint64)(unsafe.Pointer(&c.Heightmaps.WorldSurface))
-	ret := level.Chunk{
-		Sections: sections,
-		HeightMaps: level.HeightMaps{
-			MotionBlocking: level.NewBitStorage(bits.Len(uint(len(c.Sections))), 16*16, motionBlocking),
-			WorldSurface:   level.NewBitStorage(bits.Len(uint(len(c.Sections))), 16*16, worldSurface),
-		},
-	}
+	// 	i := int32(v.Y) - c.YPos
+	// 	sections[i].BlockCount = blockCount
+	// 	sections[i].States = level.NewStatesPaletteContainerWithData(16*16*16, stateData, stateRawPalette)
+	// 	sections[i].Biomes = level.NewBiomesPaletteContainerWithData(4*4*4, biomesData, biomesRawPalette)
+	// }
+	// for i := range sections {
+	// 	if sections[i].States == nil {
+	// 		sections[i] = level.Section{
+	// 			BlockCount: 0,
+	// 			States:     level.NewStatesPaletteContainer(16*16*16, 0),
+	// 			Biomes:     level.NewBiomesPaletteContainer(4*4*4, 0),
+	// 		}
+	// 	}
+	// }
+	// motionBlocking := *(*[]uint64)(unsafe.Pointer(&c.Heightmaps.MotionBlocking))
+	// worldSurface := *(*[]uint64)(unsafe.Pointer(&c.Heightmaps.WorldSurface))
+	// ret := level.Chunk{
+	// 	Sections: sections,
+	// 	HeightMaps: level.HeightMaps{
+	// 		MotionBlocking: level.NewBitStorage(bits.Len(uint(len(c.Sections))), 16*16, motionBlocking),
+	// 		WorldSurface:   level.NewBitStorage(bits.Len(uint(len(c.Sections))), 16*16, worldSurface),
+	// 	},
+	// }
 	var blockEntitiesData []nbt.RawMessage
 	err := c.BlockEntities.Unmarshal(&blockEntitiesData)
 	if err != nil {
@@ -469,11 +478,22 @@ var biomesIDs = map[string]int{
 	"end_barrens":              60,
 }
 
-func isAir(s int) bool {
-	switch block.StateList[s].(type) {
-	case block.Air, block.CaveAir, block.VoidAir:
-		return true
-	default:
-		return false
+func buildMBHeightmap(c *level.Chunk, b int) *level.BitStorage {
+	ret := level.NewBitStorage(b, 16*16, nil)
+	for i, s := range c.Sections {
+		if s.BlockCount == 0 {
+			continue
+		}
+		for y := 0; y < 16; y++ {
+			ay := i*16 + y
+			for i := 0; i < 16*16; i++ {
+				if !block.IsAir(s.States.Get(i)) {
+					if ret.Get(i) < ay {
+						ret.Set(i, ay)
+					}
+				}
+			}
+		}
 	}
+	return ret
 }

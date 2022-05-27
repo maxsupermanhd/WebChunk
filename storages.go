@@ -97,6 +97,7 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 				World:      w.Name,
 				Spawnpoint: [3]int64{0, 64, 0},
 				LowestY:    int(r.DimensionLowestY),
+				BuildLimit: int(r.DimensionBuildLimit),
 			}
 			d, err = s.AddDimension(*d)
 			if err != nil {
@@ -124,21 +125,21 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 		data.XPos = int32(r.Pos.X)
 		data.ZPos = int32(r.Pos.Z)
 		level.ChunkToSave(&r.Data, &data)
-		for iiii, cccc := range data.Sections {
-			log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
-		}
+		// for iiii, cccc := range data.Sections {
+		// 	log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
+		// }
 		data.BlockEntities = nbtEmptyList
 		data.Structures = nbtEmptyList
 		data.Heightmaps = struct {
-			MotionBlocking         []int64 "nbt:\"MOTION_BLOCKING\""
-			MotionBlockingNoLeaves []int64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
-			OceanFloor             []int64 "nbt:\"OCEAN_FLOOR\""
-			WorldSurface           []int64 "nbt:\"WORLD_SURFACE\""
+			MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
+			MotionBlockingNoLeaves []uint64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
+			OceanFloor             []uint64 "nbt:\"OCEAN_FLOOR\""
+			WorldSurface           []uint64 "nbt:\"WORLD_SURFACE\""
 		}{
-			MotionBlocking:         []int64{},
-			MotionBlockingNoLeaves: []int64{},
-			OceanFloor:             []int64{},
-			WorldSurface:           []int64{},
+			MotionBlocking:         r.Data.HeightMaps.MotionBlocking.Raw(),
+			MotionBlockingNoLeaves: r.Data.HeightMaps.MotionBlockingNoLeaves.Raw(),
+			OceanFloor:             r.Data.HeightMaps.OceanFloor.Raw(),
+			WorldSurface:           r.Data.HeightMaps.WorldSurface.Raw(),
 		}
 		data.BlockTicks = nbtEmptyList
 		data.FluidTicks = nbtEmptyList

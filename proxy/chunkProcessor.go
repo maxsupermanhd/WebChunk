@@ -61,6 +61,13 @@ func uncompactBlockEntityPosPk(xz int8, y int16) pk.Position {
 	}
 }
 
+type loadedDim struct {
+	id          int32
+	minY        int32
+	height      int32
+	totalHeight int32
+}
+
 func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *ProxiedChunk, username, serverip string, conf ProxyConfig) {
 	type cachePos struct {
 		pos level.ChunkPos
@@ -71,12 +78,6 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 		tofind map[pk.Position]int32
 	}
 	c := map[cachePos]cacheChunk{}
-	type loadedDim struct {
-		id          int32
-		minY        int32
-		height      int32
-		totalHeight int32
-	}
 	loadedDims := map[string]loadedDim{}
 	currentDim := ""
 	for p := range recv {
@@ -86,7 +87,12 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 				log.Println("Recieved chunk without dimension")
 				continue
 			}
-			cpos, cc, err := deserializeChunkPacket(p)
+			dim, ok := loadedDims[currentDim]
+			if !ok {
+				log.Printf("Got chunk for not loaded dimension?! (%s)", currentDim)
+				continue
+			}
+			cpos, cc, err := deserializeChunkPacket(p, dim)
 			if err != nil {
 				log.Printf("Failed to parse chunk data packet: %s", err.Error())
 				continue
@@ -166,11 +172,13 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			} else {
 				// send directly to storage because ready
 				resp <- &ProxiedChunk{
-					Username:  username,
-					Server:    serverip,
-					Dimension: currentDim,
-					Pos:       cpos,
-					Data:      cc,
+					Username:            username,
+					Server:              serverip,
+					Dimension:           currentDim,
+					Pos:                 cpos,
+					Data:                cc,
+					DimensionLowestY:    dim.minY,
+					DimensionBuildLimit: int(dim.height),
 				}
 			}
 		case p.ID == packetid.ClientboundBlockEntityData:
@@ -220,12 +228,13 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			if len(cachedLevel.tofind) == 0 {
 				log.Printf("Sending chunk %d:%d to storage because recieved all block entities", cpos.X, cpos.Z)
 				resp <- &ProxiedChunk{
-					Username:         username,
-					Server:           serverip,
-					Dimension:        currentDim,
-					Pos:              cpos,
-					Data:             cachedLevel.chunk,
-					DimensionLowestY: dim.minY,
+					Username:            username,
+					Server:              serverip,
+					Dimension:           currentDim,
+					Pos:                 cpos,
+					Data:                cachedLevel.chunk,
+					DimensionLowestY:    dim.minY,
+					DimensionBuildLimit: int(dim.height),
 				}
 			}
 		case p.ID == packetid.ClientboundForgetLevelChunk:
@@ -250,12 +259,13 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			}
 			log.Printf("Server tolad to unload chunk %d:%d, sending chunk as it is to storage", x, z)
 			resp <- &ProxiedChunk{
-				Username:         username,
-				Server:           serverip,
-				Dimension:        currentDim,
-				Pos:              cpos,
-				Data:             cachedLevel.chunk,
-				DimensionLowestY: dim.minY,
+				Username:            username,
+				Server:              serverip,
+				Dimension:           currentDim,
+				Pos:                 cpos,
+				Data:                cachedLevel.chunk,
+				DimensionLowestY:    dim.minY,
+				DimensionBuildLimit: int(dim.height),
 			}
 		case p.ID == packetid.ClientboundRespawn:
 			var (
@@ -425,7 +435,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 // completely tanks performance with allocations, not a solution...
 // log.Printf("Scanned with len of %d", cclen)
 
-func deserializeChunkPacket(p pk.Packet) (level.ChunkPos, level.Chunk, error) {
+func deserializeChunkPacket(p pk.Packet, dim loadedDim) (level.ChunkPos, level.Chunk, error) {
 	var (
 		heightmaps struct {
 			MotionBlocking []uint64 `nbt:"MOTION_BLOCKING"`
@@ -477,6 +487,7 @@ func deserializeChunkPacket(p pk.Packet) (level.ChunkPos, level.Chunk, error) {
 		dl -= n
 		cc.Sections = append(cc.Sections, *ss)
 	}
+	// cc.HeightMaps.MotionBlocking = level.NewBitStorage(int(math.Log2(float64(dim.totalHeight+1))), len(heightmaps.MotionBlocking), heightmaps.MotionBlocking)
 	return cpos, cc, err
 }
 

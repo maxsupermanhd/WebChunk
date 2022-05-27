@@ -47,12 +47,13 @@ type ProxiedPacket struct {
 }
 
 type ProxiedChunk struct {
-	Username         string
-	Server           string
-	Dimension        string
-	DimensionLowestY int32
-	Pos              level.ChunkPos
-	Data             level.Chunk
+	Username            string
+	Server              string
+	Dimension           string
+	DimensionLowestY    int32
+	DimensionBuildLimit int
+	Pos                 level.ChunkPos
+	Data                level.Chunk
 }
 
 type MessageFeedback struct {
