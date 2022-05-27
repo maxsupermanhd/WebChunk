@@ -1,10 +1,10 @@
 .env
 webchunk
 mcwebchunk
+WebChunk
 *.log
 *.log.gz
 tags
 db/data*
 imageCache
-storages.json
-WebChunk
+config.json
