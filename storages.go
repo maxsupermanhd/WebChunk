@@ -35,21 +35,16 @@ import (
 )
 
 var (
-	errStorageAlreadyInitialized = errors.New("storage already initialized")
 	errStorageTypeNotImplemented = errors.New("storage type not implemented")
 )
 
-func initStorage(s chunkStorage.Storage) (err error) {
-	if s.Driver != nil {
-		switch s.Type {
-		case "postgres":
-			s.Driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), s.Address)
-			return err
-		default:
-			return errStorageTypeNotImplemented
-		}
-	} else {
-		return errStorageAlreadyInitialized
+func initStorage(t, a string) (driver chunkStorage.ChunkStorage, err error) {
+	switch t {
+	case "postgres":
+		driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), a)
+		return driver, err
+	default:
+		return nil, errStorageTypeNotImplemented
 	}
 }
 

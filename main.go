@@ -189,7 +189,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer chunkStorage.CloseStorages(storages)
 
 	log.Println("Adding routes")
 	router := mux.NewRouter()
@@ -226,7 +225,7 @@ func main() {
 
 	log.Println("Initializing storages...")
 	for i := range storages {
-		err = initStorage(storages[i])
+		storages[i].Driver, err = initStorage(storages[i].Type, storages[i].Address)
 		if err != nil {
 			log.Println("Failed to initialize storage: " + err.Error())
 			continue
@@ -238,6 +237,7 @@ func main() {
 		}
 		log.Println("Storage initialized: " + ver)
 	}
+	defer chunkStorage.CloseStorages(storages)
 
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
 	go func() {

@@ -183,7 +183,8 @@ func apiStorageReinit(w http.ResponseWriter, r *http.Request) (int, string) {
 			if storages[i].Driver != nil {
 				return 200, "Already initialized"
 			} else {
-				err := initStorage(storages[i])
+				var err error
+				storages[i].Driver, err = initStorage(storages[i].Type, storages[i].Address)
 				if err != nil {
 					return 500, err.Error()
 				}
