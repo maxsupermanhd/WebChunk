@@ -47,14 +47,9 @@
 				</thead>
 			{{range $a, $s := .Storages}}
 				<tr>
-					{{/* {{$dimsnum := 0}}
-					{{range $j, $w := $s.Worlds}}
-						{{$dimsnum = add $dimsnum (len $w.Dims)}}
-					{{end}}
-					{{$sspan := add (len $s.Worlds) $dimsnum}} */}}
-					{{$sspan := add (len $s.Worlds) 1}}
-					{{if $s.Online}}
-						{{$sspan = add $sspan 1}}
+					{{$sspan := len $s.Worlds}}
+					{{if eq $sspan 0}}
+						{{$sspan = 1}}
 					{{end}}
 					<td {{if ge $sspan 1}}rowspan="{{$sspan}}"{{end}}>
 						{{$s.S.Name}}
