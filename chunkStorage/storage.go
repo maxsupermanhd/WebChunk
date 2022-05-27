@@ -57,6 +57,7 @@ type StorageAbilities struct {
 // or other abnormal things.
 type ChunkStorage interface {
 	GetAbilities() StorageAbilities
+	GetStatus() (string, error)
 
 	ListWorlds() ([]WorldStruct, error)
 	GetWorld(wname string) (*WorldStruct, error)
@@ -84,6 +85,15 @@ type Storage struct {
 	Type    string       `json:"type"`
 	Address string       `json:"addr"`
 	Driver  ChunkStorage `json:"-"`
+}
+
+func CloseStorages(s []Storage) {
+	for _, c := range s {
+		if c.Driver != nil {
+			c.Driver.Close()
+			c.Driver = nil
+		}
+	}
 }
 
 func ListWorlds(storages []Storage) []WorldStruct {

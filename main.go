@@ -21,7 +21,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -39,7 +38,6 @@ import (
 	"time"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 	"github.com/maxsupermanhd/WebChunk/viewer"
 
@@ -191,7 +189,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer closeStorages(storages)
+	defer chunkStorage.CloseStorages(storages)
 
 	log.Println("Adding routes")
 	router := mux.NewRouter()
@@ -212,6 +210,9 @@ func main() {
 	router.HandleFunc("/api/submit/chunk/{world}/{dim}", apiAddChunkHandler)
 	router.HandleFunc("/api/submit/region/{world}/{dim}", apiAddRegionHandler)
 
+	router.HandleFunc("/api/storages", apiHandle(apiStoragesGET)).Methods("GET")
+	router.HandleFunc("/api/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
+
 	router.HandleFunc("/api/worlds", apiHandle(apiAddWorld)).Methods("POST")
 	router.HandleFunc("/api/worlds", apiHandle(apiListWorlds)).Methods("GET")
 
@@ -225,16 +226,17 @@ func main() {
 
 	log.Println("Initializing storages...")
 	for i := range storages {
-		switch {
-		case storages[i].Type == "postgres":
-			storages[i].Driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), storages[i].Address)
-			if err != nil {
-				log.Printf("Failed to initialize postgres storage %s: %s\n", storages[i].Name, err.Error())
-				storages[i].Driver = nil
-			}
-		default:
-			log.Printf("Storage type [%s] not implemented!\n", storages[i].Type)
+		err = initStorage(storages[i])
+		if err != nil {
+			log.Println("Failed to initialize storage: " + err.Error())
+			continue
 		}
+		ver, err := storages[i].Driver.GetStatus()
+		if err != nil {
+			log.Println("Error getting storage status: " + err.Error())
+			continue
+		}
+		log.Println("Storage initialized: " + ver)
 	}
 
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)

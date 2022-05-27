@@ -21,6 +21,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"strings"
 
@@ -28,14 +30,26 @@ import (
 	"github.com/Tnze/go-mc/nbt"
 	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 )
 
-func closeStorages(s []chunkStorage.Storage) {
-	for _, s2 := range s {
-		if s2.Driver != nil {
-			s2.Driver.Close()
+var (
+	errStorageAlreadyInitialized = errors.New("storage already initialized")
+	errStorageTypeNotImplemented = errors.New("storage type not implemented")
+)
+
+func initStorage(s chunkStorage.Storage) (err error) {
+	if s.Driver != nil {
+		switch s.Type {
+		case "postgres":
+			s.Driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), s.Address)
+			return err
+		default:
+			return errStorageTypeNotImplemented
 		}
+	} else {
+		return errStorageAlreadyInitialized
 	}
 }
 

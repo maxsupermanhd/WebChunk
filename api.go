@@ -155,3 +155,41 @@ func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {
 	// w.Write([]byte(fmt.Sprintf("Region submitted. Thank you for your contribution!\n")))
 	// return
 }
+
+func apiStoragesGET(w http.ResponseWriter, r *http.Request) (int, string) {
+	ret := []struct {
+		Name   string
+		Type   string
+		Online bool
+	}{}
+	for i := range storages {
+		ret = append(ret, struct {
+			Name   string
+			Type   string
+			Online bool
+		}{
+			Name:   storages[i].Name,
+			Type:   storages[i].Type,
+			Online: storages[i].Driver != nil,
+		})
+	}
+	return marshalOrFail(200, ret)
+}
+
+func apiStorageReinit(w http.ResponseWriter, r *http.Request) (int, string) {
+	sname := mux.Vars(r)["storage"]
+	for i := range storages {
+		if storages[i].Name == sname {
+			if storages[i].Driver != nil {
+				return 200, "Already initialized"
+			} else {
+				err := initStorage(storages[i])
+				if err != nil {
+					return 500, err.Error()
+				}
+				return 200, ""
+			}
+		}
+	}
+	return 404, ""
+}
