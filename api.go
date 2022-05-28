@@ -188,9 +188,52 @@ func apiStorageReinit(w http.ResponseWriter, r *http.Request) (int, string) {
 				if err != nil {
 					return 500, err.Error()
 				}
-				return 200, ""
+				var ver string
+				ver, err = storages[i].Driver.GetStatus()
+				if err != nil {
+					return 500, err.Error()
+				}
+				return 200, ver
 			}
 		}
 	}
 	return 404, ""
+}
+
+func apiStorageAdd(w http.ResponseWriter, r *http.Request) (int, string) {
+	name := r.FormValue("name")
+	if name == "" {
+		return 400, "Empty name"
+	}
+	address := r.FormValue("address")
+	if address == "" {
+		return 400, "Empty address"
+	}
+	t := r.FormValue("type")
+	if t == "" {
+		return 400, "Empty type"
+	}
+	for i := range storages {
+		if storages[i].Name == name {
+			return 400, "Storage with that name already exists"
+		}
+	}
+	driver, err := initStorage(t, address)
+	if err != nil {
+		if err == errStorageTypeNotImplemented {
+			return 400, err.Error()
+		}
+		return 500, err.Error()
+	}
+	ver, err := driver.GetStatus()
+	if err != nil {
+		return 500, err.Error()
+	}
+	storages = append(storages, chunkStorage.Storage{
+		Name:    name,
+		Type:    t,
+		Address: address,
+		Driver:  driver,
+	})
+	return 200, ver
 }

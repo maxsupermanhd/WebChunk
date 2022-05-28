@@ -210,6 +210,7 @@ func main() {
 	router.HandleFunc("/api/submit/region/{world}/{dim}", apiAddRegionHandler)
 
 	router.HandleFunc("/api/storages", apiHandle(apiStoragesGET)).Methods("GET")
+	router.HandleFunc("/api/storages", apiHandle(apiStorageAdd)).Methods("PUT")
 	router.HandleFunc("/api/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
 
 	router.HandleFunc("/api/worlds", apiHandle(apiAddWorld)).Methods("POST")
