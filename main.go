@@ -222,7 +222,7 @@ func main() {
 	router1 := handlers.ProxyHeaders(router)
 	router2 := handlers.CompressHandler(router1)
 	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
-	router4 := handlers.RecoveryHandler()(router3)
+	router4 := handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(router3)
 
 	log.Println("Initializing storages...")
 	for i := range storages {
