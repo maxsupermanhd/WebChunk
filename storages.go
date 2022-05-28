@@ -42,7 +42,10 @@ func initStorage(t, a string) (driver chunkStorage.ChunkStorage, err error) {
 	switch t {
 	case "postgres":
 		driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), a)
-		return driver, err
+		if err != nil {
+			return nil, err
+		}
+		return driver, nil
 	default:
 		return nil, errStorageTypeNotImplemented
 	}
