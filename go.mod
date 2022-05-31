@@ -15,7 +15,7 @@ replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
 replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
 require (
-	github.com/Tnze/go-mc v1.18.2-0.20220521040619-5f3f66e9cfcb
+	github.com/Tnze/go-mc v1.18.3-0.20220530032556-6eb5f35c75b4
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
@@ -29,7 +29,10 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 )
 
-require github.com/yusufpapurcu/wmi v1.2.2 // indirect
+require (
+	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	golang.org/x/exp v0.0.0-20220314205449-43aec2f8a4e7 // indirect
+)
 
 require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
@@ -47,8 +50,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.5.0 // indirect
-	golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898 // indirect
-	golang.org/x/sys v0.0.0-20220519141025-dcacdad47464 // indirect
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
