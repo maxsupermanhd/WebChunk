@@ -74,7 +74,7 @@ type ChunkStorage interface {
 
 	AddChunk(wname, dname string, cx, cz int, col save.Chunk) error
 	GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error)
-	GetChunkRaw(wname, dname string, cx, cz int) (*save.Chunk, error)
+	GetChunkRaw(wname, dname string, cx, cz int) ([]byte, error)
 	GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
 	GetChunksRegionRaw(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
 	GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
