@@ -33,7 +33,16 @@ import (
 )
 
 func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error) {
+	d, err := s.GetChunkRaw(wname, dname, cx, cz)
+	if err != nil {
+		return nil, err
+	}
 	var c save.Chunk
+	err = c.Load(d)
+	return &c, err
+}
+
+func (s *PostgresChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]byte, error) {
 	var d []byte
 	derr := s.dbpool.QueryRow(context.Background(), `
 		select data
@@ -52,12 +61,37 @@ func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.
 		}
 		return nil, derr
 	}
-	perr := c.Load(d)
-	return &c, perr
+	return d, derr
 }
 
 func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
-	// log.Printf("Requesting rectange x%d z%d  ==  x%d z%d", cx0, cz0, cx1, cz1)
+	ar, err := s.GetChunksRegionRaw(wname, dname, cx0, cz0, cx1, cz1)
+	if err != nil {
+		return ar, err
+	}
+	ret := []chunkStorage.ChunkData{}
+	for i := range ar {
+		dat, ok := ar[i].Data.([]byte)
+		if !ok {
+			log.Printf("GetChunksRegionRaw returned something that is not a []byte, chunk x%d z%d", ar[i].X, ar[i].Z)
+			continue
+		}
+		var c save.Chunk
+		err := c.Load(dat)
+		if err != nil {
+			log.Printf("Failed to parse chunk data (%s), chunk x%d z%d", err.Error(), ar[i].X, ar[i].Z)
+			continue
+		}
+		ret = append(ret, chunkStorage.ChunkData{
+			X:    ar[i].X,
+			Z:    ar[i].Z,
+			Data: c,
+		})
+	}
+	return ret, err
+}
+
+func (s *PostgresChunkStorage) GetChunksRegionRaw(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	c := []chunkStorage.ChunkData{}
 	var dimID int
 	err := s.dbpool.QueryRow(context.Background(), `SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
@@ -74,7 +108,7 @@ func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx
 				rank() over (partition by x, z order by x, z, created_at desc) r
 			from chunks where dim = $5
 		)
-		select data, id
+		select x, z, data, id
 		from grp
 		where x >= $1 AND z >= $2 AND x < $3 AND z < $4 AND r = 1 AND dim = $5
 		`, cx0, cz0, cx1, cz1, dimID)
@@ -90,14 +124,13 @@ func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx
 	for rows.Next() {
 		var d []byte
 		var cid int
-		rows.Scan(&d, &cid)
-		var cc save.Chunk
-		perr = cc.Load(d)
-		if perr != nil {
-			log.Printf("Chunk %d: %s", cid, perr.Error())
-			continue
+		var x int32
+		var z int32
+		err = rows.Scan(&x, &z, &d, &cid)
+		if err != nil {
+			return c, err
 		}
-		c = append(c, chunkStorage.ChunkData{X: cc.XPos, Z: cc.ZPos, Data: cc})
+		c = append(c, chunkStorage.ChunkData{X: x, Z: z, Data: d})
 	}
 	return c, perr
 }
