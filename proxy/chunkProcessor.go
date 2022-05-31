@@ -37,7 +37,6 @@ import (
 	"github.com/Tnze/go-mc/server"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
-	"github.com/maxsupermanhd/WebChunk/viewer"
 )
 
 // 4 bits for x, 4 bits for z
@@ -114,7 +113,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 								Z: z,
 							}
 							sta := block.StateList[blo]
-							bid, ok := viewer.BlockEntityTypes[strings.TrimPrefix(sta.ID(), "minecraft:")]
+							bid, ok := blockEntityTypes[strings.TrimPrefix(sta.ID(), "minecraft:")]
 							if ok {
 								log.Printf("Found block entity %s: %v", sta.ID(), bepos)
 								missingbe[bepos] = bid
@@ -304,7 +303,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 				&isHardcore,
 				&gamemode,
 				&previousGamemode,
-				pk.Ary[pk.VarInt, *pk.VarInt]{Ary: &dimNames},
+				pk.Ary[pk.VarInt]{Ary: &dimNames},
 				pk.NBT(&dimCodec),
 				pk.NBT(&dim),
 				&dimName,
@@ -530,4 +529,40 @@ func (l *lightData) ReadFrom(r io.Reader) (int64, error) {
 		pk.Array(&l.SkyLight),
 		pk.Array(&l.BlockLight),
 	}.ReadFrom(r)
+}
+
+var blockEntityTypes = map[string]int32{
+	"furnace":           0,
+	"chest":             1,
+	"trapped_chest":     2,
+	"ender_chest":       3,
+	"jukebox":           4,
+	"dispenser":         5,
+	"dropper":           6,
+	"sign":              7,
+	"mob_spawner":       8,
+	"piston":            9,
+	"brewing_stand":     10,
+	"enchanting_table":  11,
+	"end_portal":        12,
+	"beacon":            13,
+	"skull":             14,
+	"daylight_detector": 15,
+	"hopper":            16,
+	"comparator":        17,
+	"banner":            18,
+	"structure_block":   19,
+	"end_gateway":       20,
+	"command_block":     21,
+	"shulker_box":       22,
+	"bed":               23,
+	"conduit":           24,
+	"barrel":            25,
+	"smoker":            26,
+	"blast_furnace":     27,
+	"lectern":           28,
+	"bell":              29,
+	"jigsaw":            30,
+	"campfire":          31,
+	"beehive":           32,
 }

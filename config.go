@@ -27,7 +27,6 @@ import (
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
-	"github.com/maxsupermanhd/WebChunk/viewer"
 )
 
 var loadedConfig WebChunkConfig
@@ -49,9 +48,9 @@ type WebChunkConfig struct {
 		Listen          string `json:"listen"`
 		ColorsLocation  string `json:"color_pallete"`
 	} `json:"web"`
-	Proxy         proxy.ProxyConfig          `json:"proxy"`
-	Routes        map[string]ProxyRoute      `json:"proxy_routing"`
-	Reconstructor viewer.ReconstructorConfig `json:"reconstructor"`
+	Proxy  proxy.ProxyConfig     `json:"proxy"`
+	Routes map[string]ProxyRoute `json:"proxy_routing"`
+	// Reconstructor viewer.ReconstructorConfig `json:"reconstructor"`
 }
 
 func ProxyRoutesHandler(username string) string {

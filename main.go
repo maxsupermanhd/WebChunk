@@ -39,7 +39,6 @@ import (
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
-	"github.com/maxsupermanhd/WebChunk/viewer"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/fsnotify/fsnotify"
@@ -258,14 +257,14 @@ func main() {
 		proxy.RunProxy(ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
 	}()
 	go chunkConsumer(chunkChannel)
-	go func() {
-		if loadedConfig.Reconstructor.Listen == "" {
-			log.Println("Not starting reconstructor because listen address is empty")
-			return
-		}
-		log.Println("Starting reconstructor")
-		viewer.StartReconstructor(storages, &loadedConfig.Reconstructor)
-	}()
+	// go func() {
+	// 	if loadedConfig.Reconstructor.Listen == "" {
+	// 		log.Println("Not starting reconstructor because listen address is empty")
+	// 		return
+	// 	}
+	// 	log.Println("Starting reconstructor")
+	// 	viewer.StartReconstructor(storages, &loadedConfig.Reconstructor)
+	// }()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
