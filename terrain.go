@@ -22,6 +22,7 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
 	"html/template"
 	"image"
 	"image/color"
@@ -162,6 +163,10 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
+func printColor(c color.RGBA64) string {
+	return fmt.Sprintf("%5d %5d %5d %5d", c.R, c.G, c.B, c.A)
+}
+
 func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
@@ -243,6 +248,12 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 				case block.DarkOakLeaves:
 					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
+				case block.BirchLeaves:
+					toColor = color.RGBA64{R: 0x80 * 257, G: 0xA7 * 257, B: 0x55 * 257, A: 0x7F * 257}
+					isTransparent = true
+				case block.SpruceLeaves:
+					toColor = color.RGBA64{R: 0x61 * 257, G: 0x99 * 257, B: 0x61 * 257, A: 0x7F * 257}
+					isTransparent = true
 				case block.Vine:
 					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
 					isTransparent = true
@@ -251,7 +262,7 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 
 				case block.Water:
 					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0x7F * 257}
-					// isTransparent = true
+					isTransparent = true
 				case block.WaterCauldron:
 					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0xFF * 257}
 				default:
@@ -293,13 +304,12 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 						// I know that capping those values is a bad idea and there is a proper solution
 						// But I am too lazy and/or stupid to implement it, I tried for over 2 hours already
 						toColor = color.RGBA64{uint16(finalR), uint16(finalG), uint16(finalB), 65535}
-						// log.Println("Final blend", fmt.Sprintf("% 3d %02d:%02d", outputs[i].c, i%16, i/16), printColor(colors[state]), printColor(backColor), printColor(frontColor), printColor(final))
+						// log.Println("Final blend", fmt.Sprintf("% 3d %02d:%02d", outputs[i].c, i%16, i/16), printColor(colors[state]), printColor(backColor), printColor(frontColor), printColor(toColor))
 					}
 					// log.Printf("Painting %02d:%02d %v %#v %#v", i%16, i/16, toColor, blockState.ID(), outputs[i].b)
 					img.Set(i%16, i/16, toColor)
 					colored[i] = true
 				}
-
 				// absy := uint(int(s.Y)*16 + y)
 			}
 		}
