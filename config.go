@@ -48,6 +48,11 @@ type WebChunkConfig struct {
 		Listen          string `json:"listen"`
 		ColorsLocation  string `json:"color_pallete"`
 	} `json:"web"`
+	API struct {
+		CreateWorlds        bool   `json:"create_worlds"`
+		CreateDimensions    bool   `json:"create_dimensions"`
+		FallbackStorageName string `json:"fallback_storage_name"`
+	} `json:"api"`
 	Proxy  proxy.ProxyConfig     `json:"proxy"`
 	Routes map[string]ProxyRoute `json:"proxy_routing"`
 	// Reconstructor viewer.ReconstructorConfig `json:"reconstructor"`

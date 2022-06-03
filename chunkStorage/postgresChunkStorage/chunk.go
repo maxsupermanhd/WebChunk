@@ -21,12 +21,10 @@
 package postgresChunkStorage
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
+	"errors"
 	"log"
 
-	"github.com/Tnze/go-mc/nbt"
 	"github.com/Tnze/go-mc/save"
 	"github.com/jackc/pgx/v4"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -38,7 +36,11 @@ func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.
 		return nil, err
 	}
 	var c save.Chunk
-	err = c.Load(d)
+	if len(d) > 1 {
+		err = c.Load(d)
+	} else {
+		err = errors.New("data is zero length")
+	}
 	return &c, err
 }
 
@@ -76,8 +78,7 @@ func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx
 			log.Printf("GetChunksRegionRaw returned something that is not a []byte, chunk x%d z%d", ar[i].X, ar[i].Z)
 			continue
 		}
-		var c save.Chunk
-		err := c.Load(dat)
+		c, err := chunkStorage.ConvFlexibleNBTtoSave(dat)
 		if err != nil {
 			log.Printf("Failed to parse chunk data (%s), chunk x%d z%d", err.Error(), ar[i].X, ar[i].Z)
 			continue
@@ -85,7 +86,7 @@ func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx
 		ret = append(ret, chunkStorage.ChunkData{
 			X:    ar[i].X,
 			Z:    ar[i].Z,
-			Data: c,
+			Data: *c,
 		})
 	}
 	return ret, err
@@ -244,37 +245,21 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz
 // }
 
 func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col save.Chunk) error {
-	raw, err := nbt.Marshal(col)
+	b, err := col.Data(1)
 	if err != nil {
 		log.Printf("Error marshling: %s", err.Error())
 		return err
 	}
-	outb := bytes.NewBuffer([]byte{})
-	w := gzip.NewWriter(outb)
-	written, err := w.Write(raw)
-	if err != nil {
-		log.Printf("Error writing raw data: %s", err.Error())
-		return err
-	}
-	err = w.Close()
-	if err != nil {
-		log.Printf("Error closing?!: %s", err.Error())
-		return err
-	}
-	out := outb.Bytes()
-	// if len(out) != written {
-	// 	return fmt.Errorf("written != len (%d, %d)", len(out), written)
-	// }
-	log.Printf("Written %d bytes", written)
-	out = append(out, 0)
-	copy(out[1:], out)
-	out[0] = 1
-	_, err = s.dbpool.Exec(context.Background(), `
+	return s.AddChunkRaw(wname, dname, cx, cz, b)
+}
+
+func (s *PostgresChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, dat []byte) error {
+	_, err := s.dbpool.Exec(context.Background(), `
 			insert into chunks (x, z, data, dim)
 			values ($1, $2, $3,
 				(select dimensions.id from dimensions
 				 where dimensions.world = $4 and dimensions.name = $5))`,
-		col.XPos, col.ZPos, out, wname, dname)
+		cx, cz, dat, wname, dname)
 	return err
 }
 

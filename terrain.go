@@ -499,6 +499,12 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
 	}
+	raw, err := s.GetChunkRaw(wname, dname, cx, cz)
+	if err != nil {
+		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
+		return
+	}
+	logChunkNbt(raw)
 	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": c, "PrettyChunk": template.HTML(spew.Sdump(c))})
 }
 

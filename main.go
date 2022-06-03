@@ -205,7 +205,7 @@ func main() {
 	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
 	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
 
-	router.HandleFunc("/api/submit/chunk/{world}/{dim}", apiAddChunkHandler)
+	router.HandleFunc("/api/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
 	router.HandleFunc("/api/submit/region/{world}/{dim}", apiAddRegionHandler)
 
 	router.HandleFunc("/api/storages", apiHandle(apiStoragesGET)).Methods("GET")

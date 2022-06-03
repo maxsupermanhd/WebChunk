@@ -51,6 +51,30 @@ func initStorage(t, a string) (driver chunkStorage.ChunkStorage, err error) {
 	}
 }
 
+func findCapableStorage(arr []chunkStorage.Storage, pref string) chunkStorage.ChunkStorage {
+	var s chunkStorage.ChunkStorage
+	var sf chunkStorage.ChunkStorage
+	for i := range arr {
+		if arr[i].Driver == nil || arr[i].Name == "" {
+			continue
+		}
+		if arr[i].Name == pref {
+			s = arr[i].Driver
+			break
+		}
+		a := arr[i].Driver.GetAbilities()
+		if a.CanCreateWorldsDimensions &&
+			a.CanAddChunks &&
+			a.CanPreserveOldChunks {
+			sf = arr[i].Driver
+		}
+	}
+	if s == nil {
+		s = sf
+	}
+	return s
+}
+
 func chunkConsumer(c chan *proxy.ProxiedChunk) {
 	for r := range c {
 		route, ok := loadedConfig.Routes[r.Username]
@@ -71,22 +95,7 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 		}
 		var d *chunkStorage.DimStruct
 		if w == nil || s == nil {
-			var sf chunkStorage.ChunkStorage
-			for i := range storages {
-				if storages[i].Name == route.Storage {
-					s = storages[i].Driver
-					break
-				}
-				a := storages[i].Driver.GetAbilities()
-				if a.CanCreateWorldsDimensions &&
-					a.CanAddChunks &&
-					a.CanPreserveOldChunks {
-					sf = storages[i].Driver
-				}
-			}
-			if s == nil {
-				s = sf
-			}
+			s = findCapableStorage(storages, route.Storage)
 			if s == nil {
 				log.Printf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%v] from [%v] by [%v] is LOST.", route.World, route.Storage, r.Pos, r.Server, r.Username)
 				continue
