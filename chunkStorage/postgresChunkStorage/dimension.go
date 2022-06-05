@@ -82,7 +82,7 @@ func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStor
 
 func (s *PostgresChunkStorage) AddDimension(dim chunkStorage.DimStruct) (*chunkStorage.DimStruct, error) {
 	_, derr := s.dbpool.Exec(context.Background(),
-		`INSERT INTO dimensions (world, name, alias, spawnpoint, miny, maxy) VALUES ($1, $2, $3, $4, $5, $6)`, dim.World, dim.Name, dim.Alias, dim.Spawnpoint, dim.LowestY, dim.BuildLimit)
+		`INSERT INTO dimensions (world, name, alias, miny, maxy) VALUES ($1, $2, $3, $4, $5)`, dim.World, dim.Name, dim.Alias, dim.LowestY, dim.BuildLimit)
 	return &dim, derr
 }
 
