@@ -47,7 +47,14 @@
 				</thead>
 			{{range $a, $s := .Storages}}
 				<tr>
-					{{$sspan := len $s.Worlds}}
+					{{$sspan := 0}}
+					{{range $aa, $ww := .Worlds}}
+						{{if eq (len $ww.Dims) 0}}
+							{{$sspan = add $sspan 1}}
+						{{else}}
+							{{$sspan = add $sspan (len $ww.Dims)}}
+						{{end}}
+					{{end}}
 					{{if eq $sspan 0}}
 						{{$sspan = 1}}
 					{{end}}
