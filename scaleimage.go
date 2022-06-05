@@ -41,6 +41,50 @@ import (
 
 type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error)
 type chunkPainterFunc = func(interface{}) *image.RGBA
+type ttypeProviderFunc = func(chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc)
+
+var ttypes = map[string]ttypeProviderFunc{
+	"terrain": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunk(&s)
+		}
+	},
+	"counttiles": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
+			return drawNumberOfChunks(int(i.(int32)))
+		}
+	},
+	"counttilesheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
+			return drawHeatOfChunks(int(i.(int32)))
+		}
+	},
+	"heightmap": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkHeightmap(&s)
+		}
+	},
+	"xray": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkXray(&s)
+		}
+	},
+	"portalsheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkPortalBlocksHeatmap(&s)
+		}
+	},
+	"chestheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkChestBlocksHeatmap(&s)
+		}
+	},
+}
 
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
@@ -64,50 +108,12 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	var g chunkDataProviderFunc
-	var p chunkPainterFunc
-	switch datatype {
-	case "terrain":
-		g = s.GetChunksRegion
-		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunk(&s)
-		}
-	case "counttiles":
-		g = s.GetChunksCountRegion
-		p = func(i interface{}) *image.RGBA {
-			return drawNumberOfChunks(int(i.(int32)))
-		}
-	case "counttilesheat":
-		g = s.GetChunksCountRegion
-		p = func(i interface{}) *image.RGBA {
-			return drawHeatOfChunks(int(i.(int32)))
-		}
-	case "heightmap":
-		g = s.GetChunksRegion
-		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkHeightmap(&s)
-		}
-	case "xray":
-		g = s.GetChunksRegion
-		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkXray(&s)
-		}
-	case "portalsheat":
-		g = s.GetChunksRegion
-		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkPortalBlocksHeatmap(&s)
-		}
-	case "chestheat":
-		g = s.GetChunksRegion
-		p = func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkChestBlocksHeatmap(&s)
-		}
+	ff, ok := ttypes[datatype]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+	g, p := ff(s)
 	img := scaleImageryHandler(w, r, g, p)
 	if img == nil {
 		return
