@@ -22,12 +22,16 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
 func apiHandle(f func(http.ResponseWriter, *http.Request) (int, string)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code, content := f(w, r)
+		if code == 500 && loadedConfig.API.LogErrors {
+			log.Println("500 error code: " + content)
+		}
 		w.Header().Set("Server", "WebChunk webserver "+CommitHash)
 		w.Header().Set("Cache-Control", "no-cache")
 		w.WriteHeader(code)
@@ -37,7 +41,8 @@ func apiHandle(f func(http.ResponseWriter, *http.Request) (int, string)) func(ht
 
 func marshalOrFail(code int, content interface{}) (int, string) {
 	resp, err := json.Marshal(content)
-	if err != nil {
+	if err != nil && loadedConfig.API.LogErrors {
+		log.Println("JSON serialization failed: " + err.Error())
 		return 500, "JSON serialization failed: " + err.Error()
 	}
 	return code, string(resp) + "\n"

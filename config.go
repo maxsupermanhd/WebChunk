@@ -52,6 +52,7 @@ type WebChunkConfig struct {
 		CreateWorlds        bool   `json:"create_worlds"`
 		CreateDimensions    bool   `json:"create_dimensions"`
 		FallbackStorageName string `json:"fallback_storage_name"`
+		LogErrors           bool   `json:"log_errors"`
 	} `json:"api"`
 	Proxy  proxy.ProxyConfig     `json:"proxy"`
 	Routes map[string]ProxyRoute `json:"proxy_routing"`
