@@ -208,6 +208,8 @@ func main() {
 	router.HandleFunc("/api/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
 	router.HandleFunc("/api/submit/region/{world}/{dim}", apiAddRegionHandler)
 
+	router.HandleFunc("/api/renderers", apiHandle(apiListRenderers)).Methods("GET")
+
 	router.HandleFunc("/api/storages", apiHandle(apiStoragesGET)).Methods("GET")
 	router.HandleFunc("/api/storages", apiHandle(apiStorageAdd)).Methods("PUT")
 	router.HandleFunc("/api/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
