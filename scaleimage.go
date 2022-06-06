@@ -43,48 +43,53 @@ type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int) (
 type chunkPainterFunc = func(interface{}) *image.RGBA
 type ttypeProviderFunc = func(chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc)
 
-var ttypes = map[string]ttypeProviderFunc{
-	"terrain": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+type ttype struct {
+	name      string
+	isOverlay bool
+}
+
+var ttypes = map[ttype]ttypeProviderFunc{
+	{"terrain", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunk(&s)
 		}
 	},
-	"counttiles": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"counttiles", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
 			return drawNumberOfChunks(int(i.(int32)))
 		}
 	},
-	"counttilesheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"counttilesheat", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
 			return drawHeatOfChunks(int(i.(int32)))
 		}
 	},
-	"heightmap": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"heightmap", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkHeightmap(&s)
 		}
 	},
-	"xray": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"xray", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkXray(&s)
 		}
 	},
-	"biomes": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"biomes", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkBiomes(&s)
 		}
 	},
-	"portalsheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"portalsheat", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkPortalBlocksHeatmap(&s)
 		}
 	},
-	"chestheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"chestheat", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkChestBlocksHeatmap(&s)
@@ -114,8 +119,15 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	ff, ok := ttypes[datatype]
-	if !ok {
+	var ff ttypeProviderFunc
+	ffound := false
+	for tt := range ttypes {
+		if tt.name == datatype {
+			ff = ttypes[tt]
+			ffound = true
+		}
+	}
+	if !ffound {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

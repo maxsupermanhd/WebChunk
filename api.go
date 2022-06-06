@@ -304,9 +304,9 @@ func apiStorageAdd(w http.ResponseWriter, r *http.Request) (int, string) {
 }
 
 func apiListRenderers(w http.ResponseWriter, r *http.Request) (int, string) {
-	keys := make([]string, 0, len(ttypes))
-	for k := range ttypes {
-		keys = append(keys, k)
+	keys := make([]ttype, 0, len(ttypes))
+	for t := range ttypes {
+		keys = append(keys, t)
 	}
 	return marshalOrFail(200, keys)
 }

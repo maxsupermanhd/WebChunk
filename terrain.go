@@ -41,6 +41,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	biomes "github.com/maxsupermanhd/WebChunk/data/biomes"
 )
 
 type metricsCollect struct {
