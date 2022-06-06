@@ -140,7 +140,10 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 		return nil
 	}
 	scale := int(math.Pow(2, float64(cs)))
-	imagesize := 512
+	imagesize := scale * 16
+	if imagesize > 512 {
+		imagesize = 512
+	}
 	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
 	imagescale := int(imagesize / scale)
 	offsetx := cx * scale
