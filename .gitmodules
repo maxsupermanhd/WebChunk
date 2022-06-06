@@ -1,0 +1,3 @@
+[submodule "biomes/cubiomes"]
+	path = biomes/cubiomes
+	url = https://github.com/Cubitect/cubiomes.git
