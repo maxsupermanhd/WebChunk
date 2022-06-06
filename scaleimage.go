@@ -72,6 +72,12 @@ var ttypes = map[string]ttypeProviderFunc{
 			return drawChunkXray(&s)
 		}
 	},
+	"biomes": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkBiomes(&s)
+		}
+	},
 	"portalsheat": func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)

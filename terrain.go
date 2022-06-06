@@ -120,6 +120,43 @@ func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.St
 	return level.NewStatesPaletteContainerWithData(16*16*16, s.BlockStates.Data, stateRawPalette)
 }
 
+func prepareSectionBiomes(s *save.Section) *level.PaletteContainer[level.BiomesState] {
+	if len(s.Biomes.Palette) == 1 {
+		v := strings.TrimPrefix(s.Biomes.Palette[0], "minecraft:")
+		i, ok := biomes.BiomeID[v]
+		if !ok && os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+			log.Printf("Failed to find id of biome [%s], fallback to plains", v)
+			i = 1
+		}
+		return level.NewBiomesPaletteContainer(4*4*4, level.BiomesState(i))
+	}
+	rawp := []level.BiomesState{}
+	for _, vv := range s.Biomes.Palette {
+		v := strings.TrimPrefix(vv, "minecraft:")
+		i, ok := biomes.BiomeID[v]
+		if !ok && os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+			log.Printf("Failed to find id of biome [%s], fallback to plains", v)
+			i = 1
+		}
+		rawp = append(rawp, level.BiomesState(i))
+	}
+	return level.NewBiomesPaletteContainerWithData(4*4*4, s.Biomes.Data, rawp)
+}
+
+func drawChunkBiomes(chunk *save.Chunk) (img *image.RGBA) {
+	img = image.NewRGBA(image.Rect(0, 0, 4, 4))
+	for _, s := range chunk.Sections {
+		if s.Y != 4 {
+			continue
+		}
+		c := prepareSectionBiomes(&s)
+		for i := 0; i < 4*4; i++ {
+			img.Set(i%4, i/4, biomes.BiomeColors[int(c.Get(i))])
+		}
+	}
+	return img
+}
+
 func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
