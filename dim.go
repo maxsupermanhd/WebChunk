@@ -56,7 +56,11 @@ func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Dimension not found")
 		return
 	}
-	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "World": world})
+	layers := make([]ttype, 0, len(ttypes))
+	for t := range ttypes {
+		layers = append(layers, t)
+	}
+	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "World": world, "Layers": layers})
 }
 
 func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {

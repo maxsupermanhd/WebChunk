@@ -63,6 +63,9 @@ var layoutFuncs = template.FuncMap{
 	"noescape": func(s string) template.HTML {
 		return template.HTML(s)
 	},
+	"noescapeJS": func(s string) template.JS {
+		return template.JS(s)
+	},
 	"inc": func(i int) int {
 		return i + 1
 	},

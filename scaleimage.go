@@ -44,52 +44,54 @@ type chunkPainterFunc = func(interface{}) *image.RGBA
 type ttypeProviderFunc = func(chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc)
 
 type ttype struct {
-	name      string
-	isOverlay bool
+	Name        string
+	DisplayName string
+	IsOverlay   bool
+	IsDefault   bool
 }
 
 var ttypes = map[ttype]ttypeProviderFunc{
-	{"terrain", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"terrain", "Terrain", false, true}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunk(&s)
 		}
 	},
-	{"counttiles", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"counttiles", "Chunk count", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
 			return drawNumberOfChunks(int(i.(int32)))
 		}
 	},
-	{"counttilesheat", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"counttilesheat", "Chunk count heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
 			return drawHeatOfChunks(int(i.(int32)))
 		}
 	},
-	{"heightmap", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"heightmap", "Heightmap", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkHeightmap(&s)
 		}
 	},
-	{"xray", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"xray", "Xray", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkXray(&s)
 		}
 	},
-	{"biomes", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"biomes", "Biomes", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkBiomes(&s)
 		}
 	},
-	{"portalsheat", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"portalsheat", "Portals heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkPortalBlocksHeatmap(&s)
 		}
 	},
-	{"chestheat", false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"chestheat", "Chest heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			s := i.(save.Chunk)
 			return drawChunkChestBlocksHeatmap(&s)
@@ -122,7 +124,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	var ff ttypeProviderFunc
 	ffound := false
 	for tt := range ttypes {
-		if tt.name == datatype {
+		if tt.Name == datatype {
 			ff = ttypes[tt]
 			ffound = true
 		}

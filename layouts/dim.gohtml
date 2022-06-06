@@ -74,14 +74,9 @@
 			tileSize: 256, zoomReverse: true,
 			zoomSnap: 0.25, attribution: '&copy; McWebChunk Contributors'}
 
-		var voidlayer    = L.tileLayer('/thisdoesnotexist', defaultLayerSettings);
-		var terrainlayer = L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/terrain/{z}/{x}/{y}/png', defaultLayerSettings);
-		var number =       L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/counttiles/{z}/{x}/{y}/png', defaultLayerSettings);
-		var numberheat =   L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/counttilesheat/{z}/{x}/{y}/png', defaultLayerSettings);
-		var height =       L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/heightmap/{z}/{x}/{y}/png', defaultLayerSettings);
-		var xray =         L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/xray/{z}/{x}/{y}/png', defaultLayerSettings);
-		var portals =      L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/portalsheat/{z}/{x}/{y}/png', defaultLayerSettings);
-		var chests =       L.tileLayer('/worlds/{{.World.Name}}/{{.Dim.Name}}/tiles/chestheat/{z}/{x}/{y}/png', defaultLayerSettings);
+		var voidlayer = L.tileLayer('/thisdoesnotexist', defaultLayerSettings);
+		{{range $i, $l := .Layers}}var layer{{noescapeJS $l.Name}} = L.tileLayer('/worlds/{{$.World.Name}}/{{$.Dim.Name}}/tiles/{{$l.Name}}/{z}/{x}/{y}/png', defaultLayerSettings);
+		{{end}}
 		
 		L.GridLayer.GridCoordinates = L.GridLayer.extend({
 			createTile: function (coords) {
@@ -102,27 +97,15 @@
 			cursor: false,
 			crs: L.CRS.Simple,
 			fullscreenControl: true,
-			layers: [terrainlayer, coordinatelayer]
+			layers: [{{range $1, $l := .Layers}}{{if $l.IsDefault}}layer{{noescapeJS $l.Name}},{{end}}{{end}} coordinatelayer]
 		}).setView([0, 0], 3);
-		// var circle = L.square([0, 0], {
-		// 	color: 'red',
-		// 	fillColor: '#f03',
-		// 	fillOpacity: 0.5,
-		// 	radius: 100
-		// }).addTo(mymap);
 		L.control.scale().addTo(mymap);
 		L.control.layers({
-			"Terrain": terrainlayer,
-			"Terrain height": height,
-			"Xray": xray,
-			"Void": voidlayer
-		}, {
-			"Chunk count heat": numberheat,
-			"Chunk count": number,
-			"Coordinate grid": coordinatelayer,
-			"Portal heat": portals,
-			"Chest heat": chests
-			}).addTo(mymap);
+			{{range $1, $l := .Layers}}{{if $l.IsOverlay}}{{else}}"{{$l.DisplayName}}": layer{{noescapeJS $l.Name}},
+			{{end}}{{end}}}, {
+			{{range $1, $l := .Layers}}{{if $l.IsOverlay}}"{{$l.DisplayName}}": layer{{noescapeJS $l.Name}},
+			{{else}}{{end}}{{end}}"Coordinates": coordinatelayer
+		}).addTo(mymap);
 		</script>
 	</body>
 </html>
