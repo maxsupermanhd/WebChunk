@@ -86,7 +86,9 @@
 							{{end}}
 						{{end}}
 					{{else}}
-						<td colspan="4" style="text-align:center"><a style="color:red;">Offline</a></td>
+						<td colspan="4" style="text-align:center">
+							<a style="color:red;" href="/api/storages/{{$s.S.Name}}/reinit">Offline</a>
+						</td>
 					{{end}}
 				</tr>
 			{{end}}
