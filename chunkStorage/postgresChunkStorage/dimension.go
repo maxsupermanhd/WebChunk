@@ -31,7 +31,7 @@ import (
 
 func (s *PostgresChunkStorage) ListWorldDimensions(world string) ([]chunkStorage.DimStruct, error) {
 	dims := []chunkStorage.DimStruct{}
-	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
+	derr := pgxscan.Select(context.Background(), s.DBPool, &dims,
 		`SELECT name, alias, world FROM dimensions WHERE world = $1`, world)
 	if derr == pgx.ErrNoRows {
 		derr = nil
@@ -51,7 +51,7 @@ func (s *PostgresChunkStorage) ListWorldDimensions(world string) ([]chunkStorage
 
 func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error) {
 	dims := []chunkStorage.DimStruct{}
-	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
+	derr := pgxscan.Select(context.Background(), s.DBPool, &dims,
 		`SELECT name, alias, world FROM dimensions`)
 	if derr == pgx.ErrNoRows {
 		derr = nil
@@ -71,7 +71,7 @@ func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error
 
 func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStorage.DimStruct, error) {
 	dim := chunkStorage.DimStruct{}
-	derr := s.dbpool.QueryRow(context.Background(),
+	derr := s.DBPool.QueryRow(context.Background(),
 		`SELECT name, alias, world, spawnpoint, miny, maxy FROM dimensions WHERE name = $1 AND world = $2`, dimension, world).
 		Scan(&dim.Name, &dim.Alias, &dim.World, &dim.Spawnpoint, &dim.LowestY, &dim.BuildLimit)
 	if derr == pgx.ErrNoRows {
@@ -81,14 +81,14 @@ func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStor
 }
 
 func (s *PostgresChunkStorage) AddDimension(dim chunkStorage.DimStruct) (*chunkStorage.DimStruct, error) {
-	_, derr := s.dbpool.Exec(context.Background(),
+	_, derr := s.DBPool.Exec(context.Background(),
 		`INSERT INTO dimensions (world, name, alias, miny, maxy) VALUES ($1, $2, $3, $4, $5)`, dim.World, dim.Name, dim.Alias, dim.LowestY, dim.BuildLimit)
 	return &dim, derr
 }
 
 func (s *PostgresChunkStorage) GetDimensionChunksCount(wname, dname string) (count uint64, derr error) {
 	var dimID int
-	derr = s.dbpool.QueryRow(context.Background(),
+	derr = s.DBPool.QueryRow(context.Background(),
 		`SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
 	if derr != nil {
 		if derr == pgx.ErrNoRows {
@@ -96,14 +96,14 @@ func (s *PostgresChunkStorage) GetDimensionChunksCount(wname, dname string) (cou
 		}
 		return 0, derr
 	}
-	derr = s.dbpool.QueryRow(context.Background(),
+	derr = s.DBPool.QueryRow(context.Background(),
 		`SELECT COUNT(id) FROM chunks WHERE dim = $1`, dimID).Scan(&count)
 	return count, derr
 }
 
 func (s *PostgresChunkStorage) GetDimensionChunksSize(wname, dname string) (size uint64, derr error) {
 	var dimID int
-	derr = s.dbpool.QueryRow(context.Background(),
+	derr = s.DBPool.QueryRow(context.Background(),
 		`SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
 	if derr != nil {
 		if derr == pgx.ErrNoRows {
@@ -111,7 +111,7 @@ func (s *PostgresChunkStorage) GetDimensionChunksSize(wname, dname string) (size
 		}
 		return 0, derr
 	}
-	derr = s.dbpool.QueryRow(context.Background(),
+	derr = s.DBPool.QueryRow(context.Background(),
 		`SELECT COALESCE(SUM(pg_column_size(data)), 0) FROM chunks WHERE dim = $1`, dimID).Scan(&size)
 	return size, derr
 }

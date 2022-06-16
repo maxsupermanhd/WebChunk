@@ -28,7 +28,7 @@ import (
 )
 
 type PostgresChunkStorage struct {
-	dbpool *pgxpool.Pool
+	DBPool *pgxpool.Pool
 }
 
 func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresChunkStorage, error) {
@@ -36,7 +36,7 @@ func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresC
 	if err != nil {
 		return nil, err
 	}
-	ret := &PostgresChunkStorage{dbpool: p}
+	ret := &PostgresChunkStorage{DBPool: p}
 	_, err = ret.GetStatus()
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresC
 }
 
 func (s *PostgresChunkStorage) Close() error {
-	s.dbpool.Close()
+	s.DBPool.Close()
 	return nil
 }
 
@@ -58,6 +58,6 @@ func (s *PostgresChunkStorage) GetAbilities() chunkStorage.StorageAbilities {
 }
 
 func (s *PostgresChunkStorage) GetStatus() (ver string, err error) {
-	err = s.dbpool.QueryRow(context.Background(), "SELECT version()").Scan(&ver)
+	err = s.DBPool.QueryRow(context.Background(), "SELECT version()").Scan(&ver)
 	return
 }

@@ -30,7 +30,7 @@ import (
 
 func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.WorldStruct, error) {
 	worlds := []chunkStorage.WorldStruct{}
-	derr := pgxscan.Select(context.Background(), s.dbpool, &worlds,
+	derr := pgxscan.Select(context.Background(), s.DBPool, &worlds,
 		`SELECT name, ip FROM worlds`)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
@@ -50,7 +50,7 @@ func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.WorldStruct, error) 
 
 func (s *PostgresChunkStorage) GetWorld(wname string) (*chunkStorage.WorldStruct, error) {
 	world := chunkStorage.WorldStruct{}
-	derr := s.dbpool.QueryRow(context.Background(),
+	derr := s.DBPool.QueryRow(context.Background(),
 		`SELECT name, ip FROM worlds WHERE name = $1 LIMIT 1`, wname).Scan(&world.Name, &world.IP)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
@@ -65,6 +65,6 @@ func (s *PostgresChunkStorage) AddWorld(name, ip string) (*chunkStorage.WorldStr
 	world := chunkStorage.WorldStruct{}
 	world.IP = ip
 	world.Name = name
-	_, derr := s.dbpool.Exec(context.Background(), `INSERT INTO worlds (name, ip) VALUES ($1, $2)`, name, ip)
+	_, derr := s.DBPool.Exec(context.Background(), `INSERT INTO worlds (name, ip) VALUES ($1, $2)`, name, ip)
 	return &world, derr
 }

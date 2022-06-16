@@ -27,6 +27,7 @@ import (
 
 	"github.com/Tnze/go-mc/save"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
@@ -46,7 +47,7 @@ func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.
 
 func (s *PostgresChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]byte, error) {
 	var d []byte
-	derr := s.dbpool.QueryRow(context.Background(), `
+	derr := s.DBPool.QueryRow(context.Background(), `
 		select data
 		from chunks
 		where x = $1 AND z = $2 AND
@@ -55,6 +56,72 @@ func (s *PostgresChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]b
 			 where dimensions.world = $3 and dimensions.name = $4)
 		order by created_at desc
 		limit 1;`, cx, cz, wname, dname).Scan(&d)
+	if derr != nil {
+		if derr == pgx.ErrNoRows {
+			derr = nil
+		} else {
+			log.Print(derr.Error())
+		}
+		return nil, derr
+	}
+	return d, derr
+}
+
+func ConnGetChunkByDID(conn *pgxpool.Conn, did int, cx, cz int) (*save.Chunk, error) {
+	d, err := ConnGetChunkRawByDID(conn, did, cx, cz)
+	if err != nil {
+		return nil, err
+	}
+	var c save.Chunk
+	if len(d) > 1 {
+		err = c.Load(d)
+	} else {
+		err = errors.New("data is zero length")
+	}
+	return &c, err
+}
+
+func ConnGetChunkRawByDID(conn *pgxpool.Conn, did int, cx, cz int) ([]byte, error) {
+	var d []byte
+	derr := conn.QueryRow(context.Background(), `
+		select data
+		from chunks
+		where x = $1 AND z = $2 AND dim = $3
+		order by created_at desc
+		limit 1;`, cx, cz, did).Scan(&d)
+	if derr != nil {
+		if derr == pgx.ErrNoRows {
+			derr = nil
+		} else {
+			log.Print(derr.Error())
+		}
+		return nil, derr
+	}
+	return d, derr
+}
+
+func (s *PostgresChunkStorage) GetChunkByDID(did int, cx, cz int) (*save.Chunk, error) {
+	d, err := s.GetChunkRawByDID(did, cx, cz)
+	if err != nil {
+		return nil, err
+	}
+	var c save.Chunk
+	if len(d) > 1 {
+		err = c.Load(d)
+	} else {
+		err = errors.New("data is zero length")
+	}
+	return &c, err
+}
+
+func (s *PostgresChunkStorage) GetChunkRawByDID(did int, cx, cz int) ([]byte, error) {
+	var d []byte
+	derr := s.DBPool.QueryRow(context.Background(), `
+		select data
+		from chunks
+		where x = $1 AND z = $2 AND dim = $3
+		order by created_at desc
+		limit 1;`, cx, cz, did).Scan(&d)
 	if derr != nil {
 		if derr == pgx.ErrNoRows {
 			derr = nil
@@ -95,14 +162,14 @@ func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx
 func (s *PostgresChunkStorage) GetChunksRegionRaw(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	c := []chunkStorage.ChunkData{}
 	var dimID int
-	err := s.dbpool.QueryRow(context.Background(), `SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
+	err := s.DBPool.QueryRow(context.Background(), `SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			err = nil
 		}
 		return c, err
 	}
-	rows, err := s.dbpool.Query(context.Background(), `
+	rows, err := s.DBPool.Query(context.Background(), `
 		with grp as
 		 (
 			select x, z, data, created_at, dim, id,
@@ -138,7 +205,7 @@ func (s *PostgresChunkStorage) GetChunksRegionRaw(wname, dname string, cx0, cz0,
 
 func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	cc := []chunkStorage.ChunkData{}
-	rows, derr := s.dbpool.Query(context.Background(), `
+	rows, derr := s.DBPool.Query(context.Background(), `
 	select
 	x, z, coalesce(count(*), 0) as c
 	from chunks
@@ -254,7 +321,7 @@ func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col sav
 }
 
 func (s *PostgresChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, dat []byte) error {
-	_, err := s.dbpool.Exec(context.Background(), `
+	_, err := s.DBPool.Exec(context.Background(), `
 			insert into chunks (x, z, data, dim)
 			values ($1, $2, $3,
 				(select dimensions.id from dimensions
@@ -264,12 +331,12 @@ func (s *PostgresChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, dat 
 }
 
 func (s *PostgresChunkStorage) GetChunksCount() (chunksCount uint64, derr error) {
-	derr = s.dbpool.QueryRow(context.Background(),
+	derr = s.DBPool.QueryRow(context.Background(),
 		`SELECT COUNT(id) from chunks;`).Scan(&chunksCount)
 	return chunksCount, derr
 }
 func (s *PostgresChunkStorage) GetChunksSize() (chunksSize uint64, derr error) {
-	derr = s.dbpool.QueryRow(context.Background(),
+	derr = s.DBPool.QueryRow(context.Background(),
 		`SELECT pg_total_relation_size('chunks');`).Scan(&chunksSize)
 	return chunksSize, derr
 }
