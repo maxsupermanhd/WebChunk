@@ -18,6 +18,7 @@ Designed to accept chunks from multiple players at once, provide very fast deser
 - [x] Colors customization
 - [x] Concurrent use
 - [x] Connect and view downloaded chunks in-game
+- [x] Biome view
 
 ### In plans
 
