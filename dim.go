@@ -23,7 +23,9 @@ package main
 import (
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -60,6 +62,7 @@ func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 	for t := range ttypes {
 		layers = append(layers, t)
 	}
+	sort.Slice(layers, func(i, j int) bool { return strings.Compare(layers[i].Name, layers[j].Name) > 0 })
 	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "World": world, "Layers": layers})
 }
 
@@ -108,6 +111,7 @@ func apiListDimensions(w http.ResponseWriter, r *http.Request) (int, string) {
 	if err != nil {
 		return 500, "Failed to list dimensions: " + err.Error()
 	}
+	sort.Slice(dims, func(i, j int) bool { return strings.Compare(dims[i].World, dims[j].World) > 0 })
 	setContentTypeJson(w)
 	return marshalOrFail(200, dims)
 }
