@@ -31,8 +31,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	_ "os"
-	_ "strconv"
+	"sort"
+	"strings"
 
 	"github.com/Tnze/go-mc/nbt"
 	_ "github.com/Tnze/go-mc/save/region"
@@ -308,5 +308,6 @@ func apiListRenderers(w http.ResponseWriter, r *http.Request) (int, string) {
 	for t := range ttypes {
 		keys = append(keys, t)
 	}
+	sort.Slice(keys, func(i, j int) bool { return strings.Compare(keys[i].Name, keys[j].Name) > 0 })
 	return marshalOrFail(200, keys)
 }
