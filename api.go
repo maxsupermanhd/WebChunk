@@ -138,6 +138,23 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 		return http.StatusInternalServerError, fmt.Sprintf("Failed to add chunk to storage: %s", err.Error())
 	}
 	log.Print("Submitted chunk ", col.XPos, col.ZPos, " world ", wname, " dimension ", dname)
+	dTTYPE := r.Header.Get("WebChunk-DrawTTYPE")
+	if dTTYPE != "" {
+		var dPainter chunkPainterFunc
+		for i := range ttypes {
+			if i.Name == dTTYPE {
+				drawTTYPE := ttypes[i]
+				_, dPainter = drawTTYPE(s)
+				break
+			}
+		}
+		if dPainter == nil {
+			return http.StatusBadRequest, "Requested terrain type not found!"
+		}
+		w.WriteHeader(http.StatusOK)
+		writeImage(w, "png", dPainter(col))
+		return -1, ""
+	}
 	return http.StatusOK, fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, wname, dname)
 }
 
