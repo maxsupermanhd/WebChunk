@@ -29,6 +29,9 @@ import (
 func apiHandle(f func(http.ResponseWriter, *http.Request) (int, string)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code, content := f(w, r)
+		if code == -1 {
+			return
+		}
 		if code == 500 && loadedConfig.API.LogErrors {
 			log.Println("500 error code: " + content)
 		}
