@@ -28,7 +28,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"log"
-	"math"
 	"net/http"
 	"strconv"
 	_ "sync"
@@ -39,7 +38,7 @@ import (
 	"github.com/nfnt/resize"
 )
 
-type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error)
+type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int64) ([]chunkStorage.ChunkData, error)
 type chunkPainterFunc = func(interface{}) *image.RGBA
 type ttypeProviderFunc = func(chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc)
 
@@ -97,6 +96,18 @@ var ttypes = map[ttype]ttypeProviderFunc{
 			return drawChunkChestBlocksHeatmap(&s)
 		}
 	},
+	{"lavaage", "Lava age", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkLavaAge(&s, 255)
+		}
+	},
+	{"lavaageoverlay", "Lava age (overlay)", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			s := i.(save.Chunk)
+			return drawChunkLavaAge(&s, 128)
+		}
+	},
 }
 
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +118,14 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("Cache-Control") != "no-cache" {
-		if bytes, err := loadImageCache(wname, dname, datatype, cs, cx, cz); err == nil {
+		img := imageCacheGetBlocking(wname, dname, datatype, cs, cx, cz)
+		if img != nil {
+			b := bytes.NewBuffer([]byte{})
+			err := png.Encode(b, img)
+			if err != nil {
+				log.Printf("Failed to enclode image: %v", err)
+			}
+			bytes := b.Bytes()
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "image/png")
 			w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
@@ -139,10 +157,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("Cache-Control") != "no-store" {
-		err = saveImageCache(img, wname, dname, datatype, cs, cx, cz)
-		if err != nil {
-			log.Println("Failed to cache image:", err.Error())
-		}
+		imageCacheSave(img, wname, dname, datatype, cs, cx, cz)
 	}
 	w.WriteHeader(http.StatusOK)
 	writeImage(w, fname, img)
@@ -153,12 +168,12 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	if err != nil {
 		return nil
 	}
-	scale := int(math.Pow(2, float64(cs)))
+	scale := int64(2 << (cs - 1))
 	imagesize := scale * 16
 	if imagesize > 512 {
 		imagesize = 512
 	}
-	img := image.NewRGBA(image.Rect(0, 0, imagesize, imagesize))
+	img := image.NewRGBA(image.Rect(0, 0, int(imagesize), int(imagesize)))
 	imagescale := int(imagesize / scale)
 	offsetx := cx * scale
 	offsety := cz * scale
@@ -172,8 +187,8 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 		return nil
 	}
 	for _, c := range cc {
-		placex := int(c.X) - offsetx
-		placey := int(c.Z) - offsety
+		placex := int(int64(c.X) - offsetx)
+		placey := int(int64(c.Z) - offsety)
 		tile := resize.Resize(uint(imagescale), uint(imagescale), painter(c.Data), resize.NearestNeighbor)
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)
@@ -181,7 +196,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	return img
 }
 
-func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname string, cx, cz, cs int, err error) {
+func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname string, cx, cz, cs int64, err error) {
 	params := mux.Vars(r)
 	dname = params["dim"]
 	wname = params["world"]
@@ -191,19 +206,19 @@ func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname s
 		return
 	}
 	cxs := params["cx"]
-	cx, err = strconv.Atoi(cxs)
+	cx, err = strconv.ParseInt(cxs, 10, 0)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Bad cx id: "+err.Error())
 		return
 	}
 	czs := params["cz"]
-	cz, err = strconv.Atoi(czs)
+	cz, err = strconv.ParseInt(czs, 10, 0)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Bad cz id: "+err.Error())
 		return
 	}
 	css := params["cs"]
-	cs, err = strconv.Atoi(css)
+	cs, err = strconv.ParseInt(css, 10, 0)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Bad s id: "+err.Error())
 		return

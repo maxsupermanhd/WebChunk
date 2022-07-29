@@ -32,6 +32,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	_ "sync"
 	"time"
 
@@ -362,6 +363,82 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
+func drawChunkLavaAge(chunk *save.Chunk, alpha uint8) (img *image.RGBA) {
+	t := time.Now()
+	trycontinue := int32(-1)
+	var lavafound bool
+	intensity := -1
+	lavaid := block.Lava.ID(block.Lava{})
+	for _, s := range chunk.Sections {
+		if len(s.BlockStates.Palette) == 1 {
+			continue
+		}
+		lavafound = false
+		for _, b := range s.BlockStates.Palette {
+			if b.Name == lavaid {
+				lavafound = true
+				break
+			}
+		}
+		if !lavafound {
+			trycontinue = -1
+			continue
+		}
+		states := prepareSectionBlockstates(&s)
+		if states == nil {
+			if os.Getenv("REPORT_CHUNK_PROBLEMS") == "yes" || os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
+				log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
+			}
+			continue
+		}
+		for y := 15; y >= 0; y-- {
+			yadd := y * 16 * 16
+			if trycontinue != -1 {
+				if block.StateList[states.Get(int(trycontinue))].ID() == lavaid {
+					intensity++
+				} else {
+					trycontinue = -1
+				}
+			} else {
+				for i := 16*16 - 1; i >= 0; i-- {
+					ii := yadd + i
+					if block.StateList[states.Get(ii)].ID() == lavaid {
+						nearcount := 0
+						if ii+1 >= 0 && ii+1 < 16*16 && block.StateList[states.Get(ii+1)].ID() == lavaid {
+							nearcount++
+						}
+						if ii-1 >= 0 && ii+1 < 16*16 && block.StateList[states.Get(ii-1)].ID() == lavaid {
+							nearcount++
+						}
+						if ii+16 >= 0 && ii+1 < 16*16 && block.StateList[states.Get(ii+16)].ID() == lavaid {
+							nearcount++
+						}
+						if ii-16 >= 0 && ii+1 < 16*16 && block.StateList[states.Get(ii-16)].ID() == lavaid {
+							nearcount++
+						}
+						if nearcount < 2 {
+							trycontinue = int32(i)
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	defaultColor := color.RGBA{128, 128, 128, alpha}
+	if intensity > 12 {
+		intensity = intensity * 3
+		if intensity > 255 {
+			intensity = 255 // dunno how that can happen but still
+		}
+		defaultColor = color.RGBA{uint8(intensity), 42, 255, alpha}
+	}
+	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
+	appendMetrics(time.Since(t), "lavaage")
+	return img
+}
+
 func drawChunkXray(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
@@ -521,15 +598,15 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cxs := params["cx"]
-	cx, err := strconv.Atoi(cxs)
+	cx, err := strconv.ParseInt(cxs, 10, 0)
 	if err != nil {
-		plainmsg(w, r, plainmsgColorRed, "Chunk X coordinate is shit: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Bad cx id: "+err.Error())
 		return
 	}
 	czs := params["cz"]
-	cz, err := strconv.Atoi(czs)
+	cz, err := strconv.ParseInt(czs, 10, 0)
 	if err != nil {
-		plainmsg(w, r, plainmsgColorRed, "Chunk Z coordinate is shit: "+err.Error())
+		plainmsg(w, r, plainmsgColorRed, "Bad cz id: "+err.Error())
 		return
 	}
 	c, err := s.GetChunk(wname, dname, cx, cz)

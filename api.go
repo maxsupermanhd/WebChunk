@@ -132,7 +132,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 			return http.StatusNotFound, fmt.Sprintf("Dimension not found: %s", err)
 		}
 	}
-	err = s.AddChunkRaw(wname, dname, int(col.XPos), int(col.ZPos), body)
+	err = s.AddChunkRaw(wname, dname, int64(col.XPos), int64(col.ZPos), body)
 	if err != nil {
 		log.Printf("Failed to submit chunk %v:%v world %v dimension %v: %v", col.XPos, col.ZPos, wname, dname, err.Error())
 		return http.StatusInternalServerError, fmt.Sprintf("Failed to add chunk to storage: %s", err.Error())

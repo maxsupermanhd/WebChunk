@@ -31,7 +31,7 @@ import (
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
-func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error) {
+func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int64) (*save.Chunk, error) {
 	d, err := s.GetChunkRaw(wname, dname, cx, cz)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.
 	return &c, err
 }
 
-func (s *PostgresChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]byte, error) {
+func (s *PostgresChunkStorage) GetChunkRaw(wname, dname string, cx, cz int64) ([]byte, error) {
 	var d []byte
 	derr := s.DBPool.QueryRow(context.Background(), `
 		select data
@@ -67,7 +67,7 @@ func (s *PostgresChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]b
 	return d, derr
 }
 
-func ConnGetChunkByDID(conn *pgxpool.Conn, did int, cx, cz int) (*save.Chunk, error) {
+func ConnGetChunkByDID(conn *pgxpool.Conn, did int, cx, cz int64) (*save.Chunk, error) {
 	d, err := ConnGetChunkRawByDID(conn, did, cx, cz)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func ConnGetChunkByDID(conn *pgxpool.Conn, did int, cx, cz int) (*save.Chunk, er
 	return &c, err
 }
 
-func ConnGetChunkRawByDID(conn *pgxpool.Conn, did int, cx, cz int) ([]byte, error) {
+func ConnGetChunkRawByDID(conn *pgxpool.Conn, did int, cx, cz int64) ([]byte, error) {
 	var d []byte
 	derr := conn.QueryRow(context.Background(), `
 		select data
@@ -100,7 +100,7 @@ func ConnGetChunkRawByDID(conn *pgxpool.Conn, did int, cx, cz int) ([]byte, erro
 	return d, derr
 }
 
-func (s *PostgresChunkStorage) GetChunkByDID(did int, cx, cz int) (*save.Chunk, error) {
+func (s *PostgresChunkStorage) GetChunkByDID(did int, cx, cz int64) (*save.Chunk, error) {
 	d, err := s.GetChunkRawByDID(did, cx, cz)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (s *PostgresChunkStorage) GetChunkByDID(did int, cx, cz int) (*save.Chunk, 
 	return &c, err
 }
 
-func (s *PostgresChunkStorage) GetChunkRawByDID(did int, cx, cz int) ([]byte, error) {
+func (s *PostgresChunkStorage) GetChunkRawByDID(did int, cx, cz int64) ([]byte, error) {
 	var d []byte
 	derr := s.DBPool.QueryRow(context.Background(), `
 		select data
@@ -133,7 +133,7 @@ func (s *PostgresChunkStorage) GetChunkRawByDID(did int, cx, cz int) ([]byte, er
 	return d, derr
 }
 
-func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
+func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int64) ([]chunkStorage.ChunkData, error) {
 	ar, err := s.GetChunksRegionRaw(wname, dname, cx0, cz0, cx1, cz1)
 	if err != nil {
 		return ar, err
@@ -159,7 +159,7 @@ func (s *PostgresChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx
 	return ret, err
 }
 
-func (s *PostgresChunkStorage) GetChunksRegionRaw(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
+func (s *PostgresChunkStorage) GetChunksRegionRaw(wname, dname string, cx0, cz0, cx1, cz1 int64) ([]chunkStorage.ChunkData, error) {
 	c := []chunkStorage.ChunkData{}
 	var dimID int
 	err := s.DBPool.QueryRow(context.Background(), `SELECT id FROM dimensions WHERE world = $1 and name = $2`, wname, dname).Scan(&dimID)
@@ -203,7 +203,7 @@ func (s *PostgresChunkStorage) GetChunksRegionRaw(wname, dname string, cx0, cz0,
 	return c, perr
 }
 
-func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
+func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int64) ([]chunkStorage.ChunkData, error) {
 	cc := []chunkStorage.ChunkData{}
 	rows, derr := s.DBPool.Query(context.Background(), `
 	select
@@ -311,7 +311,7 @@ func (s *PostgresChunkStorage) GetChunksCountRegion(wname, dname string, cx0, cz
 // 	}
 // }
 
-func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col save.Chunk) error {
+func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int64, col save.Chunk) error {
 	b, err := col.Data(1)
 	if err != nil {
 		log.Printf("Error marshling: %s", err.Error())
@@ -320,7 +320,7 @@ func (s *PostgresChunkStorage) AddChunk(wname, dname string, cx, cz int, col sav
 	return s.AddChunkRaw(wname, dname, cx, cz, b)
 }
 
-func (s *PostgresChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, dat []byte) error {
+func (s *PostgresChunkStorage) AddChunkRaw(wname, dname string, cx, cz int64, dat []byte) error {
 	_, err := s.DBPool.Exec(context.Background(), `
 			insert into chunks (x, z, data, dim)
 			values ($1, $2, $3,

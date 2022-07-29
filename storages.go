@@ -165,7 +165,7 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 		data.BlockTicks = nbtEmptyList
 		data.FluidTicks = nbtEmptyList
 		data.PostProcessing = nbtEmptyList
-		err = s.AddChunk(w.Name, d.Name, r.Pos.X, r.Pos.Z, data)
+		err = s.AddChunk(w.Name, d.Name, int64(r.Pos.X), int64(r.Pos.Z), data)
 		if err != nil {
 			log.Printf("Failed to save chunk: %s", err.Error())
 		}

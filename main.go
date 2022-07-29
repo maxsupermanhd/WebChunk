@@ -193,6 +193,8 @@ func main() {
 	}
 
 	log.Println("Adding routes")
+	tasksProgressBroadcaster.Start()
+	defer tasksProgressBroadcaster.Stop()
 	router := mux.NewRouter()
 	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(hiddenFileSystem{http.Dir("./static")}))).Methods("GET")
 	router.HandleFunc("/favicon.ico", faviconHandler).Methods("GET")
@@ -242,7 +244,6 @@ func main() {
 		}
 		log.Println("Storage initialized: " + ver)
 	}
-	defer chunkStorage.CloseStorages(storages)
 
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
 	go func() {
@@ -270,12 +271,19 @@ func main() {
 	// 	log.Println("Starting reconstructor")
 	// 	viewer.StartReconstructor(storages, &loadedConfig.Reconstructor)
 	// }()
+	go startImageCache()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	for range c {
-		return
-	}
+	<-c
+	log.Println("Interrupt recieved, shutting down...")
+	log.Println("Stopping image cache...")
+	stopImageCache()
+	log.Println("Image cache stopped.")
+	log.Println("Shutting down storages...")
+	chunkStorage.CloseStorages(storages)
+	log.Println("Storages closed.")
+	log.Println("Shutdown complete, bye!")
 }
 
 var prevCPUIdle uint64
