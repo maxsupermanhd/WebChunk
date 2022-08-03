@@ -41,7 +41,7 @@ var (
 	imageCacheShutdown        = make(chan struct{})
 	imageCacheWaitGroup       sync.WaitGroup
 	imageCacheMaxCache        = 64
-	imageCachePropagateLevels = 16
+	imageCachePropagateLevels = int64(16)
 	imageCacheProcess         = make(chan cacheTask, 32)
 )
 
@@ -107,17 +107,31 @@ func imageCacheProcessor() {
 				syncedToDisk: false,
 			}
 			if p.loc.s == 0 {
-				for i := 1; i <= imageCachePropagateLevels; i++ {
-					img, ok := imageCache[p.loc]
+				for ts := int64(1); ts <= imageCachePropagateLevels; ts++ {
+					tsize := 16 * (2 << (ts - 1))
+					pabsx := p.loc.x * 16
+					pabsz := p.loc.z * 16
+					tloc := imageLoc{
+						world:  p.loc.world,
+						dim:    p.loc.dim,
+						render: p.loc.render,
+						s:      ts,
+						x:      pabsx / int64(tsize),
+						z:      pabsz / int64(tsize),
+					}
+					img, ok := imageCache[tloc]
 					if !ok {
 						img = cachedImage{
 							img: image.NewRGBA(image.Rectangle{
 								Min: image.Point{0, 0},
-								Max: image.Point{16 * (2 << (i - 1)), 16 * (2 << (i - 1))},
+								Max: image.Point{tsize, tsize},
 							}),
 							syncedToDisk: false,
 						}
 					}
+					toofsetx := int(pabsx % int64(tsize))
+					toofsetz := int(pabsz % int64(tsize))
+					draw.Draw(img.img, image.Rect(toofsetx, toofsetz, toofsetx+16, toofsetz+16), p.img, image.Pt(0, 0), draw.Over)
 					imageCache[p.loc] = img
 				}
 			}
