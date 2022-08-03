@@ -151,19 +151,21 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 				}
 			}
 		} else {
-		for i := range ttypes {
-			if i.Name == dTTYPE {
-				drawTTYPE := ttypes[i]
-				_, dPainter = drawTTYPE(s)
-				break
+			for i := range ttypes {
+				if i.Name == dTTYPE {
+					drawTTYPE := ttypes[i]
+					_, dPainter = drawTTYPE(s)
+					break
+				}
 			}
-		}
 		}
 		if dPainter == nil {
 			return http.StatusBadRequest, "Requested terrain type not found!"
 		}
 		w.WriteHeader(http.StatusOK)
-		writeImage(w, "png", dPainter(col))
+		img := dPainter(col)
+		writeImage(w, "png", img)
+		imageCacheSave(img, wname, dname, dTTYPE, 0, int64(col.XPos), int64(col.ZPos))
 		return -1, ""
 	}
 	return http.StatusOK, fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, wname, dname)
