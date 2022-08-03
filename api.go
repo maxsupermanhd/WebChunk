@@ -141,12 +141,23 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 	dTTYPE := r.Header.Get("WebChunk-DrawTTYPE")
 	if dTTYPE != "" {
 		var dPainter chunkPainterFunc
+		if dTTYPE == "default" {
+			for i := range ttypes {
+				if i.IsDefault {
+					dTTYPE = i.Name
+					drawTTYPE := ttypes[i]
+					_, dPainter = drawTTYPE(s)
+					break
+				}
+			}
+		} else {
 		for i := range ttypes {
 			if i.Name == dTTYPE {
 				drawTTYPE := ttypes[i]
 				_, dPainter = drawTTYPE(s)
 				break
 			}
+		}
 		}
 		if dPainter == nil {
 			return http.StatusBadRequest, "Requested terrain type not found!"
