@@ -6,7 +6,9 @@ WebChunk is a simple web server written in Go that works with Postgres datbase t
 
 It is mainly targeted at multiplayer anarchy servers because of "hacking" being a bold word that fits literally every game modification.
 
-Designed to accept chunks from multiple players at once, provide very fast deserialization and storage and mapping information.
+Designed to accept chunks from multiple players at once, provide very fast deserialization, storage and mapping information.
+
+Join [discord server](https://discord.com/invite/DFsMKWJJPN) for more info!
 
 ## Features
 
@@ -22,31 +24,18 @@ Designed to accept chunks from multiple players at once, provide very fast deser
 
 ### In plans
 
-#### By priority (from highest to lowest)
-
-- [ ] Pre-render of areas
-- [ ] Map markers
-- [ ] Restore chunks to level and make it downloadable (backup restore)
-- [ ] 3D view
-- [ ] Customizable overlaying
-- [ ] Mobile version
-- [ ] Block formation search
-- [ ] Heatmap of terrain difference
-- [ ] Player activity search
-- [ ] "New chunks" overlay
-
-#### By ease of implementation (from easiest to hardest)
-
+- [ ] Automatic seed cracking
+- [ ] Seed based generation of waypoints
 - [ ] Block formation search
 - [ ] "New chunks" overlay
 - [ ] Map markers
+- [ ] Websocket interface
+- [ ] Realtime position sharing
 - [ ] Heatmap of terrain difference
 - [ ] Player activity search
 - [ ] Pre-render of areas
 - [ ] Customizable overlaying
-- [ ] Restore chunks to level and make it downloadable (backup restore)
-- [ ] Mobile version
-- [ ] 3D view
+- [ ] Compatibility with Minecraft's level format
 
 ## Data source
 
