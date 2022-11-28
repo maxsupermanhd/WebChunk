@@ -27,12 +27,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Tnze/go-mc/nbt"
 	_ "github.com/Tnze/go-mc/save/region"
@@ -69,7 +69,6 @@ func logChunkNbt(d []byte) {
 		if err != nil {
 			log.Println(err)
 		}
-
 	}
 }
 
@@ -77,7 +76,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 	params := mux.Vars(r)
 	dname := params["dim"]
 	wname := params["world"]
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Sprintf("Error reading request: %s", err)
 	}
@@ -94,14 +93,30 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 		if s == nil {
 			return http.StatusNotFound, fmt.Sprintf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%d:%d] is LOST.", wname, loadedConfig.API.FallbackStorageName, col.XPos, col.ZPos)
 		}
-		world, err = s.AddWorld(wname, wname)
+		world = &chunkStorage.SWorld{
+			Name:       wname,
+			Alias:      wname,
+			IP:         "",
+			CreatedAt:  time.Now(),
+			ModifiedAt: time.Now(),
+			Data:       chunkStorage.CreateDefaultLevelData(wname),
+		}
+		err = s.AddWorld(*world)
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Sprintf("Error creating world in fallback storage: %s", err)
 		}
 	}
 	if world == nil {
 		if loadedConfig.API.CreateWorlds {
-			world, err = s.AddWorld(wname, wname)
+			world = &chunkStorage.SWorld{
+				Name:       wname,
+				Alias:      wname,
+				IP:         "",
+				CreatedAt:  time.Now(),
+				ModifiedAt: time.Now(),
+				Data:       chunkStorage.CreateDefaultLevelData(wname),
+			}
+			err = s.AddWorld(*world)
 			if err != nil {
 				return http.StatusInternalServerError, fmt.Sprintf("Error creating world: %s", err)
 			}
@@ -114,13 +129,12 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 	}
 	if dim == nil {
 		if loadedConfig.API.CreateDimensions {
-			dim, err = s.AddDimension(chunkStorage.DimStruct{
+			err = s.AddDimension(wname, chunkStorage.SDim{
 				Name:       dname,
-				Alias:      dname,
-				World:      world.Name,
-				Spawnpoint: [3]int64{0, 0, 0},
-				LowestY:    0,
-				BuildLimit: 256,
+				World:      wname,
+				CreatedAt:  time.Now(),
+				ModifiedAt: time.Now(),
+				Data:       chunkStorage.GuessDimTypeFromName(dname),
 			})
 			if err != nil {
 				return http.StatusInternalServerError, fmt.Sprintf("Error creating dim: %s", err)
@@ -132,7 +146,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 			return http.StatusNotFound, fmt.Sprintf("Dimension not found: %s", err)
 		}
 	}
-	err = s.AddChunkRaw(wname, dname, int64(col.XPos), int64(col.ZPos), body)
+	err = s.AddChunkRaw(wname, dname, int(col.XPos), int(col.ZPos), body)
 	if err != nil {
 		log.Printf("Failed to submit chunk %v:%v world %v dimension %v: %v", col.XPos, col.ZPos, wname, dname, err.Error())
 		return http.StatusInternalServerError, fmt.Sprintf("Failed to add chunk to storage: %s", err.Error())
@@ -165,7 +179,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 		w.WriteHeader(http.StatusOK)
 		img := dPainter(col)
 		writeImage(w, "png", img)
-		imageCacheSave(img, wname, dname, dTTYPE, 0, int64(col.XPos), int64(col.ZPos))
+		imageCacheSave(img, wname, dname, dTTYPE, 0, int(col.XPos), int(col.ZPos))
 		return -1, ""
 	}
 	return http.StatusOK, fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, wname, dname)

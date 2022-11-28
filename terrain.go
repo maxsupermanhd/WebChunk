@@ -89,10 +89,6 @@ func isAirState(s block.StateID) bool {
 	}
 }
 
-func isAirBlock(s block.Block) bool {
-	return s.ID() == "air" || s.ID() == "cave_air" || s.ID() == "void_air"
-}
-
 func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.StateID] {
 	statePalette := s.BlockStates.Palette
 	stateRawPalette := make([]block.StateID, len(statePalette))
@@ -202,6 +198,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
+//lint:ignore U1000 for debugging
 func printColor(c color.RGBA64) string {
 	return fmt.Sprintf("%5d %5d %5d %5d", c.R, c.G, c.B, c.A)
 }
@@ -609,12 +606,12 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Bad cz id: "+err.Error())
 		return
 	}
-	c, err := s.GetChunk(wname, dname, cx, cz)
+	c, err := s.GetChunk(wname, dname, int(cx), int(cz))
 	if err != nil {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
 	}
-	raw, err := s.GetChunkRaw(wname, dname, cx, cz)
+	raw, err := s.GetChunkRaw(wname, dname, int(cx), int(cz))
 	if err != nil {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return

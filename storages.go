@@ -24,12 +24,13 @@ import (
 	"context"
 	"errors"
 	"log"
-	"strings"
+	"time"
 
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/nbt"
 	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage/filesystemChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 )
@@ -42,6 +43,12 @@ func initStorage(t, a string) (driver chunkStorage.ChunkStorage, err error) {
 	switch t {
 	case "postgres":
 		driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), a)
+		if err != nil {
+			return nil, err
+		}
+		return driver, nil
+	case "filesystem":
+		driver, err = filesystemChunkStorage.NewFilesystemChunkStorage(a)
 		if err != nil {
 			return nil, err
 		}
@@ -93,14 +100,22 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 			log.Println("Failed to lookup world storage: ", err)
 			break
 		}
-		var d *chunkStorage.DimStruct
+		var d *chunkStorage.SDim
 		if w == nil || s == nil {
 			s = findCapableStorage(storages, route.Storage)
 			if s == nil {
 				log.Printf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%v] from [%v] by [%v] is LOST.", route.World, route.Storage, r.Pos, r.Server, r.Username)
 				continue
 			}
-			w, err = s.AddWorld(route.World, r.Server)
+			w = &chunkStorage.SWorld{
+				Name:       r.Server,
+				Alias:      "",
+				IP:         r.Server,
+				CreatedAt:  time.Now(),
+				ModifiedAt: time.Now(),
+				Data:       chunkStorage.CreateDefaultLevelData(r.Server),
+			}
+			err = s.AddWorld(*w)
 			if err != nil {
 				log.Printf("Failed to add world: %s", err.Error())
 				continue
@@ -112,15 +127,14 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 			continue
 		}
 		if d == nil {
-			d = &chunkStorage.DimStruct{
-				Name:       route.Dimension,
-				Alias:      strings.TrimPrefix(route.Dimension, "minecraft:"),
+			d = &chunkStorage.SDim{
+				Name:       r.Dimension,
 				World:      w.Name,
-				Spawnpoint: [3]int64{0, 64, 0},
-				LowestY:    int(r.DimensionLowestY),
-				BuildLimit: int(r.DimensionBuildLimit),
+				CreatedAt:  time.Now(),
+				ModifiedAt: time.Now(),
+				Data:       chunkStorage.GuessDimTypeFromName(r.Dimension),
 			}
-			d, err = s.AddDimension(*d)
+			err = s.AddDimension(w.Name, *d)
 			if err != nil {
 				log.Printf("Failed to add dim: %s", err.Error())
 				continue
@@ -143,13 +157,13 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 			Data: []byte{0, 0, 0, 0, 0},
 		}
 		var data save.Chunk
-		data.XPos = int32(r.Pos.X)
-		data.ZPos = int32(r.Pos.Z)
+		data.XPos = int32(r.Pos[0])
+		data.ZPos = int32(r.Pos[1])
 		level.ChunkToSave(&r.Data, &data)
 		// for iiii, cccc := range data.Sections {
 		// 	log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
 		// }
-		data.BlockEntities = nbtEmptyList
+		data.BlockEntities = []nbt.RawMessage{}
 		data.Structures = nbtEmptyList
 		data.Heightmaps = struct {
 			MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
@@ -165,7 +179,7 @@ func chunkConsumer(c chan *proxy.ProxiedChunk) {
 		data.BlockTicks = nbtEmptyList
 		data.FluidTicks = nbtEmptyList
 		data.PostProcessing = nbtEmptyList
-		err = s.AddChunk(w.Name, d.Name, int64(r.Pos.X), int64(r.Pos.Z), data)
+		err = s.AddChunk(w.Name, d.Name, int(r.Pos[0]), int(r.Pos[1]), data)
 		if err != nil {
 			log.Printf("Failed to save chunk: %s", err.Error())
 		}

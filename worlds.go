@@ -23,6 +23,7 @@ package main
 import (
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -74,9 +75,17 @@ func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
 		}
 	}
 	if driver == nil {
-		return 500, "Storage not found or not initialized"
+		return 400, "Storage not found or not initialized"
 	}
-	world, err := driver.AddWorld(name, ip)
+	world := chunkStorage.SWorld{
+		Name:       name,
+		Alias:      name,
+		IP:         ip,
+		CreatedAt:  time.Now(),
+		ModifiedAt: time.Now(),
+		Data:       chunkStorage.CreateDefaultLevelData(name),
+	}
+	err := driver.AddWorld(world)
 	if err != nil {
 		return 500, "Failed to add world: " + err.Error()
 	}

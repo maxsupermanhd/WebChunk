@@ -18,66 +18,117 @@
 	Contact me via mail: q3.max.2011@yandex.ru or Discord: MaX#6717
 */
 
-package FilesystemChunkStorage
+package filesystemChunkStorage
 
-// import (
-// 	"context"
+import (
+	"os"
+	"path"
+	"time"
 
-// 	"github.com/georgysavva/scany/pgxscan"
-// 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-// )
+	"github.com/Tnze/go-mc/save"
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+)
 
-// func (s *FilesystemChunkStorage) ListDimensionsByWorldName(server string) ([]chunkStorage.DimStruct, error) {
-// 	dims := []chunkStorage.DimStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
-// 		`SELECT dimensions.id, dimensions.name, dimensions.alias, server FROM dimensions JOIN SERVERS ON dimensions.server = servers.id WHERE servers.name = $1`, server)
-// 	return dims, derr
-// }
+//lint:ignore U1000 Perhaps for later
+func dirExists(p string) bool {
+	fi, err := os.Stat(p)
+	if err == nil {
+		return fi.IsDir()
+	} else {
+		return false
+	}
+}
 
-// func (s *FilesystemChunkStorage) ListDimensionsByWorldID(sid int) ([]chunkStorage.DimStruct, error) {
-// 	dims := []chunkStorage.DimStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
-// 		`SELECT id, name, alias, server FROM dimensions WHERE server = $1`, sid)
-// 	return dims, derr
-// }
+func dirModtime(p string) time.Time {
+	fi, err := os.Stat(p)
+	if err == nil {
+		return fi.ModTime()
+	}
+	return time.Time{}
+}
 
-// func (s *FilesystemChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error) {
-// 	dims := []chunkStorage.DimStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
-// 		`SELECT id, name, alias, server FROM dimensions`)
-// 	return dims, derr
-// }
+func (s *FilesystemChunkStorage) ListWorldDimensions(wname string) ([]chunkStorage.SDim, error) {
+	wpath := path.Join(s.Root, wname)
+	dims := []chunkStorage.SDim{}
+	winfo, err := os.Stat(wpath)
+	if err != nil || !winfo.IsDir() {
+		return dims, chunkStorage.ErrNoWorld
+	}
+	dims = []chunkStorage.SDim{
+		{
+			Name:       "overworld",
+			World:      wname,
+			Data:       save.DefaultDimensionsTypes["minecraft:overworld"],
+			ModifiedAt: winfo.ModTime(),
+		},
+		{
+			Name:       "the_nether",
+			World:      wname,
+			Data:       save.DefaultDimensionsTypes["minecraft:the_nether"],
+			ModifiedAt: dirModtime(path.Join(wpath, "DIM-1")),
+		},
+		{
+			Name:       "the_end",
+			World:      wname,
+			Data:       save.DefaultDimensionsTypes["minecraft:the_end"],
+			ModifiedAt: dirModtime(path.Join(wpath, "DIM1")),
+		},
+	}
+	return dims, nil
+}
 
-// //lint:ignore U1000 for future use
-// func (s *FilesystemChunkStorage) GetDimensionByID(did int) (chunkStorage.DimStruct, error) {
-// 	dim := chunkStorage.DimStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &dim,
-// 		`SELECT id, name, alias, server FROM dimensions WHERE id = $1`, did)
-// 	return dim, derr
-// }
+func (s *FilesystemChunkStorage) ListDimensions() ([]chunkStorage.SDim, error) {
+	dims := []chunkStorage.SDim{}
+	wnames, err := s.ListWorldNames()
+	if err != nil {
+		return dims, err
+	}
+	for _, wname := range wnames {
+		d, err := s.ListWorldDimensions(wname)
+		if err != nil {
+			dims = append(dims, d...)
+		}
+	}
+	return dims, nil
+}
 
-// func (s *FilesystemChunkStorage) GetDimensionByNames(server, dimension string) (chunkStorage.DimStruct, error) {
-// 	dim := chunkStorage.DimStruct{}
-// 	derr := pgxscan.Get(context.Background(), s.dbpool, &dim, `
-// 		SELECT dimensions.id, dimensions.name, dimensions.alias, dimensions.server FROM dimensions
-// 			JOIN SERVERS ON dimensions.server = servers.id
-// 			WHERE dimensions.name = $1 AND servers.name = $2
-// 			LIMIT 1`, dimension, server)
-// 	return dim, derr
-// }
+func (s *FilesystemChunkStorage) AddDimension(wname string, dim chunkStorage.SDim) error {
+	return chunkStorage.ErrNotImplemented
+}
 
-// func (s *FilesystemChunkStorage) AddDimension(server int, name, alias string) (chunkStorage.DimStruct, error) {
-// 	dim := chunkStorage.DimStruct{}
-// 	derr := s.dbpool.QueryRow(context.Background(),
-// 		`INSERT INTO dimensions (server, name, alias) VALUES ($1, $2, $3) RETURNING id`, server, name, alias).Scan(&dim.ID)
-// 	dim.Alias = alias
-// 	dim.Name = name
-// 	dim.Server = server
-// 	return dim, derr
-// }
+func (s *FilesystemChunkStorage) GetDimension(wname, dname string) (*chunkStorage.SDim, error) {
+	wpath := path.Join(s.Root, wname)
+	winfo, err := os.Stat(wpath)
+	if err != nil || !winfo.IsDir() {
+		return nil, chunkStorage.ErrNoWorld
+	}
+	switch dname {
+	case "overworld":
+		return &chunkStorage.SDim{
+			Name:       "overworld",
+			World:      wname,
+			ModifiedAt: winfo.ModTime(),
+			Data:       save.DefaultDimensionsTypes["overworld"],
+		}, nil
+	case "the_nether":
+		return &chunkStorage.SDim{
+			Name:       "the_nether",
+			World:      wname,
+			ModifiedAt: dirModtime(path.Join(wpath, "DIM-1")),
+			Data:       save.DefaultDimensionsTypes["the_nether"],
+		}, nil
+	case "the_end":
+		return &chunkStorage.SDim{
+			Name:       "the_end",
+			World:      wname,
+			ModifiedAt: dirModtime(path.Join(wpath, "DIM1")),
+			Data:       save.DefaultDimensionsTypes["the_end"],
+		}, nil
+	default:
+		return nil, chunkStorage.ErrNoDim
+	}
+}
 
-// func (s *FilesystemChunkStorage) GetDimensionChunkCountSize(dimensionid int) (count int64, size string, derr error) {
-// 	derr = s.dbpool.QueryRow(context.Background(),
-// 		`SELECT COUNT(id), COALESCE(pg_size_pretty(SUM(pg_column_size(data))), '0 kB') FROM chunks WHERE dim = $1`, dimensionid).Scan(&count, &size)
-// 	return count, size, derr
-// }
+func (s *FilesystemChunkStorage) SetDimensionData(wname, dname string, data save.DimensionType) error {
+	return chunkStorage.ErrNotImplemented
+}

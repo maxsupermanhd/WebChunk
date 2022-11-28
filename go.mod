@@ -15,11 +15,10 @@ replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
 replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
 require (
-	github.com/Tnze/go-mc v1.18.3-0.20220530032556-6eb5f35c75b4
+	github.com/Tnze/go-mc v1.19.1-0.20221124020829-433bc7cf7619
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
-	github.com/georgysavva/scany v1.0.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgx/v4 v4.16.1
@@ -30,14 +29,17 @@ require (
 )
 
 require (
+	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	golang.org/x/exp v0.0.0-20220314205449-43aec2f8a4e7 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
 require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/websocket v1.5.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.12.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect

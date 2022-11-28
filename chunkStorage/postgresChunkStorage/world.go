@@ -23,35 +23,43 @@ package postgresChunkStorage
 import (
 	"context"
 
-	"github.com/georgysavva/scany/pgxscan"
+	"github.com/Tnze/go-mc/save"
 	"github.com/jackc/pgx/v4"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
-func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.WorldStruct, error) {
-	worlds := []chunkStorage.WorldStruct{}
-	derr := pgxscan.Select(context.Background(), s.DBPool, &worlds,
-		`SELECT name, ip FROM worlds`)
-	if derr == pgx.ErrNoRows {
-		return nil, nil
+func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {
+	worlds := []chunkStorage.SWorld{}
+	rows, err := s.DBPool.Query(context.Background(), `SELECT name, ip, created_at, data FROM worlds`)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return worlds, nil
+		} else {
+			return nil, err
+		}
 	}
-	return worlds, derr
+	worlds = make([]chunkStorage.SWorld, rows.CommandTag().RowsAffected())
+	n := 0
+	for rows.Next() {
+		err = rows.Scan(&worlds[n].Name, &worlds[n].Alias, &worlds[n].IP, &worlds[n].CreatedAt, &worlds[n].Data)
+		if err != nil {
+			return nil, err
+		}
+		n++
+	}
+	return worlds, nil
 }
 
-// func (s *PostgresChunkStorage) GetWorldByID(sid int) (*chunkStorage.WorldStruct, error) {
-// 	world := chunkStorage.WorldStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &world,
-// 		`SELECT id, name, ip FROM worlds WHERE id = $1`, sid)
-// 	if derr == pgx.ErrNoRows {
-// 		return nil, nil
-// 	}
-// 	return &world, derr
-// }
+func (s *PostgresChunkStorage) ListWorldNames() ([]string, error) {
+	var names []string
+	derr := s.DBPool.QueryRow(context.Background(), "SELECT array_agg(name) FROM worlds").Scan(&names)
+	return names, derr
+}
 
-func (s *PostgresChunkStorage) GetWorld(wname string) (*chunkStorage.WorldStruct, error) {
-	world := chunkStorage.WorldStruct{}
+func (s *PostgresChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, error) {
+	world := chunkStorage.SWorld{}
 	derr := s.DBPool.QueryRow(context.Background(),
-		`SELECT name, ip FROM worlds WHERE name = $1 LIMIT 1`, wname).Scan(&world.Name, &world.IP)
+		`SELECT name, ip, created_at, data FROM worlds WHERE name = $1 LIMIT 1`, wname).Scan(&world.Name, &world.Data)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
 	} else if derr == nil {
@@ -61,10 +69,26 @@ func (s *PostgresChunkStorage) GetWorld(wname string) (*chunkStorage.WorldStruct
 	}
 }
 
-func (s *PostgresChunkStorage) AddWorld(name, ip string) (*chunkStorage.WorldStruct, error) {
-	world := chunkStorage.WorldStruct{}
-	world.IP = ip
-	world.Name = name
-	_, derr := s.DBPool.Exec(context.Background(), `INSERT INTO worlds (name, ip) VALUES ($1, $2)`, name, ip)
-	return &world, derr
+func (s *PostgresChunkStorage) AddWorld(world chunkStorage.SWorld) error {
+	tag, derr := s.DBPool.Exec(context.Background(), `INSERT INTO worlds (name, alias, ip, data) VALUES ($1, $2, $3, $4)`, world.Name, world.Alias, world.IP, world.Data)
+	if derr != nil || !tag.Insert() || tag.RowsAffected() != 1 {
+		return derr
+	}
+	return nil
+}
+
+func (s *PostgresChunkStorage) SetWorldAlias(wname, alias string) error {
+	_, derr := s.DBPool.Exec(context.Background(), `UPDATE worlds SET alias = $1 WHERE name = $2`, wname, alias)
+	return derr
+}
+
+func (s *PostgresChunkStorage) SetWorldIP(wname, ip string) error {
+	_, derr := s.DBPool.Exec(context.Background(), `UPDATE worlds SET ip = $1 WHERE name = $2`, wname, ip)
+	return derr
+}
+
+func (s *PostgresChunkStorage) SetWorldData(wname string, data save.LevelData) error {
+	_, derr := s.DBPool.Exec(context.Background(), `UPDATE worlds SET data = $1 WHERE name = $2`, wname, data)
+	return derr
+
 }

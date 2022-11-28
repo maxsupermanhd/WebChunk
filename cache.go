@@ -41,7 +41,7 @@ var (
 	imageCacheShutdown        = make(chan struct{})
 	imageCacheWaitGroup       sync.WaitGroup
 	imageCacheMaxCache        = 64
-	imageCachePropagateLevels = int64(16)
+	imageCachePropagateLevels = 16
 	imageCacheProcess         = make(chan cacheTask, 32)
 )
 
@@ -52,7 +52,7 @@ type cachedImage struct {
 
 type imageLoc struct {
 	world, dim, render string
-	s, x, z            int64
+	s, x, z            int
 }
 
 type cacheTask struct {
@@ -107,7 +107,7 @@ func imageCacheProcessor() {
 				syncedToDisk: false,
 			}
 			if p.loc.s == 0 {
-				for ts := int64(1); ts <= imageCachePropagateLevels; ts++ {
+				for ts := 1; ts <= imageCachePropagateLevels; ts++ {
 					tsize := 16 * (2 << (ts - 1))
 					pabsx := p.loc.x * 16
 					pabsz := p.loc.z * 16
@@ -116,8 +116,8 @@ func imageCacheProcessor() {
 						dim:    p.loc.dim,
 						render: p.loc.render,
 						s:      ts,
-						x:      pabsx / int64(tsize),
-						z:      pabsz / int64(tsize),
+						x:      pabsx / tsize,
+						z:      pabsz / tsize,
 					}
 					img, ok := imageCache[tloc]
 					if !ok {
@@ -129,8 +129,8 @@ func imageCacheProcessor() {
 							syncedToDisk: false,
 						}
 					}
-					toofsetx := int(pabsx % int64(tsize))
-					toofsetz := int(pabsz % int64(tsize))
+					toofsetx := int(pabsx % tsize)
+					toofsetz := int(pabsz % tsize)
 					draw.Draw(img.img, image.Rect(toofsetx, toofsetz, toofsetx+16, toofsetz+16), p.img, image.Pt(0, 0), draw.Over)
 					imageCache[p.loc] = img
 				}
@@ -169,7 +169,7 @@ func stopImageCache() {
 	imageCacheWaitGroup.Wait()
 }
 
-func imageCacheGetBlocking(world, dim, render string, s, x, z int64) *image.RGBA {
+func imageCacheGetBlocking(world, dim, render string, s, x, z int) *image.RGBA {
 	recv := make(chan *image.RGBA)
 	imageCacheProcess <- cacheTask{
 		loc: imageLoc{
@@ -191,7 +191,7 @@ func imageCacheGetBlocking(world, dim, render string, s, x, z int64) *image.RGBA
 	}
 }
 
-func imageCacheSave(img *image.RGBA, world, dim, render string, s, x, z int64) {
+func imageCacheSave(img *image.RGBA, world, dim, render string, s, x, z int) {
 	imageCacheProcess <- cacheTask{
 		loc: imageLoc{
 			world:  world,
@@ -214,11 +214,11 @@ func getImageCachePrefix() string {
 	return prefix
 }
 
-func cacheGetFilename(world, dim, render string, s, x, z int64) string {
-	return path.Join(".", getImageCachePrefix(), world, dim, render, strconv.FormatInt(s, 10), strconv.FormatInt(x, 10)+"x"+strconv.FormatInt(z, 10)+".png")
+func cacheGetFilename(world, dim, render string, s, x, z int) string {
+	return path.Join(".", getImageCachePrefix(), world, dim, render, strconv.FormatInt(int64(s), 10), strconv.FormatInt(int64(x), 10)+"x"+strconv.FormatInt(int64(z), 10)+".png")
 }
 
-func cacheSave(img *image.RGBA, world, dim, render string, s, x, z int64) error {
+func cacheSave(img *image.RGBA, world, dim, render string, s, x, z int) error {
 	storePath := cacheGetFilename(world, dim, render, s, x, z)
 	err := os.MkdirAll(path.Dir(storePath), 0764)
 	if err != nil {
@@ -235,7 +235,7 @@ func cacheSave(img *image.RGBA, world, dim, render string, s, x, z int64) error 
 	return file.Close()
 }
 
-func cacheLoad(world, dim, render string, s, x, z int64) (*image.RGBA, error) {
+func cacheLoad(world, dim, render string, s, x, z int) (*image.RGBA, error) {
 	fp := cacheGetFilename(world, dim, render, s, x, z)
 	f, err := os.Open(fp)
 	if err != nil {

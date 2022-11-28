@@ -18,18 +18,51 @@
 	Contact me via mail: q3.max.2011@yandex.ru or Discord: MaX#6717
 */
 
-package FilesystemChunkStorage
+package filesystemChunkStorage
+
+import (
+	"sync"
+
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+)
 
 type FilesystemChunkStorage struct {
-	Root string
+	Root     string
+	requests chan regionRequest
+	wg       sync.WaitGroup
 }
 
 func NewFilesystemChunkStorage(root string) (*FilesystemChunkStorage, error) {
-	storage := FilesystemChunkStorage{Root: root}
-	_, err := storage.ListWorlds()
-	return &storage, err
+	r := FilesystemChunkStorage{
+		Root:     root,
+		requests: make(chan regionRequest, 128),
+	}
+	r.wg.Add(1)
+	go r.regionRouter()
+	return &r, nil
 }
 
 func (s *FilesystemChunkStorage) Close() error {
+	close(s.requests)
+	s.wg.Wait()
 	return nil
+}
+
+func (s *FilesystemChunkStorage) GetAbilities() chunkStorage.StorageAbilities {
+	return chunkStorage.StorageAbilities{
+		CanCreateWorldsDimensions: true,
+		CanAddChunks:              true,
+		CanPreserveOldChunks:      false,
+	}
+}
+
+func (s *FilesystemChunkStorage) GetStatus() (ver string, err error) {
+	return
+}
+
+func (s *FilesystemChunkStorage) GetChunksCount() (chunksCount uint64, derr error) {
+	return 0, nil
+}
+func (s *FilesystemChunkStorage) GetChunksSize() (chunksSize uint64, derr error) {
+	return 0, nil
 }

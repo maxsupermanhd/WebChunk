@@ -4,16 +4,17 @@ set -e
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 	CREATE TABLE public.worlds (
 		name text NOT NULL PRIMARY KEY,
-		ip text NOT NULL
+		alias text,
+		ip text,
+		created_at timestamp DEFAULT now(),
+		data json
 	);
 	CREATE TABLE public.dimensions (
 		id SERIAL PRIMARY KEY,
 		world text NOT NULL REFERENCES worlds (name),
 		name text NOT NULL,
-		alias text,
-		spawnpoint int[],
-		miny int,
-		maxy int
+		created_at timestamp DEFAULT now(),
+		data json,
 		UNIQUE (world, name)
 	);
 	CREATE TABLE public.chunks (

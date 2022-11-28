@@ -36,7 +36,6 @@ import (
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/google/uuid"
 )
 
 // 4 bits for x, 4 bits for z
@@ -167,7 +166,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 					chunk:  cc,
 					tofind: missingbe,
 				}
-				log.Printf("Caching chunk %d:%d until missing %d block entities recieved or chunk unloaded", cpos.X, cpos.Z, len(missingbe))
+				log.Printf("Caching chunk %d:%d until missing %d block entities recieved or chunk unloaded", cpos[0], cpos[1], len(missingbe))
 			} else {
 				// send directly to storage because ready
 				resp <- &ProxiedChunk{
@@ -199,7 +198,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			if data.Type == 0x0 {
 				continue // block entity removed
 			}
-			cpos := level.ChunkPos{X: loc.X / 16, Z: loc.Z / 16}
+			cpos := level.ChunkPos{int32(loc.X / 16), int32(loc.Z / 16)}
 			cachedLevel, ok := c[cachePos{
 				pos: cpos, dim: currentDim,
 			}]
@@ -225,7 +224,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			})
 			log.Printf("Recieved block entity %d at %v", t, loc)
 			if len(cachedLevel.tofind) == 0 {
-				log.Printf("Sending chunk %d:%d to storage because recieved all block entities", cpos.X, cpos.Z)
+				log.Printf("Sending chunk %d:%d to storage because recieved all block entities", cpos[0], cpos[1])
 				resp <- &ProxiedChunk{
 					Username:            username,
 					Server:              serverip,
@@ -248,7 +247,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 				log.Printf("Failed to parse unload chunk packet: %s", err.Error())
 				continue
 			}
-			cpos := level.ChunkPos{X: int(x), Z: int(z)}
+			cpos := level.ChunkPos{int32(x), int32(z)}
 			cachedLevel, ok := c[cachePos{
 				pos: cpos,
 				dim: currentDim,
@@ -385,10 +384,9 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			}
 		}
 		conn.Push(pk.Marshal(
-			packetid.ClientboundChat,
+			packetid.ClientboundSystemChat,
 			chat.Text(fmt.Sprintf("Cached chunks: %d", len(c))),
-			pk.Byte(2),
-			pk.UUID(uuid.Nil),
+			pk.Byte(0),
 		))
 	}
 }

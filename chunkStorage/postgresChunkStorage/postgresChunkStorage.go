@@ -51,13 +51,25 @@ func (s *PostgresChunkStorage) Close() error {
 
 func (s *PostgresChunkStorage) GetAbilities() chunkStorage.StorageAbilities {
 	return chunkStorage.StorageAbilities{
-		CanCreateWorldsDimensions: true,
-		CanAddChunks:              true,
-		CanPreserveOldChunks:      true,
+		CanCreateWorldsDimensions:   true,
+		CanAddChunks:                true,
+		CanPreserveOldChunks:        true,
+		CanStoreUnlimitedDimensions: true,
 	}
 }
 
 func (s *PostgresChunkStorage) GetStatus() (ver string, err error) {
 	err = s.DBPool.QueryRow(context.Background(), "SELECT version()").Scan(&ver)
 	return
+}
+
+func (s *PostgresChunkStorage) GetChunksCount() (chunksCount uint64, derr error) {
+	derr = s.DBPool.QueryRow(context.Background(),
+		`SELECT COUNT(*) from chunks;`).Scan(&chunksCount)
+	return chunksCount, derr
+}
+func (s *PostgresChunkStorage) GetChunksSize() (chunksSize uint64, derr error) {
+	derr = s.DBPool.QueryRow(context.Background(),
+		`SELECT pg_total_relation_size('chunks');`).Scan(&chunksSize)
+	return chunksSize, derr
 }

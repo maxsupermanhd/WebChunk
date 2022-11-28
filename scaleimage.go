@@ -38,7 +38,7 @@ import (
 	"github.com/nfnt/resize"
 )
 
-type chunkDataProviderFunc = func(dname, sname string, cx0, cz0, cx1, cz1 int64) ([]chunkStorage.ChunkData, error)
+type chunkDataProviderFunc = func(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error)
 type chunkPainterFunc = func(interface{}) *image.RGBA
 type ttypeProviderFunc = func(chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc)
 
@@ -168,7 +168,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	if err != nil {
 		return nil
 	}
-	scale := int64(2 << (cs - 1))
+	scale := int(2 << (cs - 1))
 	imagesize := scale * 16
 	if imagesize > 512 {
 		imagesize = 512
@@ -187,8 +187,8 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 		return nil
 	}
 	for _, c := range cc {
-		placex := int(int64(c.X) - offsetx)
-		placey := int(int64(c.Z) - offsety)
+		placex := int(c.X - offsetx)
+		placey := int(c.Z - offsety)
 		tile := resize.Resize(uint(imagescale), uint(imagescale), painter(c.Data), resize.NearestNeighbor)
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)
@@ -196,7 +196,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	return img
 }
 
-func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname string, cx, cz, cs int64, err error) {
+func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname string, cx, cz, cs int, err error) {
 	params := mux.Vars(r)
 	dname = params["dim"]
 	wname = params["world"]
@@ -206,23 +206,26 @@ func tilingParams(w http.ResponseWriter, r *http.Request) (wname, dname, fname s
 		return
 	}
 	cxs := params["cx"]
-	cx, err = strconv.ParseInt(cxs, 10, 0)
+	cxb, err := strconv.ParseInt(cxs, 10, 32)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Bad cx id: "+err.Error())
 		return
 	}
+	cx = int(cxb)
 	czs := params["cz"]
-	cz, err = strconv.ParseInt(czs, 10, 0)
+	czb, err := strconv.ParseInt(czs, 10, 32)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Bad cz id: "+err.Error())
 		return
 	}
+	cz = int(czb)
 	css := params["cs"]
-	cs, err = strconv.ParseInt(css, 10, 0)
+	csb, err := strconv.ParseInt(css, 10, 32)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Bad s id: "+err.Error())
 		return
 	}
+	cs = int(csb)
 	return
 }
 

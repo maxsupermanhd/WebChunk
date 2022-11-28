@@ -18,120 +18,144 @@
 	Contact me via mail: q3.max.2011@yandex.ru or Discord: MaX#6717
 */
 
-package FilesystemChunkStorage
+package filesystemChunkStorage
 
 import (
-	"fmt"
-	"io/fs"
-	"io/ioutil"
+	"encoding/json"
+	"log"
 	"os"
 	"path"
-	"sort"
-	"strings"
 
 	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
-func readSaveLevel(root string) (save.Level, error) {
-	ret := save.Level{}
-	s, err := os.Stat(root)
-	if err != nil {
-		return ret, err
-	}
-	if !s.IsDir() {
-		return ret, fmt.Errorf("specified root points to file, not directory with world")
-	}
-	e, err := ioutil.ReadDir(root)
-	if err != nil {
-		return ret, err
-	}
-	fnames := map[string]fs.FileInfo{}
-	for _, f := range e {
-		fnames[f.Name()] = f
-	}
-	if leveldat, ok := fnames["level.dat"]; ok {
-		if leveldat.IsDir() {
-			return ret, fmt.Errorf("level.dat is a directory")
+func (s *FilesystemChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {
+	worlds := []chunkStorage.SWorld{}
+	dir, err := os.ReadDir(s.Root)
+	for _, d := range dir {
+		if !d.IsDir() {
+			continue
 		}
-		f, err := os.Open(path.Join(root, "level.dat"))
+		w, err := s.GetWorld(d.Name())
 		if err != nil {
-			return ret, err
+			log.Printf("Failed to get world [%s]", err)
 		}
-		return save.ReadLevel(f)
-	} else {
-		return ret, fmt.Errorf("level.dat not found in [%s]", root)
-	}
-}
-
-func (s *FilesystemChunkStorage) ListWorlds() ([]chunkStorage.WorldStruct, error) {
-	worlds := []chunkStorage.WorldStruct{}
-	levels := []save.Level{}
-	lev, err := readSaveLevel(s.Root)
-	if err != nil {
-		e, err := ioutil.ReadDir(s.Root)
-		if err != nil {
-			return nil, err
-		}
-		atLeastOne := false
-		for _, f := range e {
-			if f.IsDir() {
-				l, err := readSaveLevel(path.Join(s.Root, f.Name()))
-				if err == nil {
-					atLeastOne = true
-					levels = append(levels, l)
-				}
-			}
-		}
-		if atLeastOne {
-			err = nil
-		}
-	} else {
-		levels = append(levels, lev)
-	}
-	sort.Slice(levels, func(i, j int) bool {
-		return strings.Compare(levels[i].Data.LevelName, levels[j].Data.LevelName) > 0
-	})
-	for i := range levels {
-		worlds = append(worlds, chunkStorage.WorldStruct{
-			IP:   "local-" + levels[i].Data.LevelName,
-			Name: levels[i].Data.LevelName,
-		})
+		worlds = append(worlds, *w)
 	}
 	return worlds, err
 }
 
-// func (s *FilesystemChunkStorage) GetWorldByID(sid int) (chunkStorage.WorldStruct, error) {
-// 	world := chunkStorage.WorldStruct{}
-// 	worlds, err := s.ListWorlds()
-// 	if err != nil {
-// 		return world, err
-// 	}
-// 	for _, v := range worlds {
-// 		if v.ID == sid {
-// 			world = v
-// 			break
-// 		}
-// 	}
-// 	return world, err
-// }
-
-func (s *FilesystemChunkStorage) GetWorldByName(worldname string) (chunkStorage.WorldStruct, error) {
-	world := chunkStorage.WorldStruct{}
-	worlds, err := s.ListWorlds()
+func (s *FilesystemChunkStorage) ListWorldNames() ([]string, error) {
+	dir, err := os.ReadDir(s.Root)
 	if err != nil {
-		return world, err
+		return []string{}, err
 	}
-	for _, v := range worlds {
-		if v.Name == worldname {
-			world = v
-			break
+	names := []string{}
+	for _, d := range dir {
+		if !d.IsDir() {
+			continue
+		}
+		if checkValidWorld(path.Join(s.Root, d.Name())) {
+			names = append(names, d.Name())
 		}
 	}
-	return world, err
+	return names, nil
 }
 
-func (s *FilesystemChunkStorage) AddWorld(name, ip string) (chunkStorage.WorldStruct, error) {
-	world := chunkStorage.WorldStruct{}
-	return world, fmt.Errorf("not implemented")
+func (s *FilesystemChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, error) {
+	world := chunkStorage.SWorld{}
+	wdir := path.Join(s.Root, wname)
+	var w chunkStorage.SWorld
+	w.Name = wname
+	meta, err := readWorldMeta(wdir)
+	if err != nil {
+		log.Printf("Failed to read world meta file for world [%s]: %v", wname, err)
+	} else {
+		w.Alias = meta.Alias
+		w.IP = meta.IP
+	}
+	data, err := readSaveLevel(wdir)
+	if err != nil {
+		log.Printf("Failed to read world data for world [%s]: %v", wname, err)
+	} else {
+		w.Data = *data
+	}
+	return &world, err
+
+}
+
+func (s *FilesystemChunkStorage) AddWorld(world chunkStorage.SWorld) error {
+	wpath := path.Join(s.Root, world.Name)
+	err := os.MkdirAll(wpath, 0777)
+	if err != nil {
+		return err
+	}
+	err = writeWorldMeta(wpath, worldMeta{
+		Alias: world.Alias,
+		IP:    world.IP,
+	})
+	if err != nil {
+		return err
+	}
+	return writeSaveLevel(wpath, world.Data)
+}
+
+func (s *FilesystemChunkStorage) SetWorldAlias(wname, newalias string) error {
+	wpath := path.Join(s.Root, wname)
+	meta, err := readWorldMeta(wpath)
+	if err != nil {
+		return err
+	}
+	meta.Alias = newalias
+	return writeWorldMeta(wpath, *meta)
+
+}
+
+func (s *FilesystemChunkStorage) SetWorldIP(wname, newip string) error {
+	wpath := path.Join(s.Root, wname)
+	meta, err := readWorldMeta(wpath)
+	if err != nil {
+		return err
+	}
+	meta.IP = newip
+	return writeWorldMeta(wpath, *meta)
+}
+
+func (s *FilesystemChunkStorage) SetWorldData(wname string, data save.LevelData) error {
+	return writeSaveLevel(s.GetWorldPath(wname), data)
+}
+
+func (s *FilesystemChunkStorage) GetWorldPath(wname string) string {
+	return path.Join(s.Root, wname)
+}
+
+type worldMeta struct {
+	Alias string
+	IP    string
+}
+
+func getWorldDirMetaPath(wdir string) string {
+	return path.Join(wdir, "WebChunk.json")
+}
+
+func readWorldMeta(wdir string) (*worldMeta, error) {
+	b, err := os.ReadFile(getWorldDirMetaPath(wdir))
+	if err != nil {
+		return nil, err
+	}
+	var d worldMeta
+	err = json.Unmarshal(b, &d)
+	if err != nil {
+		return nil, err
+	}
+	return &d, err
+}
+
+func writeWorldMeta(wdir string, d worldMeta) error {
+	b, err := json.MarshalIndent(d, "", "\t")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(getWorldDirMetaPath(wdir), b, 0666)
 }

@@ -24,16 +24,15 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
 var (
-	dimNameRegexp  = regexp.MustCompile(`[\-a-zA-Z0-9.]+`)
-	dimAliasRegexp = dimNameRegexp
+	dimNameRegexp = regexp.MustCompile(`[\-a-zA-Z0-9.]+`)
 )
 
 func dimensionHandler(w http.ResponseWriter, r *http.Request) {
@@ -70,23 +69,18 @@ func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
 	if r.ParseMultipartForm(0) != nil {
 		return 400, "Unable to parse form parameters"
 	}
-	tdim := chunkStorage.DimStruct{}
+	tdim := chunkStorage.SDim{
+		CreatedAt:  time.Now(),
+		ModifiedAt: time.Now(),
+	}
 	tdim.Name = r.FormValue("name")
 	if !dimNameRegexp.Match([]byte(tdim.Name)) {
 		return 400, "Invalid dimension name"
 	}
-	tdim.Alias = r.FormValue("alias")
-	if !dimAliasRegexp.Match([]byte(tdim.Alias)) {
-		return 400, "Invalid dimension alias"
-	}
+	tdim.Data = chunkStorage.GuessDimTypeFromName(tdim.Name)
 	tdim.World = r.FormValue("world")
 	if !worldNameRegexp.Match([]byte(tdim.World)) {
 		return 400, "Invalid world name"
-	}
-	var err error
-	tdim.LowestY, err = strconv.Atoi(r.FormValue("miny"))
-	if err != nil {
-		return 400, "Invalid lowest Y: " + err.Error()
 	}
 	_, s, err := chunkStorage.GetWorldStorage(storages, tdim.World)
 	if err != nil {
@@ -95,12 +89,12 @@ func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {
 	if s == nil {
 		return 404, "World does not exist"
 	}
-	dim, err := s.AddDimension(tdim)
+	err = s.AddDimension(tdim.World, tdim)
 	if err != nil {
 		return 500, "Failed to add dimension: " + err.Error()
 	}
 	setContentTypeJson(w)
-	return marshalOrFail(200, dim)
+	return marshalOrFail(200, tdim)
 }
 
 func apiListDimensions(w http.ResponseWriter, r *http.Request) (int, string) {

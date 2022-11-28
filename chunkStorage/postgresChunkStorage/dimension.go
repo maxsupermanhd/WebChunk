@@ -24,66 +24,68 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/georgysavva/scany/pgxscan"
+	"github.com/Tnze/go-mc/save"
 	"github.com/jackc/pgx/v4"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
-func (s *PostgresChunkStorage) ListWorldDimensions(world string) ([]chunkStorage.DimStruct, error) {
-	dims := []chunkStorage.DimStruct{}
-	derr := pgxscan.Select(context.Background(), s.DBPool, &dims,
-		`SELECT name, alias, world FROM dimensions WHERE world = $1`, world)
-	if derr == pgx.ErrNoRows {
-		derr = nil
+func (s *PostgresChunkStorage) ListWorldDimensions(wname string) ([]chunkStorage.SDim, error) {
+	dims := []chunkStorage.SDim{}
+	rows, derr := s.DBPool.Query(context.Background(), "SELECT name, created_at, data FROM dimensions WHERE world = $1", wname)
+	if derr != nil && derr != pgx.ErrNoRows {
+		return dims, derr
 	}
-	return dims, derr
+	defer rows.Close()
+	for rows.Next() {
+		dim := chunkStorage.SDim{}
+		err := rows.Scan(&dim.Name, &dim.CreatedAt, &dim.Data)
+		if err != nil {
+			return dims, nil
+		}
+		dims = append(dims, dim)
+	}
+	return dims, nil
 }
 
-// func (s *PostgresChunkStorage) ListDimensionsByWorldID(wid int) ([]chunkStorage.DimStruct, error) {
-// 	dims := []chunkStorage.DimStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &dims,
-// 		`SELECT id, name, alias, world FROM dimensions WHERE world = $1`, wid)
-// 	if derr == pgx.ErrNoRows {
-// 		derr = nil
-// 	}
-// 	return dims, derr
-// }
-
-func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.DimStruct, error) {
-	dims := []chunkStorage.DimStruct{}
-	derr := pgxscan.Select(context.Background(), s.DBPool, &dims,
-		`SELECT name, alias, world FROM dimensions`)
-	if derr == pgx.ErrNoRows {
-		derr = nil
+func (s *PostgresChunkStorage) ListDimensions() ([]chunkStorage.SDim, error) {
+	dims := []chunkStorage.SDim{}
+	rows, derr := s.DBPool.Query(context.Background(), "SELECT name, created_at, data FROM dimensions")
+	if derr != nil && derr != pgx.ErrNoRows {
+		return dims, derr
 	}
-	return dims, derr
+	defer rows.Close()
+	for rows.Next() {
+		dim := chunkStorage.SDim{}
+		err := rows.Scan(&dim.Name, &dim.CreatedAt, &dim.Data)
+		if err != nil {
+			return dims, nil
+		}
+		dims = append(dims, dim)
+	}
+	return dims, nil
+
 }
 
-// func (s *PostgresChunkStorage) GetDimensionByID(did int) (*chunkStorage.DimStruct, error) {
-// 	dim := chunkStorage.DimStruct{}
-// 	derr := pgxscan.Select(context.Background(), s.dbpool, &dim,
-// 		`SELECT id, name, alias, world FROM dimensions WHERE id = $1`, did)
-// 	if derr == pgx.ErrNoRows {
-// 		return nil, nil
-// 	}
-// 	return &dim, derr
-// }
+func (s *PostgresChunkStorage) AddDimension(wname string, dim chunkStorage.SDim) error {
+	_, derr := s.DBPool.Exec(context.Background(), "INSERT INTO dimensions (name, world, data) VALUES ($1, $2, $3)", dim.Name, wname, dim.Data)
+	return derr
+}
 
-func (s *PostgresChunkStorage) GetDimension(world, dimension string) (*chunkStorage.DimStruct, error) {
-	dim := chunkStorage.DimStruct{}
-	derr := s.DBPool.QueryRow(context.Background(),
-		`SELECT name, alias, world, spawnpoint, miny, maxy FROM dimensions WHERE name = $1 AND world = $2`, dimension, world).
-		Scan(&dim.Name, &dim.Alias, &dim.World, &dim.Spawnpoint, &dim.LowestY, &dim.BuildLimit)
-	if derr == pgx.ErrNoRows {
-		return nil, nil
+func (s *PostgresChunkStorage) GetDimension(wname, dname string) (*chunkStorage.SDim, error) {
+	dim := chunkStorage.SDim{}
+	derr := s.DBPool.QueryRow(context.Background(), "SELECT name, world, created_at, data FROM dimensions WHERE name = $1, world = $2", dname, wname).Scan(&dim.Name, &dim.World, &dim.CreatedAt, &dim.World)
+	if derr != nil {
+		if derr == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, derr
 	}
 	return &dim, derr
 }
 
-func (s *PostgresChunkStorage) AddDimension(dim chunkStorage.DimStruct) (*chunkStorage.DimStruct, error) {
-	_, derr := s.DBPool.Exec(context.Background(),
-		`INSERT INTO dimensions (world, name, alias, miny, maxy) VALUES ($1, $2, $3, $4, $5)`, dim.World, dim.Name, dim.Alias, dim.LowestY, dim.BuildLimit)
-	return &dim, derr
+func (s *PostgresChunkStorage) SetDimensionData(wname, dname string, data save.DimensionType) error {
+	_, derr := s.DBPool.Exec(context.Background(), `UPDATE dimensions SET data = $1 WHERE name = $2, world = $3`, data, dname, wname)
+	return derr
 }
 
 func (s *PostgresChunkStorage) GetDimensionChunksCount(wname, dname string) (count uint64, derr error) {

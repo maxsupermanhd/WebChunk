@@ -36,6 +36,7 @@ import (
 	mcnet "github.com/Tnze/go-mc/net"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
+	"github.com/Tnze/go-mc/server/auth"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/credentials"
 )
@@ -95,13 +96,17 @@ func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump cha
 			f.Close()
 		}
 	}
-	serverInfo, err := server.NewPingInfo(server.NewPlayerList(conf.MaxPlayers), server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
-	if err != nil {
-		log.Fatalf("Failed to create server ping information: %v", err)
-		return
-	}
+	playerList := server.NewPlayerList(conf.MaxPlayers)
+	serverInfo := server.NewPingInfo(server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
+	// if err != nil {
+	// 	log.Fatalf("Failed to create server ping information: %v", err)
+	// 	return
+	// }
 	s := server.Server{
-		ListPingHandler: serverInfo,
+		ListPingHandler: struct {
+			*server.PlayerList
+			*server.PingInfo
+		}{playerList, serverInfo},
 		LoginHandler: &server.MojangLoginHandler{
 			OnlineMode:   conf.OnlineMode,
 			Threshold:    conf.CompressThreshold,
@@ -125,7 +130,7 @@ type SnifferProxy struct {
 	Conf        ProxyConfig
 }
 
-func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, _ int32, conn *mcnet.Conn) {
+func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *auth.PublicKey, properties []auth.Property, _ int32, conn *mcnet.Conn) {
 	log.Printf("Accepting new player [%s] (%s), getting route...", name, id.String())
 	dest := p.Routing(name)
 	if dest == "" {

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -317,14 +316,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	var chunksCount, chunksSizeBytes uint64
 	type DimData struct {
-		Dim        chunkStorage.DimStruct
+		Dim        chunkStorage.SDim
 		ChunkSize  string
 		ChunkCount uint64
 		CacheSize  string
 		CacheCount int64
 	}
 	type WorldData struct {
-		World chunkStorage.WorldStruct
+		World chunkStorage.SWorld
 		Dims  []DimData
 	}
 	type StorageData struct {
@@ -406,7 +405,7 @@ func worldsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCPUSample() (idle, total uint64) {
-	contents, err := ioutil.ReadFile("/proc/stat")
+	contents, err := os.ReadFile("/proc/stat")
 	if err != nil {
 		return
 	}
