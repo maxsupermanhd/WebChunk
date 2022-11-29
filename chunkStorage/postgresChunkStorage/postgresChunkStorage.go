@@ -32,7 +32,7 @@ type PostgresChunkStorage struct {
 }
 
 func NewPostgresChunkStorage(ctx context.Context, connection string) (*PostgresChunkStorage, error) {
-	p, err := pgxpool.Connect(context.Background(), connection)
+	p, err := pgxpool.Connect(ctx, connection)
 	if err != nil {
 		return nil, err
 	}

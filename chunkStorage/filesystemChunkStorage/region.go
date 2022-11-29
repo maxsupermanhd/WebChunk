@@ -52,6 +52,7 @@ type regionRequest struct {
 // and start a gorutine worker for each different
 // region file and route requests to them
 func (s *FilesystemChunkStorage) regionRouter() {
+	log.Println("Region router started for storage ", s.Root)
 	defer s.wg.Done()
 	type regionInterface struct {
 		c           chan regionRequest
@@ -143,6 +144,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 	for _, v := range w {
 		close(v.c)
 	}
+	log.Println("Region router stopped for storage ", s.Root)
 }
 
 // from Path getSaveDirectory(RegistryKey<World> worldRef, Path worldDirectory)

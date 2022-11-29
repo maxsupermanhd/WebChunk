@@ -21,6 +21,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -129,7 +130,6 @@ func main() {
 	if ok {
 		GoVersion = buildinfo.GoVersion
 	}
-	_ = GoVersion
 	err := loadConfig()
 	if err != nil {
 		log.Fatal("Error loading config file: " + err.Error())
@@ -143,91 +143,30 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println()
 	log.Println("WebChunk web server is starting up...")
-	log.Printf("Built %s, Ver %s (%s)\n", BuildTime, GitTag, CommitHash)
+	log.Printf("Built %s, Ver %s (%s) (GO %s)\n", BuildTime, GitTag, CommitHash, GoVersion)
 	log.Println()
+
+	var wg sync.WaitGroup
+	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	prevTime = time.Now()
 
-	initChunkDraw()
-
-	log.Println("Loading layouts")
-	layoutsGlobPtr := &loadedConfig.Web.LayoutsGlob
-	layouts, err = template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
-	if err != nil {
-		panic(err)
-	}
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
+	log.Println("Loading block colors...")
+	if err = loadColors(); err != nil {
 		log.Fatal(err)
 	}
-	defer watcher.Close()
+
+	log.Println("Starting metrix dispatcher")
+	wg.Add(2)
 	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				log.Println("event:", event)
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					log.Println("Updating templates")
-					nlayouts, err := template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
-					if err != nil {
-						log.Println("Error while parsing templates:", err.Error())
-					} else {
-						layouts = nlayouts.Funcs(layoutFuncs)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Println("error:", err)
-			}
-		}
+		metricsDispatcher()
+		wg.Done()
 	}()
-	err = watcher.Add(loadedConfig.Web.LayoutsLocation)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println("Adding routes")
-	tasksProgressBroadcaster.Start()
-	defer tasksProgressBroadcaster.Stop()
-	router := mux.NewRouter()
-	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(hiddenFileSystem{http.Dir("./static")}))).Methods("GET")
-	router.HandleFunc("/favicon.ico", faviconHandler).Methods("GET")
-	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
-
-	router.HandleFunc("/", indexHandler).Methods("GET")
-	router.HandleFunc("/worlds", worldsHandler).Methods("GET")
-	router.HandleFunc("/worlds/{world}", worldHandler).Methods("GET")
-	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
-	router.HandleFunc("/worlds/{world}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
-	router.HandleFunc("/worlds/{world}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
-	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
-	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
-	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
-
-	router.HandleFunc("/api/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
-	router.HandleFunc("/api/submit/region/{world}/{dim}", apiAddRegionHandler)
-
-	router.HandleFunc("/api/renderers", apiHandle(apiListRenderers)).Methods("GET")
-
-	router.HandleFunc("/api/storages", apiHandle(apiStoragesGET)).Methods("GET")
-	router.HandleFunc("/api/storages", apiHandle(apiStorageAdd)).Methods("PUT")
-	router.HandleFunc("/api/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
-
-	router.HandleFunc("/api/worlds", apiHandle(apiAddWorld)).Methods("POST")
-	router.HandleFunc("/api/worlds", apiHandle(apiListWorlds)).Methods("GET")
-
-	router.HandleFunc("/api/dims", apiHandle(apiAddDimension)).Methods("POST")
-	router.HandleFunc("/api/dims", apiHandle(apiListDimensions)).Methods("GET")
-
-	router1 := handlers.ProxyHeaders(router)
-	router2 := handlers.CompressHandler(router1)
-	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
-	router4 := handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(router3)
+	go func() {
+		<-ctx.Done()
+		closeMetrics()
+		wg.Done()
+	}()
 
 	log.Println("Initializing storages...")
 	for i := range storages {
@@ -244,14 +183,122 @@ func main() {
 		log.Println("Storage initialized: " + ver)
 	}
 
+	log.Println("Loading layouts")
+	layoutsGlobPtr := &loadedConfig.Web.LayoutsGlob
+	layouts, err = template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Starting layouts watcher")
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					log.Println("Layouts watcher failed to read from events channel")
+					return
+				}
+				log.Println("event:", event)
+				if event.Op&fsnotify.Write == fsnotify.Write {
+					log.Println("Updating templates")
+					nlayouts, err := template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
+					if err != nil {
+						log.Println("Error while parsing templates:", err.Error())
+					} else {
+						layouts = nlayouts.Funcs(layoutFuncs)
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					log.Println("Layouts watcher failed to read from error channel")
+					return
+				}
+				log.Println("Layouts watcher error:", err)
+			case <-ctx.Done():
+				watcher.Close()
+				log.Println("Layouts watcher stopped")
+				return
+			}
+		}
+	}()
+	err = watcher.Add(loadedConfig.Web.LayoutsLocation)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Adding routes")
+	wg.Add(1)
+	go func() {
+		tasksProgressBroadcaster.Start()
+		wg.Done()
+	}()
+	defer tasksProgressBroadcaster.Stop()
+	router := mux.NewRouter()
+	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(hiddenFileSystem{http.Dir("./static")}))).Methods("GET")
+	router.HandleFunc("/favicon.ico", faviconHandler).Methods("GET")
+	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
+
+	router.HandleFunc("/", indexHandler).Methods("GET")
+	router.HandleFunc("/worlds", worldsHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}", worldHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
+	router.HandleFunc("/worlds/{world}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
+	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
+	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
+	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
+
+	router.HandleFunc("/api/1/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
+	router.HandleFunc("/api/1/submit/region/{world}/{dim}", apiAddRegionHandler)
+
+	router.HandleFunc("/api/1/renderers", apiHandle(apiListRenderers)).Methods("GET")
+
+	router.HandleFunc("/api/1/storages", apiHandle(apiStoragesGET)).Methods("GET")
+	router.HandleFunc("/api/1/storages", apiHandle(apiStorageAdd)).Methods("PUT")
+	router.HandleFunc("/api/1/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
+
+	router.HandleFunc("/api/1/worlds", apiHandle(apiAddWorld)).Methods("POST")
+	router.HandleFunc("/api/1/worlds", apiHandle(apiListWorlds)).Methods("GET")
+
+	router.HandleFunc("/api/1/dims", apiHandle(apiAddDimension)).Methods("POST")
+	router.HandleFunc("/api/1/dims", apiHandle(apiListDimensions)).Methods("GET")
+
+	router1 := handlers.ProxyHeaders(router)
+	router2 := handlers.CompressHandler(router1)
+	router3 := handlers.CustomLoggingHandler(os.Stdout, router2, customLogger)
+	router4 := handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(router3)
+
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
 	go func() {
 		if loadedConfig.Web.Listen == "" {
 			log.Println("Not starting web server because listen address is empty")
 			return
 		}
+		wg.Add(2)
+		websrv := http.Server{
+			Addr:    loadedConfig.Web.Listen,
+			Handler: router4,
+		}
 		log.Println("Starting web server (http://" + loadedConfig.Web.Listen + "/)")
-		log.Println(http.ListenAndServe(loadedConfig.Web.Listen, router4))
+		go func() {
+			if err := websrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("Web server returned an error: %s\n", err)
+			}
+			wg.Done()
+		}()
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := websrv.Shutdown(shutdownCtx); err != nil {
+			log.Fatalf("Server Shutdown Failed:%+v", err)
+		}
+		wg.Done()
 	}()
 	go func() {
 		if loadedConfig.Proxy.Listen == "" {
@@ -259,7 +306,7 @@ func main() {
 			return
 		}
 		log.Println("Starting proxy")
-		proxy.RunProxy(ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
+		proxy.RunProxy(ctx, ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
 	}()
 	go chunkConsumer(chunkChannel)
 	// go func() {
@@ -276,6 +323,7 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	<-c
 	log.Println("Interrupt recieved, shutting down...")
+	ctxCancel()
 	log.Println("Stopping image cache...")
 	stopImageCache()
 	log.Println("Image cache stopped.")

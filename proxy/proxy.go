@@ -21,12 +21,14 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Tnze/go-mc/bot"
@@ -81,7 +83,9 @@ var collectPackets = []int{
 	packetid.ClientboundRespawn,
 }
 
-func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump chan *ProxiedChunk) {
+type RouteHandlerFn func(name string) string
+
+func RunProxy(ctx context.Context, routeHandler RouteHandlerFn, conf *ProxyConfig, dump chan *ProxiedChunk) {
 	var icon image.Image
 	if conf.IconPath != "" {
 		f, err := os.Open(conf.IconPath)
@@ -98,10 +102,6 @@ func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump cha
 	}
 	playerList := server.NewPlayerList(conf.MaxPlayers)
 	serverInfo := server.NewPingInfo(server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
-	// if err != nil {
-	// 	log.Fatalf("Failed to create server ping information: %v", err)
-	// 	return
-	// }
 	s := server.Server{
 		ListPingHandler: struct {
 			*server.PlayerList
@@ -120,7 +120,20 @@ func RunProxy(routeHandler func(name string) string, conf *ProxyConfig, dump cha
 		},
 	}
 	log.Println("Started proxy on " + conf.Listen)
-	log.Println(s.Listen(conf.Listen))
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := s.Listen(conf.Listen)
+		if err != nil {
+			log.Println("Proxy error: ", err)
+		} else {
+			log.Println("Proxy stopped")
+		}
+	}()
+	<-ctx.Done()
+	// s.Stop() ?????
+	wg.Wait()
 }
 
 type SnifferProxy struct {
