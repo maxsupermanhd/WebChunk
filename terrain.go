@@ -74,10 +74,15 @@ func metricsDispatcher() {
 			log.Println("Chunk", m.m, "rendering metrics", time.Duration(d.sum.Nanoseconds()/d.count).String(), "per chunk (total", d.count, ")")
 		}
 	}
+	log.Println("Metrix dispatcher stopped")
 }
 
 func appendMetrics(t time.Duration, m string) {
 	metricsSend <- metricsCollect{t: t, m: m}
+}
+
+func closeMetrics() {
+	close(metricsSend)
 }
 
 func isAirState(s block.StateID) bool {

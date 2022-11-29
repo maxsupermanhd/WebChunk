@@ -75,7 +75,7 @@ type ProxyConfig struct {
 	OnlineMode        bool         `json:"online_mode"`
 }
 
-var collectPackets = []int{
+var collectPackets = []packetid.ClientboundPacketID{
 	packetid.ClientboundLevelChunkWithLight,
 	packetid.ClientboundBlockEntityData,
 	packetid.ClientboundForgetLevelChunk,
@@ -223,7 +223,7 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			}
 			copy(topack.Data, pack.Data)
 			for i := 0; i < len(collectPackets); i++ {
-				if collectPackets[i] == int(pack.ID) {
+				if collectPackets[i] == packetid.ClientboundPacketID(pack.ID) {
 					acceptorChannel <- topack
 					break
 				}

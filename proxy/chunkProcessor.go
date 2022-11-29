@@ -80,7 +80,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 	currentDim := ""
 	for p := range recv {
 		switch {
-		case p.ID == packetid.ClientboundLevelChunkWithLight:
+		case p.ID == int32(packetid.ClientboundLevelChunkWithLight):
 			if currentDim == "" {
 				log.Println("Recieved chunk without dimension")
 				continue
@@ -179,7 +179,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 					DimensionBuildLimit: int(dim.height),
 				}
 			}
-		case p.ID == packetid.ClientboundBlockEntityData:
+		case p.ID == int32(packetid.ClientboundBlockEntityData):
 			dim, ok := loadedDims[currentDim]
 			if !ok {
 				log.Printf("Recieved block entity data without dimension?!")
@@ -235,7 +235,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 					DimensionBuildLimit: int(dim.height),
 				}
 			}
-		case p.ID == packetid.ClientboundForgetLevelChunk:
+		case p.ID == int32(packetid.ClientboundForgetLevelChunk):
 			dim, ok := loadedDims[currentDim]
 			if !ok {
 				log.Printf("Recieved block entity data without dimension?!")
@@ -265,7 +265,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 				DimensionLowestY:    dim.minY,
 				DimensionBuildLimit: int(dim.height),
 			}
-		case p.ID == packetid.ClientboundRespawn:
+		case p.ID == int32(packetid.ClientboundRespawn):
 			var (
 				dim        nbt.RawMessage
 				dimName    pk.Identifier
@@ -278,7 +278,7 @@ func packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, resp chan *Pr
 			}
 			log.Printf("respawn to %s (%s)", dimName, dim.String())
 			currentDim = string(dimName)
-		case p.ID == packetid.ClientboundLogin:
+		case p.ID == int32(packetid.ClientboundLogin):
 			var (
 				eid              pk.Int
 				isHardcore       pk.Boolean

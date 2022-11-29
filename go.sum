@@ -4,6 +4,8 @@ github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0
 github.com/Tnze/go-mc v1.17.0/go.mod h1:t0AI38F1BEmmy8/uLhr9RCOUeDbBj3oUNQH9akjzMc0=
 github.com/Tnze/go-mc v1.19.1-0.20221124020829-433bc7cf7619 h1:1tJd8HictKKv1n8sguQ83SDQxZIc0TkhyiNP9dCaRv4=
 github.com/Tnze/go-mc v1.19.1-0.20221124020829-433bc7cf7619/go.mod h1:DyW8IaHwJqwg4m9E+y2FV+SN62wqy0jWA0O2Hkiilmk=
+github.com/Tnze/go-mc v1.19.1-0.20221129063756-3750dff99dcd h1:E1Y8l2QrJ48ONFN2mqTNgJjc9uExzGs/lNcZ1Af883Q=
+github.com/Tnze/go-mc v1.19.1-0.20221129063756-3750dff99dcd/go.mod h1:DyW8IaHwJqwg4m9E+y2FV+SN62wqy0jWA0O2Hkiilmk=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
