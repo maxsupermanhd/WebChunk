@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -135,15 +136,16 @@ func main() {
 		log.Fatal("Error loading config file: " + err.Error())
 	}
 	storages = loadedConfig.Storages
-	log.SetOutput(io.MultiWriter(&lumberjack.Logger{
+	lg := lumberjack.Logger{
 		Filename: loadedConfig.LogsLocation,
 		MaxSize:  10,
 		Compress: true,
-	}, os.Stdout))
+	}
+	log.SetOutput(io.MultiWriter(&lg, os.Stdout))
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println()
 	log.Println("WebChunk web server is starting up...")
-	log.Printf("Built %s, Ver %s (%s) (GO %s)\n", BuildTime, GitTag, CommitHash, GoVersion)
+	log.Printf("Built %s, Ver %s (%s) (%s)\n", BuildTime, GitTag, CommitHash, GoVersion)
 	log.Println()
 
 	var wg sync.WaitGroup
@@ -275,17 +277,18 @@ func main() {
 	router4 := handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(router3)
 
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
+	wg.Add(1)
 	go func() {
 		if loadedConfig.Web.Listen == "" {
 			log.Println("Not starting web server because listen address is empty")
 			return
 		}
-		wg.Add(2)
 		websrv := http.Server{
 			Addr:    loadedConfig.Web.Listen,
 			Handler: router4,
 		}
 		log.Println("Starting web server (http://" + loadedConfig.Web.Listen + "/)")
+		wg.Add(1)
 		go func() {
 			if err := websrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("Web server returned an error: %s\n", err)
@@ -300,6 +303,7 @@ func main() {
 		}
 		wg.Done()
 	}()
+	wg.Add(1)
 	go func() {
 		if loadedConfig.Proxy.Listen == "" {
 			log.Println("Not starting proxy because listen address is empty")
@@ -307,8 +311,13 @@ func main() {
 		}
 		log.Println("Starting proxy")
 		proxy.RunProxy(ctx, ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
+		wg.Done()
 	}()
-	go chunkConsumer(chunkChannel)
+	wg.Add(1)
+	go func() {
+		chunkConsumer(chunkChannel)
+		wg.Done()
+	}()
 	// go func() {
 	// 	if loadedConfig.Reconstructor.Listen == "" {
 	// 		log.Println("Not starting reconstructor because listen address is empty")
@@ -317,19 +326,23 @@ func main() {
 	// 	log.Println("Starting reconstructor")
 	// 	viewer.StartReconstructor(storages, &loadedConfig.Reconstructor)
 	// }()
-	go startImageCache()
+	wg.Add(1)
+	go func() {
+		imageCacheProcessor(ctx)
+		log.Println("Image cache stopped")
+		wg.Done()
+	}()
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	log.Println("Interrupt recieved, shutting down...")
 	ctxCancel()
-	log.Println("Stopping image cache...")
-	stopImageCache()
-	log.Println("Image cache stopped.")
 	log.Println("Shutting down storages...")
 	chunkStorage.CloseStorages(storages)
 	log.Println("Storages closed.")
+	wg.Wait()
+	lg.Close()
 	log.Println("Shutdown complete, bye!")
 }
 

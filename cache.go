@@ -21,6 +21,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"image"
 	"image/draw"
@@ -31,15 +32,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 )
 
 var (
-	imageCacheShutdown        = make(chan struct{})
-	imageCacheWaitGroup       sync.WaitGroup
 	imageCacheMaxCache        = 64
 	imageCachePropagateLevels = 16
 	imageCacheProcess         = make(chan cacheTask, 32)
@@ -63,12 +61,12 @@ type cacheTask struct {
 
 // ideally ring around all players should be loaded in case they are going somewhere suddenly but oh well
 
-func imageCacheProcessor() {
-	defer imageCacheWaitGroup.Done()
+func imageCacheProcessor(ctx context.Context) {
 	imageCache := map[imageLoc]cachedImage{}
 	cleanupTicker := time.NewTicker(15 * time.Second)
 	select {
-	case <-imageCacheShutdown:
+	case <-ctx.Done():
+		log.Println("Image cache sutting down...")
 		for k, v := range imageCache {
 			if !v.syncedToDisk {
 				err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
@@ -157,16 +155,6 @@ func imageCacheProcessor() {
 			delete(imageCache, keys[i])
 		}
 	}
-}
-
-func startImageCache() {
-	imageCacheWaitGroup.Add(1)
-	go imageCacheProcessor()
-}
-
-func stopImageCache() {
-	imageCacheShutdown <- struct{}{}
-	imageCacheWaitGroup.Wait()
 }
 
 func imageCacheGetBlocking(world, dim, render string, s, x, z int) *image.RGBA {

@@ -117,6 +117,7 @@ func RunProxy(ctx context.Context, routeHandler RouteHandlerFn, conf *ProxyConfi
 			CredManager: credentials.NewMicrosoftCredentialsManager(conf.CredentialsPath, "88650e7e-efee-4857-b9a9-cf580a00ef43"),
 			SaveChannel: dump,
 			Conf:        *conf,
+			Ctx:         ctx,
 		},
 	}
 	log.Println("Started proxy on " + conf.Listen)
@@ -141,6 +142,7 @@ type SnifferProxy struct {
 	CredManager *credentials.MicrosoftCredentialsManager
 	SaveChannel chan *ProxiedChunk
 	Conf        ProxyConfig
+	Ctx         context.Context
 }
 
 func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *auth.PublicKey, properties []auth.Property, _ int32, conn *mcnet.Conn) {
