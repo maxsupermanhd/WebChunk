@@ -41,15 +41,24 @@ import (
 
 type timeUpdater struct {
 	playersMutex sync.Mutex
-	players      map[uuid.UUID]*server.Player
+	players      map[uuid.UUID]struct {
+		c *server.Client
+		p *server.Player
+	}
 }
 
 func (s *timeUpdater) Init(g *server.Game) {
-	s.players = map[uuid.UUID]*server.Player{}
+	s.players = map[uuid.UUID]struct {
+		c *server.Client
+		p *server.Player
+	}{}
 }
-func (s *timeUpdater) AddPlayer(p *server.Player) {
+func (s *timeUpdater) AddPlayer(c *server.Client, p *server.Player) {
 	s.playersMutex.Lock()
-	s.players[p.UUID] = p
+	s.players[p.UUID] = struct {
+		c *server.Client
+		p *server.Player
+	}{c, p}
 	s.playersMutex.Unlock()
 }
 func (s *timeUpdater) RemovePlayer(p *server.Player) {
@@ -67,7 +76,7 @@ func (s *timeUpdater) Run(ctx context.Context) {
 		case <-timeUpdateTick.C:
 			s.playersMutex.Lock()
 			for _, p := range s.players {
-				p.WritePacket(server.Packet758(pk.Marshal(
+				p.c.WritePacket(server.Packet758(pk.Marshal(
 					packetid.ClientboundSetTime,
 					pk.Long(0),
 					pk.Long(0),
@@ -106,12 +115,10 @@ func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfi
 	if storage == nil {
 		return
 	}
-	serverInfo, err := server.NewPingInfo(server.NewPlayerList(conf.MaxPlayers), server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
-	if err != nil {
-		log.Fatalf("Set server info error: %v", err)
-	}
+	playerList := server.NewPlayerList(conf.MaxPlayers)
+	serverInfo := server.NewPingInfo(server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
 	keepAlive := server.NewKeepAlive()
-	playerInfo := server.NewPlayerInfo(time.Second, keepAlive)
+	// playerInfo := server.NewPlayerInfo(time.Second, keepAlive)
 	chunkLoader := NewChunkLoader(storage, conf.DefaultViewDistance)
 	commands := command.NewGraph()
 	// executor := &commandExecutor{}
@@ -185,13 +192,8 @@ func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfi
 		}))
 	dim := &dimensionProvider{"overworld", 0}
 	timeUpd := &timeUpdater{}
-	// dim2, err := loadAllRegions("/home/max/.local/share/multimc/instances/fabric-1.18.2-hax/.minecraft/saves/New World/region/")
-	if err != nil {
-		log.Fatal(err)
-	}
 	game := server.NewGame(
 		dim,
-		playerInfo,
 		keepAlive,
 		server.NewGlobalChat(),
 		chunkLoader,
@@ -202,7 +204,10 @@ func StartReconstructor(storage []chunkStorage.Storage, conf *ReconstructorConfi
 	go game.Run(context.Background())
 
 	s := server.Server{
-		ListPingHandler: serverInfo,
+		ListPingHandler: struct {
+			*server.PlayerList
+			*server.PingInfo
+		}{playerList, serverInfo},
 		LoginHandler: &server.MojangLoginHandler{
 			OnlineMode:   conf.OnlineMode,
 			Threshold:    conf.CompressThreshold,

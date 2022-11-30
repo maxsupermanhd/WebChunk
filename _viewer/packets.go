@@ -28,21 +28,21 @@ import (
 	"github.com/google/uuid"
 )
 
-func SendUnloadChunk(p *server.Player, x, z int32) {
+func SendUnloadChunk(p *server.Client, x, z int32) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundForgetLevelChunk,
 		pk.Int(x), pk.Int(z),
 	)))
 }
 
-func SendUpdateViewPosition(p *server.Player, x, z int32) {
+func SendUpdateViewPosition(p *server.Client, x, z int32) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundSetChunkCacheCenter,
 		pk.VarInt(x), pk.VarInt(z),
 	)))
 }
 
-func SendPlayerPositionAndLook(p *server.Player, x, y, z float32, yaw, pitch float32, flags int8, teleportid int32, dismount bool) {
+func SendPlayerPositionAndLook(p *server.Client, x, y, z float32, yaw, pitch float32, flags int8, teleportid int32, dismount bool) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundPlayerPosition,
 		pk.Double(x), pk.Double(y), pk.Double(z),
@@ -53,7 +53,7 @@ func SendPlayerPositionAndLook(p *server.Player, x, y, z float32, yaw, pitch flo
 	)))
 }
 
-func SendSetGamemode(p *server.Player, gamemode int) {
+func SendSetGamemode(p *server.Client, gamemode int) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundGameEvent,
 		pk.UnsignedByte(3),
@@ -61,7 +61,7 @@ func SendSetGamemode(p *server.Player, gamemode int) {
 	)))
 }
 
-func SendInfoMessage(p *server.Player, msg chat.Message) {
+func SendInfoMessage(p *server.Client, msg chat.Message) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundChat,
 		msg,
@@ -70,7 +70,7 @@ func SendInfoMessage(p *server.Player, msg chat.Message) {
 	)))
 }
 
-func SendSystemMessage(p *server.Player, msg chat.Message) {
+func SendSystemMessage(p *server.Client, msg chat.Message) {
 	p.WritePacket(server.Packet758(pk.Marshal(
 		packetid.ClientboundChat,
 		msg,
@@ -79,7 +79,7 @@ func SendSystemMessage(p *server.Player, msg chat.Message) {
 	)))
 }
 
-func SendPlayerAbilities(p *server.Player, invulnerable, flying, allowFlying, instabreak bool, flyingSpeed pk.Float, fovModifier pk.Float) {
+func SendPlayerAbilities(p *server.Client, invulnerable, flying, allowFlying, instabreak bool, flyingSpeed pk.Float, fovModifier pk.Float) {
 	flags := pk.Byte(0)
 	if invulnerable {
 		flags += 0x01

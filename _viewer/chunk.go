@@ -71,7 +71,7 @@ func (s *chunkLoader) Init(g *server.Game) {
 	s.players = map[uuid.UUID]*playerData{}
 	g.AddHandler(&server.PacketHandler{
 		ID: packetid.ServerboundMovePlayerPos,
-		F: func(player *server.Player, packet server.Packet758) error {
+		F: func(client *server.Client, player *server.Player, packet server.Packet758) error {
 			var x, y, z pk.Double
 			var ground pk.Boolean
 			if err := pk.Packet(packet).Scan(&x, &y, &z, &ground); err != nil {
