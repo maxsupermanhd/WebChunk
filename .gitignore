@@ -8,3 +8,4 @@ tags
 db/data*
 imageCache
 config.json
+__debug_bin
