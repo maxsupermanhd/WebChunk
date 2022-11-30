@@ -67,6 +67,7 @@ func ProxyRoutesHandler(username string) string {
 	return route.Address
 }
 
+//lint:ignore U1000 for future use
 func saveConfig() error {
 	path := os.Getenv("WEBCHUNK_CONFIG")
 	if path == "" {
