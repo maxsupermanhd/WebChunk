@@ -572,15 +572,6 @@ func drawChunkChestBlocksHeatmap(chunk *save.Chunk) (img *image.RGBA) {
 	return
 }
 
-func initChunkDraw() error {
-	err := loadColors()
-	if err != nil {
-		return err
-	}
-	go metricsDispatcher()
-	return nil
-}
-
 func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	wname := params["world"]
