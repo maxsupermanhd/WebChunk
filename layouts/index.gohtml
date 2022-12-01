@@ -66,7 +66,7 @@
 								<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
 									<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
 								{{if ge (len $w.Dims) 1}}
-								<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}} ({{(index $w.Dims 0).Dim.Alias}})</a></td>
+								<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}}</a></td>
 								<td>{{(index $w.Dims 0).ChunkCount}} chunks totaling {{(index $w.Dims 0).ChunkSize}}</td>
 								<td>Cached {{(index $w.Dims 0).CacheCount}} images totaling {{(index $w.Dims 0).CacheSize}}</td>
 								{{else}}
@@ -77,7 +77,7 @@
 							{{range $k, $d := $w.Dims}}
 							{{if ge $k 1}}
 							<tr>
-								<td><a href="/worlds/{{$w.World.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}} ({{$d.Dim.Alias}})</a></td>
+								<td><a href="/worlds/{{$w.World.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}}</a></td>
 								<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
 								<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
 							</tr>

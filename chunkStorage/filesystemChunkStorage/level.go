@@ -21,6 +21,7 @@
 package filesystemChunkStorage
 
 import (
+	"compress/gzip"
 	"log"
 	"os"
 	"path"
@@ -35,7 +36,13 @@ func readSaveLevel(path string) (*save.LevelData, error) {
 	if err != nil {
 		return nil, err
 	}
-	d, err := save.ReadLevel(f)
+	defer f.Close()
+	gf, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gf.Close()
+	d, err := save.ReadLevel(gf)
 	if err != nil {
 		return nil, err
 	}

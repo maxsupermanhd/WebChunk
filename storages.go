@@ -82,106 +82,111 @@ func findCapableStorage(arr []chunkStorage.Storage, pref string) chunkStorage.Ch
 	return s
 }
 
-func chunkConsumer(c chan *proxy.ProxiedChunk) {
-	for r := range c {
-		route, ok := loadedConfig.Routes[r.Username]
-		if !ok {
-			log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
-		}
-		log.Printf("Got chunk [%v] from [%v] by [%v] (%d sections) (%d block entities)", r.Pos, r.Server, r.Username, len(r.Data.Sections), len(r.Data.BlockEntity))
-		if route.World == "" {
-			route.World = r.Server
-		}
-		if route.Dimension == "" {
-			route.Dimension = r.Dimension
-		}
-		w, s, err := chunkStorage.GetWorldStorage(storages, route.World)
-		if err != nil {
-			log.Println("Failed to lookup world storage: ", err)
-			break
-		}
-		var d *chunkStorage.SDim
-		if w == nil || s == nil {
-			s = findCapableStorage(storages, route.Storage)
-			if s == nil {
-				log.Printf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%v] from [%v] by [%v] is LOST.", route.World, route.Storage, r.Pos, r.Server, r.Username)
-				continue
+func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case r := <-c:
+			route, ok := loadedConfig.Routes[r.Username]
+			if !ok {
+				log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
 			}
-			w = &chunkStorage.SWorld{
-				Name:       r.Server,
-				Alias:      "",
-				IP:         r.Server,
-				CreatedAt:  time.Now(),
-				ModifiedAt: time.Now(),
-				Data:       chunkStorage.CreateDefaultLevelData(r.Server),
+			log.Printf("Got chunk [%v] from [%v] by [%v] (%d sections) (%d block entities)", r.Pos, r.Server, r.Username, len(r.Data.Sections), len(r.Data.BlockEntity))
+			if route.World == "" {
+				route.World = r.Server
 			}
-			err = s.AddWorld(*w)
+			if route.Dimension == "" {
+				route.Dimension = r.Dimension
+			}
+			w, s, err := chunkStorage.GetWorldStorage(storages, route.World)
 			if err != nil {
-				log.Printf("Failed to add world: %s", err.Error())
-				continue
+				log.Println("Failed to lookup world storage: ", err)
+				break
 			}
-		}
-		d, err = s.GetDimension(w.Name, route.Dimension)
-		if err != nil {
-			log.Printf("Failed to get dim: %s", err.Error())
-			continue
-		}
-		if d == nil {
-			d = &chunkStorage.SDim{
-				Name:       r.Dimension,
-				World:      w.Name,
-				CreatedAt:  time.Now(),
-				ModifiedAt: time.Now(),
-				Data:       chunkStorage.GuessDimTypeFromName(r.Dimension),
+			var d *chunkStorage.SDim
+			if w == nil || s == nil {
+				s = findCapableStorage(storages, route.Storage)
+				if s == nil {
+					log.Printf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%v] from [%v] by [%v] is LOST.", route.World, route.Storage, r.Pos, r.Server, r.Username)
+					continue
+				}
+				w = &chunkStorage.SWorld{
+					Name:       r.Server,
+					Alias:      "",
+					IP:         r.Server,
+					CreatedAt:  time.Now(),
+					ModifiedAt: time.Now(),
+					Data:       chunkStorage.CreateDefaultLevelData(r.Server),
+				}
+				err = s.AddWorld(*w)
+				if err != nil {
+					log.Printf("Failed to add world: %s", err.Error())
+					continue
+				}
 			}
-			err = s.AddDimension(w.Name, *d)
+			d, err = s.GetDimension(w.Name, route.Dimension)
 			if err != nil {
-				log.Printf("Failed to add dim: %s", err.Error())
+				log.Printf("Failed to get dim: %s", err.Error())
 				continue
 			}
-		}
-		if d == nil {
-			log.Println("d is nill")
-			continue
-		}
-		if w == nil {
-			log.Println("w is nill")
-			continue
-		}
-		if d.World != w.Name {
-			log.Printf("SUS dim's wname != world's name [%s] [%s]", d.World, w.Name)
-			continue
-		}
-		nbtEmptyList := nbt.RawMessage{
-			Type: nbt.TagList,
-			Data: []byte{0, 0, 0, 0, 0},
-		}
-		var data save.Chunk
-		data.XPos = int32(r.Pos[0])
-		data.ZPos = int32(r.Pos[1])
-		level.ChunkToSave(&r.Data, &data)
-		// for iiii, cccc := range data.Sections {
-		// 	log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
-		// }
-		data.BlockEntities = []nbt.RawMessage{}
-		data.Structures = nbtEmptyList
-		data.Heightmaps = struct {
-			MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
-			MotionBlockingNoLeaves []uint64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
-			OceanFloor             []uint64 "nbt:\"OCEAN_FLOOR\""
-			WorldSurface           []uint64 "nbt:\"WORLD_SURFACE\""
-		}{
-			MotionBlocking:         r.Data.HeightMaps.MotionBlocking.Raw(),
-			MotionBlockingNoLeaves: r.Data.HeightMaps.MotionBlockingNoLeaves.Raw(),
-			OceanFloor:             r.Data.HeightMaps.OceanFloor.Raw(),
-			WorldSurface:           r.Data.HeightMaps.WorldSurface.Raw(),
-		}
-		data.BlockTicks = nbtEmptyList
-		data.FluidTicks = nbtEmptyList
-		data.PostProcessing = nbtEmptyList
-		err = s.AddChunk(w.Name, d.Name, int(r.Pos[0]), int(r.Pos[1]), data)
-		if err != nil {
-			log.Printf("Failed to save chunk: %s", err.Error())
+			if d == nil {
+				d = &chunkStorage.SDim{
+					Name:       r.Dimension,
+					World:      w.Name,
+					CreatedAt:  time.Now(),
+					ModifiedAt: time.Now(),
+					Data:       chunkStorage.GuessDimTypeFromName(r.Dimension),
+				}
+				err = s.AddDimension(w.Name, *d)
+				if err != nil {
+					log.Printf("Failed to add dim: %s", err.Error())
+					continue
+				}
+			}
+			if d == nil {
+				log.Println("d is nill")
+				continue
+			}
+			if w == nil {
+				log.Println("w is nill")
+				continue
+			}
+			if d.World != w.Name {
+				log.Printf("SUS dim's wname != world's name [%s] [%s]", d.World, w.Name)
+				continue
+			}
+			nbtEmptyList := nbt.RawMessage{
+				Type: nbt.TagList,
+				Data: []byte{0, 0, 0, 0, 0},
+			}
+			var data save.Chunk
+			data.XPos = int32(r.Pos[0])
+			data.ZPos = int32(r.Pos[1])
+			level.ChunkToSave(&r.Data, &data)
+			// for iiii, cccc := range data.Sections {
+			// 	log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
+			// }
+			data.BlockEntities = []nbt.RawMessage{}
+			data.Structures = nbtEmptyList
+			data.Heightmaps = struct {
+				MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
+				MotionBlockingNoLeaves []uint64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
+				OceanFloor             []uint64 "nbt:\"OCEAN_FLOOR\""
+				WorldSurface           []uint64 "nbt:\"WORLD_SURFACE\""
+			}{
+				MotionBlocking:         r.Data.HeightMaps.MotionBlocking.Raw(),
+				MotionBlockingNoLeaves: r.Data.HeightMaps.MotionBlockingNoLeaves.Raw(),
+				OceanFloor:             r.Data.HeightMaps.OceanFloor.Raw(),
+				WorldSurface:           r.Data.HeightMaps.WorldSurface.Raw(),
+			}
+			data.BlockTicks = nbtEmptyList
+			data.FluidTicks = nbtEmptyList
+			data.PostProcessing = nbtEmptyList
+			err = s.AddChunk(w.Name, d.Name, int(r.Pos[0]), int(r.Pos[1]), data)
+			if err != nil {
+				log.Printf("Failed to save chunk: %s", err.Error())
+			}
 		}
 	}
 }

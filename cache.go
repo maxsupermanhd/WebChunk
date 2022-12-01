@@ -64,95 +64,97 @@ type cacheTask struct {
 func imageCacheProcessor(ctx context.Context) {
 	imageCache := map[imageLoc]cachedImage{}
 	cleanupTicker := time.NewTicker(15 * time.Second)
-	select {
-	case <-ctx.Done():
-		log.Println("Image cache sutting down...")
-		for k, v := range imageCache {
-			if !v.syncedToDisk {
-				err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
-				if err != nil {
-					log.Printf("Failed to save cache of %s:%s:%s at %ds %dx %dz because %v", k.world, k.dim, k.render, k.s, k.x, k.z, err)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Image cache sutting down...")
+			for k, v := range imageCache {
+				if !v.syncedToDisk {
+					err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
+					if err != nil {
+						log.Printf("Failed to save cache of %s:%s:%s at %ds %dx %dz because %v", k.world, k.dim, k.render, k.s, k.x, k.z, err)
+					}
 				}
 			}
-		}
-		return
-	case p := <-imageCacheProcess:
-		if p.img == nil { // read
-			if p.ret == nil {
-				log.Printf("Requested image but no return channel?! %v", spew.Sdump(p))
-				break
-			}
-			i, ok := imageCache[p.loc]
-			if ok {
+			return
+		case p := <-imageCacheProcess:
+			if p.img == nil { // read
+				if p.ret == nil {
+					log.Printf("Requested image but no return channel?! %v", spew.Sdump(p))
+					break
+				}
+				i, ok := imageCache[p.loc]
+				if ok {
+					p.ret <- i.img
+					break
+				}
+				var err error
+				i.img, err = cacheLoad(p.loc.world, p.loc.dim, p.loc.render, p.loc.s, p.loc.x, p.loc.z)
+				if err != nil {
+					if !errors.Is(err, os.ErrNotExist) {
+						log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
+					}
+					close(p.ret)
+					break
+				}
 				p.ret <- i.img
-				break
-			}
-			var err error
-			i.img, err = cacheLoad(p.loc.world, p.loc.dim, p.loc.render, p.loc.s, p.loc.x, p.loc.z)
-			if err != nil {
-				if !errors.Is(err, os.ErrNotExist) {
-					log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
+				i.syncedToDisk = true
+				imageCache[p.loc] = i
+			} else { // write
+				imageCache[p.loc] = cachedImage{
+					img:          p.img,
+					syncedToDisk: false,
 				}
-				close(p.ret)
-				break
-			}
-			p.ret <- i.img
-			i.syncedToDisk = true
-			imageCache[p.loc] = i
-		} else { // write
-			imageCache[p.loc] = cachedImage{
-				img:          p.img,
-				syncedToDisk: false,
-			}
-			if p.loc.s == 0 {
-				for ts := 1; ts <= imageCachePropagateLevels; ts++ {
-					tsize := 16 * (2 << (ts - 1))
-					pabsx := p.loc.x * 16
-					pabsz := p.loc.z * 16
-					tloc := imageLoc{
-						world:  p.loc.world,
-						dim:    p.loc.dim,
-						render: p.loc.render,
-						s:      ts,
-						x:      pabsx / tsize,
-						z:      pabsz / tsize,
-					}
-					img, ok := imageCache[tloc]
-					if !ok {
-						img = cachedImage{
-							img: image.NewRGBA(image.Rectangle{
-								Min: image.Point{0, 0},
-								Max: image.Point{tsize, tsize},
-							}),
-							syncedToDisk: false,
+				if p.loc.s == 0 {
+					for ts := 1; ts <= imageCachePropagateLevels; ts++ {
+						tsize := 16 * (2 << (ts - 1))
+						pabsx := p.loc.x * 16
+						pabsz := p.loc.z * 16
+						tloc := imageLoc{
+							world:  p.loc.world,
+							dim:    p.loc.dim,
+							render: p.loc.render,
+							s:      ts,
+							x:      pabsx / tsize,
+							z:      pabsz / tsize,
 						}
+						img, ok := imageCache[tloc]
+						if !ok {
+							img = cachedImage{
+								img: image.NewRGBA(image.Rectangle{
+									Min: image.Point{0, 0},
+									Max: image.Point{tsize, tsize},
+								}),
+								syncedToDisk: false,
+							}
+						}
+						toofsetx := int(pabsx % tsize)
+						toofsetz := int(pabsz % tsize)
+						draw.Draw(img.img, image.Rect(toofsetx, toofsetz, toofsetx+16, toofsetz+16), p.img, image.Pt(0, 0), draw.Over)
+						imageCache[p.loc] = img
 					}
-					toofsetx := int(pabsx % tsize)
-					toofsetz := int(pabsz % tsize)
-					draw.Draw(img.img, image.Rect(toofsetx, toofsetz, toofsetx+16, toofsetz+16), p.img, image.Pt(0, 0), draw.Over)
-					imageCache[p.loc] = img
 				}
 			}
-		}
-	case <-cleanupTicker.C:
-		if len(imageCache) < imageCacheMaxCache*2 {
-			break
-		}
-		keys := make([]imageLoc, 0, len(imageCache))
-		for k, v := range imageCache {
-			keys = append(keys, k)
-			if !v.syncedToDisk {
-				err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
-				if err != nil {
-					log.Printf("Failed to save cache of %s:%s:%s at %ds %dx %dz because %v", k.world, k.dim, k.render, k.s, k.x, k.z, err)
+		case <-cleanupTicker.C:
+			if len(imageCache) < imageCacheMaxCache*2 {
+				break
+			}
+			keys := make([]imageLoc, 0, len(imageCache))
+			for k, v := range imageCache {
+				keys = append(keys, k)
+				if !v.syncedToDisk {
+					err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
+					if err != nil {
+						log.Printf("Failed to save cache of %s:%s:%s at %ds %dx %dz because %v", k.world, k.dim, k.render, k.s, k.x, k.z, err)
+					}
 				}
 			}
-		}
-		sort.Slice(keys, func(i, j int) bool {
-			return keys[i].s < keys[j].s
-		})
-		for i := 0; i < imageCacheMaxCache; i++ {
-			delete(imageCache, keys[i])
+			sort.Slice(keys, func(i, j int) bool {
+				return keys[i].s < keys[j].s
+			})
+			for i := 0; i < imageCacheMaxCache; i++ {
+				delete(imageCache, keys[i])
+			}
 		}
 	}
 }

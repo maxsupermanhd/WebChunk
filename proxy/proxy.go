@@ -35,7 +35,7 @@ import (
 	"github.com/Tnze/go-mc/chat"
 	"github.com/Tnze/go-mc/data/packetid"
 	"github.com/Tnze/go-mc/level"
-	mcnet "github.com/Tnze/go-mc/net"
+	"github.com/Tnze/go-mc/net"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/auth"
@@ -120,20 +120,41 @@ func RunProxy(ctx context.Context, routeHandler RouteHandlerFn, conf *ProxyConfi
 			Ctx:         ctx,
 		},
 	}
-	log.Println("Started proxy on " + conf.Listen)
+	listener, err := net.ListenMC(conf.Listen)
+	if err != nil {
+		log.Println("Proxy startup error: ", err)
+		return
+	}
+	log.Println("Proxy started on " + conf.Listen)
 	var wg sync.WaitGroup
+	lstCloseChan := make(chan struct{})
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := s.Listen(conf.Listen)
-		if err != nil {
-			log.Println("Proxy error: ", err)
-		} else {
-			log.Println("Proxy stopped")
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				select {
+				case <-lstCloseChan:
+					return
+				default:
+					log.Println("Proxy listener error: ", err)
+				}
+			} else {
+				wg.Add(1)
+				go func() {
+					s.AcceptConn(&conn)
+					wg.Done()
+				}()
+			}
 		}
 	}()
 	<-ctx.Done()
-	// s.Stop() ?????
+	close(lstCloseChan)
+	err = listener.Close()
+	if err != nil {
+		log.Println("Proxy listener close error: ", err)
+	}
 	wg.Wait()
 }
 
@@ -145,8 +166,8 @@ type SnifferProxy struct {
 	Ctx         context.Context
 }
 
-func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *auth.PublicKey, properties []auth.Property, _ int32, conn *mcnet.Conn) {
-	log.Printf("Accepting new player [%s] (%s), getting route...", name, id.String())
+func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *auth.PublicKey, properties []auth.Property, proto int32, conn *net.Conn) {
+	log.Printf("Accepting new player [%s] (%s), protocol %v, getting route...", name, id.String(), proto)
 	dest := p.Routing(name)
 	if dest == "" {
 		log.Printf("Unable to find route for [%s]", name)
@@ -185,7 +206,10 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	defer close(closeChannel)
 
 	go func() {
-		<-closeChannel
+		select {
+		case <-closeChannel:
+		case <-p.Ctx.Done():
+		}
 		conn.Socket.SetDeadline(time.UnixMilli(0))
 		c.Conn.Socket.SetDeadline(time.UnixMilli(0))
 		connQueue.Close()
@@ -259,10 +283,10 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	// connQueue.Close()
 }
 
-func dissconnectWithError(conn *mcnet.Conn, reason error) {
+func dissconnectWithError(conn *net.Conn, reason error) {
 	dissconnectWithMessage(conn, &chat.Message{Text: fmt.Sprint(reason)})
 }
 
-func dissconnectWithMessage(conn *mcnet.Conn, reason *chat.Message) {
+func dissconnectWithMessage(conn *net.Conn, reason *chat.Message) {
 	conn.WritePacket(pk.Marshal(packetid.ClientboundDisconnect, reason))
 }

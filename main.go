@@ -38,6 +38,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 
@@ -85,6 +86,7 @@ var layoutFuncs = template.FuncMap{
 		}
 		return v.FieldByName(name).IsValid()
 	},
+	"spew": spew.Sdump,
 	"add": func(a, b int) int {
 		return a + b
 	},
@@ -235,18 +237,19 @@ func main() {
 	}
 
 	log.Println("Adding routes")
-	wg.Add(1)
-	go func() {
-		tasksProgressBroadcaster.Start()
-		wg.Done()
-	}()
-	defer tasksProgressBroadcaster.Stop()
+	// wg.Add(1)
+	// go func() {
+	// 	tasksProgressBroadcaster.Start()
+	// 	wg.Done()
+	// }()
+	// defer tasksProgressBroadcaster.Stop()
 	router := mux.NewRouter()
 	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(hiddenFileSystem{http.Dir("./static")}))).Methods("GET")
 	router.HandleFunc("/favicon.ico", faviconHandler).Methods("GET")
 	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
 
 	router.HandleFunc("/", indexHandler).Methods("GET")
+	router.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) { ctxCancel(); w.WriteHeader(200) }).Methods("GET")
 	router.HandleFunc("/worlds", worldsHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}", worldHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
@@ -300,6 +303,8 @@ func main() {
 		defer cancel()
 		if err := websrv.Shutdown(shutdownCtx); err != nil {
 			log.Fatalf("Server Shutdown Failed:%+v", err)
+		} else {
+			log.Println("Web server stopped")
 		}
 		wg.Done()
 	}()
@@ -311,11 +316,13 @@ func main() {
 		}
 		log.Println("Starting proxy")
 		proxy.RunProxy(ctx, ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
+		log.Println("Proxy stopped")
 		wg.Done()
 	}()
 	wg.Add(1)
 	go func() {
-		chunkConsumer(chunkChannel)
+		chunkConsumer(ctx, chunkChannel)
+		log.Println("Chunk consumer stopped")
 		wg.Done()
 	}()
 	// go func() {

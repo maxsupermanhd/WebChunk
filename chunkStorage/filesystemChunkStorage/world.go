@@ -64,7 +64,6 @@ func (s *FilesystemChunkStorage) ListWorldNames() ([]string, error) {
 }
 
 func (s *FilesystemChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, error) {
-	world := chunkStorage.SWorld{}
 	wdir := path.Join(s.Root, wname)
 	var w chunkStorage.SWorld
 	w.Name = wname
@@ -75,13 +74,13 @@ func (s *FilesystemChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, e
 		w.Alias = meta.Alias
 		w.IP = meta.IP
 	}
-	data, err := readSaveLevel(wdir)
+	data, err := readSaveLevel(path.Join(wdir, "level.dat"))
 	if err != nil {
 		log.Printf("Failed to read world data for world [%s]: %v", wname, err)
 	} else {
 		w.Data = *data
 	}
-	return &world, err
+	return &w, err
 
 }
 
@@ -140,11 +139,14 @@ func getWorldDirMetaPath(wdir string) string {
 }
 
 func readWorldMeta(wdir string) (*worldMeta, error) {
+	var d worldMeta
 	b, err := os.ReadFile(getWorldDirMetaPath(wdir))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &d, writeWorldMeta(wdir, d)
+		}
 		return nil, err
 	}
-	var d worldMeta
 	err = json.Unmarshal(b, &d)
 	if err != nil {
 		return nil, err
