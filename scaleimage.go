@@ -52,8 +52,7 @@ type ttype struct {
 var ttypes = map[ttype]ttypeProviderFunc{
 	{"terrain", "Terrain", false, true}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunk(&s)
+			return drawChunk(i.(*save.Chunk))
 		}
 	},
 	{"counttiles", "Chunk count", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
@@ -68,44 +67,37 @@ var ttypes = map[ttype]ttypeProviderFunc{
 	},
 	{"heightmap", "Heightmap", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkHeightmap(&s)
+			return drawChunkHeightmap(i.(*save.Chunk))
 		}
 	},
 	{"xray", "Xray", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkXray(&s)
+			return drawChunkXray(i.(*save.Chunk))
 		}
 	},
 	{"biomes", "Biomes", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkBiomes(&s)
+			return drawChunkBiomes(i.(*save.Chunk))
 		}
 	},
 	{"portalsheat", "Portals heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkPortalBlocksHeatmap(&s)
+			return drawChunkPortalBlocksHeatmap(i.(*save.Chunk))
 		}
 	},
 	{"chestheat", "Chest heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkChestBlocksHeatmap(&s)
+			return drawChunkChestBlocksHeatmap(i.(*save.Chunk))
 		}
 	},
 	{"lavaage", "Lava age", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkLavaAge(&s, 255)
+			return drawChunkLavaAge(i.(*save.Chunk), 255)
 		}
 	},
 	{"lavaageoverlay", "Lava age (overlay)", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			s := i.(save.Chunk)
-			return drawChunkLavaAge(&s, 128)
+			return drawChunkLavaAge(i.(*save.Chunk), 128)
 		}
 	},
 }
@@ -165,6 +157,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 
 func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDataProviderFunc, painter chunkPainterFunc) *image.RGBA {
 	wname, dname, _, cx, cz, cs, err := tilingParams(w, r)
+	log.Println("Requested tile", wname, dname, cx, cz, cs)
 	if err != nil {
 		return nil
 	}
@@ -180,6 +173,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	cc, err := getter(wname, dname, cx*scale, cz*scale, cx*scale+scale, cz*scale+scale)
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error getting chunk data: "+err.Error())
+		log.Println("Error getting chunk data: ", err)
 		return nil
 	}
 	if len(cc) == 0 {

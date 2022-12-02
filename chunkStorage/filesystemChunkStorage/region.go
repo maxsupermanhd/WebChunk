@@ -29,6 +29,7 @@ import (
 
 	"github.com/Tnze/go-mc/save"
 	"github.com/Tnze/go-mc/save/region"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-multierror"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
@@ -52,7 +53,7 @@ type regionRequest struct {
 // and start a gorutine worker for each different
 // region file and route requests to them
 func (s *FilesystemChunkStorage) regionRouter() {
-	log.Println("Region router started for storage ", s.Root)
+	log.Println("Region router started for storage", s.Root)
 	defer s.wg.Done()
 	type regionInterface struct {
 		c           chan regionRequest
@@ -99,6 +100,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			world:     r.world,
 			dimension: r.dimension,
 		}
+		log.Println("Region router", s.Root, "op", spew.Sdump(r))
 		switch r.op {
 		case "closeInactive":
 			toclose := []regionLocator{}
@@ -128,7 +130,8 @@ func (s *FilesystemChunkStorage) regionRouter() {
 		case "get":
 			fallthrough
 		case "set":
-			getOrCreateWorker(r.world, r.dimension, r.cx1, r.cz1, r)
+			rx1, rz1 := region.At(r.cx1, r.cz1)
+			getOrCreateWorker(r.world, r.dimension, rx1, rz1, r)
 		case "countRegion":
 			rx1, rz1 := region.At(r.cx1, r.cz1)
 			rx2, rz2 := region.At(r.cx2, r.cz2)
@@ -139,8 +142,8 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			}
 		}
 	}
-	autocloseTicker.Stop()
 	close(closeTicker)
+	autocloseTicker.Stop()
 	for _, v := range w {
 		close(v.c)
 	}
@@ -278,27 +281,33 @@ func (s *FilesystemChunkStorage) GetChunk(wname, dname string, cx, cz int) (*sav
 	if err != nil {
 		return nil, err
 	}
-	var c *save.Chunk
+	var c save.Chunk
 	err = c.Load(d)
-	return c, err
+	return &c, err
 }
 
 func (s *FilesystemChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]byte, error) {
 	r := make(chan interface{}, 2)
 	s.requests <- regionRequest{
-		op:        "set",
+		op:        "get",
 		world:     wname,
 		dimension: dname,
 		cx1:       cx,
 		cz1:       cz,
 		result:    r,
 	}
+GetChunkRawRecvLoop:
 	for ret := range r {
 		switch v := ret.(type) {
 		case error:
+			log.Println("GetChunkRaw got error", v)
 			return []byte{}, v
 		case []byte:
+			log.Println("GetChunkRaw got chunk data with len", len(v))
 			return v, nil
+		default:
+			log.Printf("GetChunkRaw wrong result %t", ret)
+			break GetChunkRawRecvLoop
 		}
 	}
 	return []byte{}, errors.New("no response from region worker")
@@ -316,6 +325,7 @@ func normalizeCoords(x0, z0, x1, z1 int) (int, int, int, int) {
 
 func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	cx0, cz0, cx1, cz1 = normalizeCoords(cx0, cz0, cx1, cz1)
+	log.Println("GetChunksRegion", cx0, cz0, cx1, cz1)
 	r := make(chan *chunkStorage.ChunkData, 16)
 	e := make(chan error, 2)
 	t := 0
@@ -346,6 +356,7 @@ collectLoop:
 		select {
 		case d := <-r:
 			ret = append(ret, *d)
+			log.Println("GetChunksRegion collected", d.X, d.Z)
 			t--
 			if t == 0 {
 				break collectLoop
@@ -358,6 +369,7 @@ collectLoop:
 			}
 		}
 	}
+	log.Println("GetChunksRegion return with", len(ret), errs)
 	return ret, errs
 }
 
