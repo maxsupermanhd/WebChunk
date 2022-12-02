@@ -213,6 +213,9 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
 	defaultColor := color.RGBA{0, 0, 0, 0}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
+	if chunk == nil || len(chunk.Sections) == 0 {
+		return img
+	}
 	sort.Slice(chunk.Sections, func(i, j int) bool {
 		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
 	})
