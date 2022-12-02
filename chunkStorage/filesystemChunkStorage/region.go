@@ -200,7 +200,6 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 			cz1:       loc.rz,
 		}
 	}
-	defer log.Println("exit", loc)
 	refresher := time.NewTicker(500 * time.Millisecond)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) && create {
@@ -216,7 +215,6 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 						}
 						r.result <- err
 					case <-refresher.C:
-						log.Println(loc, len(ch))
 					}
 				}
 				return
@@ -232,7 +230,6 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 					}
 					r.result <- err
 				case <-refresher.C:
-					log.Println(loc, len(ch))
 				}
 			}
 			return
@@ -304,7 +301,6 @@ workerLoop:
 				}
 			}
 		case <-refresher.C:
-			log.Println(loc, len(ch))
 		}
 	}
 	reg.Close()
