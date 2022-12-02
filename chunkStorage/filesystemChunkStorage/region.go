@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"path"
 	"time"
 
@@ -55,6 +56,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 	log.Println("Region router started for storage", s.Root)
 	defer s.wg.Done()
 	type regionInterface struct {
+		exists      bool
 		c           chan regionRequest
 		lastRequest time.Time
 	}
@@ -82,18 +84,33 @@ func (s *FilesystemChunkStorage) regionRouter() {
 		}
 		c, ok := w[l]
 		if !ok {
+			_, err := os.Stat(s.getRegionPath(l))
 			c = regionInterface{
+				exists:      true,
 				c:           make(chan regionRequest, 32),
 				lastRequest: time.Now(),
 			}
-			w[l] = c
-			s.wg.Add(1)
-			go func() {
-				s.regionWorker(l, c.c)
-				s.wg.Done()
-			}()
+			if os.IsNotExist(err) {
+				c.exists = false
+				close(c.c)
+			} else {
+				s.wg.Add(1)
+				go func() {
+					s.regionWorker(l, c.c, r.op == "set")
+					s.wg.Done()
+				}()
+			}
 		}
-		c.c <- r
+		if !c.exists {
+			r.result <- nil
+		} else {
+			deadlockTimer := time.After(5 * time.Second)
+			select {
+			case c.c <- r:
+			case <-deadlockTimer:
+				log.Println("Deadlock on region", l)
+			}
+		}
 		c.lastRequest = time.Now()
 		w[l] = c
 	}
@@ -116,11 +133,13 @@ func (s *FilesystemChunkStorage) regionRouter() {
 				if !ok {
 					log.Printf("Region auto-close found a ghost! (%#v)", k)
 				} else {
-					close(v.c)
+					if v.exists {
+						close(v.c)
+					}
 					delete(w, k)
 				}
 			}
-		case "closeRegion":
+		case "regionClose":
 			l.rx, l.rz = r.cx1, r.cz1
 			c, ok := w[l]
 			if !ok {
@@ -170,7 +189,7 @@ func (s *FilesystemChunkStorage) getRegionPath(loc regionLocator) string {
 // if it fails to open or other error occurs it will signal router
 // to close a region and respond to all pending requests with error
 // until no more requests will arrive (router will close channel)
-func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch chan regionRequest) {
+func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regionRequest, create bool) {
 	reg, err := region.Open(s.getRegionPath(loc))
 	sendClose := func() {
 		s.requests <- regionRequest{
@@ -181,69 +200,111 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch chan regionR
 			cz1:       loc.rz,
 		}
 	}
+	defer log.Println("exit", loc)
+	refresher := time.NewTicker(500 * time.Millisecond)
 	if err != nil {
-		sendClose()
-		for r := range ch {
-			r.result <- err
-		}
-		return
-	}
-	for r := range ch {
-		switch r.op {
-		case "set":
-			x, z := region.In(r.cx1, r.cz1)
-			err = reg.WriteSector(x, z, r.data)
+		if errors.Is(err, os.ErrNotExist) && create {
+			reg, err = region.Create(s.getRegionPath(loc))
 			if err != nil {
 				sendClose()
-				r.result <- err
-			} else {
-				r.result <- nil
+			closeLoop2:
+				for {
+					select {
+					case r, ok := <-ch:
+						if !ok {
+							break closeLoop2
+						}
+						r.result <- err
+					case <-refresher.C:
+						log.Println(loc, len(ch))
+					}
+				}
+				return
 			}
-		case "get":
-			x, z := region.In(r.cx1, r.cz1)
-			if reg.ExistSector(x, z) {
-				d, err := reg.ReadSector(x, z)
+		} else {
+			sendClose()
+		closeLoop1:
+			for {
+				select {
+				case r, ok := <-ch:
+					if !ok {
+						break closeLoop1
+					}
+					r.result <- err
+				case <-refresher.C:
+					log.Println(loc, len(ch))
+				}
+			}
+			return
+		}
+	}
+workerLoop:
+	for {
+		select {
+		case r, ok := <-ch:
+			if !ok {
+				break workerLoop
+			}
+			switch r.op {
+			case "set":
+				x, z := region.In(r.cx1, r.cz1)
+				err = reg.WriteSector(x, z, r.data)
 				if err != nil {
 					sendClose()
 					r.result <- err
 				} else {
-					r.result <- d
+					r.result <- nil
 				}
-			} else {
-				r.result <- nil
-			}
-		case "count":
-			c := 0
-			for x := 0; x < 32; x++ {
-				for z := 0; z < 32; z++ {
-					if reg.ExistSector(x, z) {
-						c++
+			case "get":
+				x, z := region.In(r.cx1, r.cz1)
+				if reg.ExistSector(x, z) {
+					d, err := reg.ReadSector(x, z)
+					if err != nil {
+						if err.Error() != "data is missing" {
+							sendClose()
+						}
+						r.result <- err
+					} else {
+						r.result <- d
+					}
+				} else {
+					r.result <- nil
+				}
+			case "count":
+				c := 0
+				for x := 0; x < 32; x++ {
+					for z := 0; z < 32; z++ {
+						if reg.ExistSector(x, z) {
+							c++
+						}
 					}
 				}
-			}
-			r.result <- c
-		case "countRegion":
-			for rx := 0; rx < 32; rx++ {
-				for rz := 0; rz < 32; rz++ {
-					x := rx * loc.rx
-					z := rz * loc.rz
-					if x >= r.cx1 && x <= r.cx2 && z >= r.cz1 && z <= r.cz2 {
-						if reg.ExistSector(rx, rz) {
-							r.result <- chunkStorage.ChunkData{
-								X:    x,
-								Z:    z,
-								Data: int(1),
-							}
-						} else {
-							r.result <- chunkStorage.ChunkData{
-								X:    x,
-								Z:    z,
-								Data: int(1),
+				r.result <- c
+			case "countRegion":
+				for rx := 0; rx < 32; rx++ {
+					for rz := 0; rz < 32; rz++ {
+						x := rx * loc.rx
+						z := rz * loc.rz
+						if x >= r.cx1 && x <= r.cx2 && z >= r.cz1 && z <= r.cz2 {
+							if reg.ExistSector(rx, rz) {
+								r.result <- chunkStorage.ChunkData{
+									X:    x,
+									Z:    z,
+									Data: int(1),
+								}
+							} else {
+								r.result <- chunkStorage.ChunkData{
+									X:    x,
+									Z:    z,
+									Data: int(1),
+								}
 							}
 						}
 					}
 				}
 			}
+		case <-refresher.C:
+			log.Println(loc, len(ch))
 		}
 	}
 	reg.Close()
@@ -370,12 +431,12 @@ collectLoop:
 		t--
 		switch d.Data.(type) {
 		case nil:
-			log.Println("GetChunksRegion collected EMPTY", d.X, d.Z, "left", t)
+			// log.Println("GetChunksRegion collected EMPTY", d.X, d.Z, "left", t)
 		case error:
-			log.Println("GetChunksRegion collected error", d.X, d.Z, "left", t, d.Data)
+			// log.Println("GetChunksRegion collected error", d.X, d.Z, "left", t, d.Data)
 		default:
 			ret = append(ret, *d)
-			log.Println("GetChunksRegion collected", fmt.Sprintf("%T", d.Data), d.X, d.Z, "left", t)
+			// log.Println("GetChunksRegion collected", fmt.Sprintf("%T", d.Data), d.X, d.Z, "left", t)
 		}
 		if t == 0 {
 			break collectLoop
