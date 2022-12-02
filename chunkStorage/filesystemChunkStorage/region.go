@@ -29,7 +29,6 @@ import (
 
 	"github.com/Tnze/go-mc/save"
 	"github.com/Tnze/go-mc/save/region"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-multierror"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
@@ -84,12 +83,15 @@ func (s *FilesystemChunkStorage) regionRouter() {
 		c, ok := w[l]
 		if !ok {
 			c = regionInterface{
-				c:           make(chan regionRequest),
+				c:           make(chan regionRequest, 32),
 				lastRequest: time.Now(),
 			}
 			w[l] = c
 			s.wg.Add(1)
-			go s.regionWorker(l, c.c)
+			go func() {
+				s.regionWorker(l, c.c)
+				s.wg.Done()
+			}()
 		}
 		c.c <- r
 		c.lastRequest = time.Now()
@@ -100,7 +102,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			world:     r.world,
 			dimension: r.dimension,
 		}
-		log.Println("Region router", s.Root, "op", spew.Sdump(r))
+		// log.Println("Region router", s.Root, r.op, r.cx1, r.cz1, r.cx2, r.cz2)
 		switch r.op {
 		case "closeInactive":
 			toclose := []regionLocator{}
@@ -169,7 +171,6 @@ func (s *FilesystemChunkStorage) getRegionPath(loc regionLocator) string {
 // to close a region and respond to all pending requests with error
 // until no more requests will arrive (router will close channel)
 func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch chan regionRequest) {
-	defer s.wg.Done()
 	reg, err := region.Open(s.getRegionPath(loc))
 	sendClose := func() {
 		s.requests <- regionRequest{
@@ -200,12 +201,16 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch chan regionR
 			}
 		case "get":
 			x, z := region.In(r.cx1, r.cz1)
-			d, err := reg.ReadSector(x, z)
-			if err != nil {
-				sendClose()
-				r.result <- err
+			if reg.ExistSector(x, z) {
+				d, err := reg.ReadSector(x, z)
+				if err != nil {
+					sendClose()
+					r.result <- err
+				} else {
+					r.result <- d
+				}
 			} else {
-				r.result <- d
+				r.result <- nil
 			}
 		case "count":
 			c := 0
@@ -281,6 +286,9 @@ func (s *FilesystemChunkStorage) GetChunk(wname, dname string, cx, cz int) (*sav
 	if err != nil {
 		return nil, err
 	}
+	if len(d) == 0 {
+		return nil, nil
+	}
 	var c save.Chunk
 	err = c.Load(d)
 	return &c, err
@@ -300,13 +308,16 @@ GetChunkRawRecvLoop:
 	for ret := range r {
 		switch v := ret.(type) {
 		case error:
-			log.Println("GetChunkRaw got error", v)
+			// log.Println("GetChunkRaw", cx, cz, "got error", v)
 			return []byte{}, v
 		case []byte:
-			log.Println("GetChunkRaw got chunk data with len", len(v))
+			// log.Println("GetChunkRaw", cx, cz, "got chunk data with len", len(v))
 			return v, nil
+		case nil:
+			// log.Println("GetChunkRaw", cx, cz, "chunk does not exist")
+			return []byte{}, nil
 		default:
-			log.Printf("GetChunkRaw wrong result %t", ret)
+			log.Printf("GetChunkRaw wrong result %T", ret)
 			break GetChunkRawRecvLoop
 		}
 	}
@@ -326,8 +337,7 @@ func normalizeCoords(x0, z0, x1, z1 int) (int, int, int, int) {
 func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	cx0, cz0, cx1, cz1 = normalizeCoords(cx0, cz0, cx1, cz1)
 	log.Println("GetChunksRegion", cx0, cz0, cx1, cz1)
-	r := make(chan *chunkStorage.ChunkData, 16)
-	e := make(chan error, 2)
+	r := make(chan *chunkStorage.ChunkData, (cx1-cx0)*(cz1-cz0))
 	t := 0
 	for x := cx0; x < cx1; x++ {
 		for z := cz0; z < cz1; z++ {
@@ -337,7 +347,11 @@ func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, 
 			go func() {
 				d, err := s.GetChunk(wname, dname, sx, sz)
 				if err != nil {
-					e <- err
+					r <- &chunkStorage.ChunkData{
+						X:    sx,
+						Z:    sz,
+						Data: err,
+					}
 				} else {
 					r <- &chunkStorage.ChunkData{
 						X:    sx,
@@ -352,21 +366,19 @@ func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, 
 	ret := []chunkStorage.ChunkData{}
 	var errs error
 collectLoop:
-	for {
-		select {
-		case d := <-r:
+	for d := range r {
+		t--
+		switch d.Data.(type) {
+		case nil:
+			log.Println("GetChunksRegion collected EMPTY", d.X, d.Z, "left", t)
+		case error:
+			log.Println("GetChunksRegion collected error", d.X, d.Z, "left", t, d.Data)
+		default:
 			ret = append(ret, *d)
-			log.Println("GetChunksRegion collected", d.X, d.Z)
-			t--
-			if t == 0 {
-				break collectLoop
-			}
-		case err := <-e:
-			multierror.Append(errs, err)
-			t--
-			if t == 0 {
-				break collectLoop
-			}
+			log.Println("GetChunksRegion collected", fmt.Sprintf("%T", d.Data), d.X, d.Z, "left", t)
+		}
+		if t == 0 {
+			break collectLoop
 		}
 	}
 	log.Println("GetChunksRegion return with", len(ret), errs)
