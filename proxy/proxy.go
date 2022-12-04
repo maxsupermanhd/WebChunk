@@ -166,16 +166,33 @@ type SnifferProxy struct {
 	Ctx         context.Context
 }
 
+type clientinfo struct {
+	name          string
+	id            uuid.UUID
+	profilePubKey *auth.PublicKey
+	properties    []auth.Property
+	proto         int32
+	conn          *net.Conn
+	dest          string
+}
+
 func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *auth.PublicKey, properties []auth.Property, proto int32, conn *net.Conn) {
-	log.Printf("Accepting new player [%s] (%s), protocol %v, getting route...", name, id.String(), proto)
 	dest := p.Routing(name)
-	if dest == "" {
-		log.Printf("Unable to find route for [%s]", name)
+	cl := clientinfo{
+		name:          name,
+		id:            id,
+		profilePubKey: profilePubKey,
+		properties:    properties,
+		proto:         proto,
+		conn:          conn,
+		dest:          dest,
+	}
+	if cl.dest == "" {
+		log.Printf("Accepting new player [%s] (%s), protocol %v, unable to find route...", cl.name, cl.id.String(), cl.proto)
 		dissconnectWithMessage(conn, &chat.Message{Text: "Dissconnected before login: Routing failed"})
 		return
 	}
-	log.Printf("Accepting new player [%s] (%s), adding events...", name, id.String())
-	log.Printf("Accepting new player [%s] (%s), getting auth...", name, id.String())
+	log.Printf("Accepting new player [%s] (%s), protocol %v, routing to [%s], getting auth...", cl.name, cl.id.String(), cl.proto, dest)
 	auth, err := p.CredManager.GetAuthForUsername(name)
 	if err != nil {
 		log.Printf("Error preparing auth for player [%s]: %v", name, err)
@@ -200,7 +217,7 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	acceptorChannel := make(chan pk.Packet, 2048)
 	defer close(acceptorChannel)
 	connQueue := server.NewPacketQueue()
-	go packetAcceptor(acceptorChannel, connQueue, p.SaveChannel, name, dest, p.Conf)
+	go p.packetAcceptor(acceptorChannel, connQueue, cl)
 
 	closeChannel := make(chan byte)
 	defer close(closeChannel)
