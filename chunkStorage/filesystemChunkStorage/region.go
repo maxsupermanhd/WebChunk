@@ -191,7 +191,8 @@ func (s *FilesystemChunkStorage) getRegionPath(loc regionLocator) string {
 // until no more requests will arrive (router will close channel)
 func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regionRequest, create bool) {
 	reg, err := region.Open(s.getRegionPath(loc))
-	sendClose := func() {
+	refresher := time.NewTicker(500 * time.Millisecond)
+	sendClose := func(err error) {
 		s.requests <- regionRequest{
 			op:        "regionClose",
 			world:     loc.world,
@@ -199,39 +200,28 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 			cx1:       loc.rx,
 			cz1:       loc.rz,
 		}
+	closeLoop2:
+		for {
+			select {
+			case r, ok := <-ch:
+				if !ok {
+					break closeLoop2
+				}
+				r.result <- err
+			case <-refresher.C:
+			}
+		}
+		return
 	}
-	refresher := time.NewTicker(500 * time.Millisecond)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) && create {
 			reg, err = region.Create(s.getRegionPath(loc))
 			if err != nil {
-				sendClose()
-			closeLoop2:
-				for {
-					select {
-					case r, ok := <-ch:
-						if !ok {
-							break closeLoop2
-						}
-						r.result <- err
-					case <-refresher.C:
-					}
-				}
+				sendClose(err)
 				return
 			}
 		} else {
-			sendClose()
-		closeLoop1:
-			for {
-				select {
-				case r, ok := <-ch:
-					if !ok {
-						break closeLoop1
-					}
-					r.result <- err
-				case <-refresher.C:
-				}
-			}
+			sendClose(err)
 			return
 		}
 	}
@@ -247,25 +237,24 @@ workerLoop:
 				x, z := region.In(r.cx1, r.cz1)
 				err = reg.WriteSector(x, z, r.data)
 				if err != nil {
-					sendClose()
-					r.result <- err
+					sendClose(err)
+					return
 				} else {
 					r.result <- nil
 				}
 			case "get":
 				x, z := region.In(r.cx1, r.cz1)
-				if reg.ExistSector(x, z) {
-					d, err := reg.ReadSector(x, z)
-					if err != nil {
-						if err.Error() != "data is missing" {
-							sendClose()
-						}
-						r.result <- err
+				d, err := reg.ReadSector(x, z)
+				if err != nil {
+					if errors.Is(err, region.ErrNoData) || errors.Is(err, region.ErrNoSector) || errors.Is(err, region.ErrSectorNegativeLength) {
+						r.result <- nil
+					} else if errors.Is(err, region.ErrTooLarge) {
+						r.result <- nil //TODO: read c.x.z.mcc data
 					} else {
-						r.result <- d
+						sendClose(err)
 					}
 				} else {
-					r.result <- nil
+					r.result <- d
 				}
 			case "count":
 				c := 0
