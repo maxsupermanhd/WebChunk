@@ -17,7 +17,7 @@ replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 // replace github.com/Tnze/go-mc => /home/max/p/0mc/go-mc
 
 require (
-	github.com/Tnze/go-mc v1.19.1-0.20221129063756-3750dff99dcd
+	github.com/Tnze/go-mc v1.19.1-0.20221206163600-cf9accd5e40b
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
