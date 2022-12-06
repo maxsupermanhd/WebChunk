@@ -14,13 +14,14 @@ Join [discord server](https://discord.com/invite/DFsMKWJJPN) for more info!
 
 - [x] Colored view
 - [x] Heightmap view
+- [x] Portals/chests overlay
 - [x] Accepting compressed chunks
 - [x] Caching
-- [x] Portals/chests overlay
 - [x] Colors customization
 - [x] Concurrent use
 - [x] Connect and view downloaded chunks in-game
 - [x] Biome view
+- [x] Compatibility with Minecraft's level format
 
 ### In plans
 
@@ -35,7 +36,6 @@ Join [discord server](https://discord.com/invite/DFsMKWJJPN) for more info!
 - [ ] Player activity search
 - [ ] Pre-render of areas
 - [ ] Customizable overlaying
-- [ ] Compatibility with Minecraft's level format
 
 ## Data source
 
