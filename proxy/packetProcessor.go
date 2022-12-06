@@ -63,7 +63,7 @@ type loadedDim struct {
 	totalHeight int32
 }
 
-func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn *server.PacketQueue, cl clientinfo) {
+func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQueue, cl clientinfo) {
 	type cachePos struct {
 		pos level.ChunkPos
 		dim string
