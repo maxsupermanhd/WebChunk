@@ -125,7 +125,7 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 				}
 			}
 			d, err = s.GetDimension(w.Name, route.Dimension)
-			if err != nil {
+			if err != nil && !errors.Is(err, chunkStorage.ErrNoDim) {
 				log.Printf("Failed to get dim: %s", err.Error())
 				continue
 			}
