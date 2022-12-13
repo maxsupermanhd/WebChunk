@@ -41,7 +41,9 @@ func (s *FilesystemChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {
 		if err != nil {
 			log.Printf("Failed to get world [%s]", err)
 		}
-		worlds = append(worlds, *w)
+		if w != nil {
+			worlds = append(worlds, *w)
+		}
 	}
 	return worlds, err
 }
