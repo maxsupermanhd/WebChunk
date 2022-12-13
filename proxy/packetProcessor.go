@@ -264,16 +264,16 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 			}
 		case p.ID == int32(packetid.ClientboundRespawn):
 			var (
-				dim        nbt.RawMessage
+				dim        pk.Identifier
 				dimName    pk.Identifier
 				hashedSeed pk.Long
 			)
-			err := p.Scan(pk.NBT(&dim), &dimName, &hashedSeed)
+			err := p.Scan(&dim, &dimName, &hashedSeed)
 			if err != nil {
 				log.Printf("Failed to scan respawn packet: %s", err.Error())
 				continue
 			}
-			log.Printf("respawn to %s (%s)", dimName, dim.String())
+			log.Printf("respawn to %s (%s)", dimName, dim)
 			currentDim = string(dimName)
 		case p.ID == int32(packetid.ClientboundLogin):
 			var (
@@ -283,7 +283,7 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 				previousGamemode pk.Byte
 				dimNames         []pk.Identifier
 				dimCodec         nbt.RawMessage
-				dim              nbt.RawMessage
+				dim              pk.Identifier
 				dimName          pk.Identifier
 				hashedSeed       pk.Long
 				maxPlayers       pk.VarInt
@@ -293,6 +293,9 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 				respawnScreen    pk.Boolean
 				isdebug          pk.Boolean
 				isflat           pk.Boolean
+				hasDeathLoc      pk.Boolean
+				deathDimName     pk.Identifier
+				deathLoc         pk.Position
 			)
 			err := p.Scan(
 				&eid,
@@ -301,7 +304,7 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 				&previousGamemode,
 				pk.Ary[pk.VarInt]{Ary: &dimNames},
 				pk.NBT(&dimCodec),
-				pk.NBT(&dim),
+				&dim,
 				&dimName,
 				&hashedSeed,
 				&maxPlayers,
@@ -311,6 +314,9 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 				&respawnScreen,
 				&isdebug,
 				&isflat,
+				&hasDeathLoc,
+				&deathDimName,
+				&deathLoc,
 			)
 			if err != nil {
 				log.Printf("Failed to parse sniffed packet: %v", err.Error())
