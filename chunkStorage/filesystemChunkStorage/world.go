@@ -103,6 +103,10 @@ func (s *FilesystemChunkStorage) AddWorld(world chunkStorage.SWorld) error {
 	if err != nil {
 		return err
 	}
+	err = createDefaultDims(wpath)
+	if err != nil {
+		return err
+	}
 	return writeSaveLevel(wpath, world.Data)
 }
 

@@ -65,29 +65,18 @@ func writeSaveLevel(dir string, d save.LevelData) error {
 	return os.WriteFile(path.Join(dir, "level.dat"), cb.Bytes(), 0666)
 }
 
-//lint:ignore U1000 One day custom dims will be implemented
-func createEmptyWorld(storageroot, name string) error {
-	root := path.Join(storageroot, name)
-	log.Printf("Creating new filesystem-based world [%s] in [%s]", name, root)
+func createDefaultDims(wroot string) error {
 	createDirs := []string{
-		path.Join(root, "region"),
-		path.Join(root, "DIM-1", "region"),
-		path.Join(root, "DIM1", "region"),
+		path.Join(wroot, "region"),
+		path.Join(wroot, "DIM-1", "region"),
+		path.Join(wroot, "DIM1", "region"),
 	}
 	for _, v := range createDirs {
 		log.Printf("Creating directory [%s]", v)
-		err := os.Mkdir(v, 0764)
-		if err != nil {
-			if err == os.ErrExist {
-				log.Println("Already exists")
-			} else {
-				return err
-			}
+		err := os.MkdirAll(v, 0764)
+		if err != nil && err != os.ErrExist {
+			return err
 		}
-	}
-	err := createDefaultLevelDat(path.Join(root, "level.dat"), name)
-	if err != nil {
-		return err
 	}
 	return nil
 }
