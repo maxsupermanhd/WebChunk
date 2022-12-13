@@ -21,6 +21,7 @@
 package filesystemChunkStorage
 
 import (
+	"bytes"
 	"compress/gzip"
 	"log"
 	"os"
@@ -54,7 +55,14 @@ func writeSaveLevel(dir string, d save.LevelData) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path.Join(dir, "level.dat"), b, 0666)
+	var cb bytes.Buffer
+	w := gzip.NewWriter(&cb)
+	_, err = w.Write(b)
+	if err != nil {
+		return err
+	}
+	w.Close()
+	return os.WriteFile(path.Join(dir, "level.dat"), cb.Bytes(), 0666)
 }
 
 //lint:ignore U1000 One day custom dims will be implemented
