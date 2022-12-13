@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Tnze/go-mc/level"
@@ -89,12 +90,13 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 		case r := <-c:
 			route, ok := loadedConfig.Routes[r.Username]
 			if !ok {
-				log.Printf("Got UNKNOWN chunk [%v] from [%v] by [%v]", r.Pos, r.Server, r.Username)
+				log.Printf("Got UNKNOWN chunk [%v](%v) from [%v] by [%v]", r.Pos, r.Dimension, r.Server, r.Username)
 			}
-			log.Printf("Got chunk [%v] from [%v] by [%v] (%d sections) (%d block entities)", r.Pos, r.Server, r.Username, len(r.Data.Sections), len(r.Data.BlockEntity))
+			log.Printf("Got chunk [%v](%v) from [%v] by [%v] (%d sections) (%d block entities)", r.Pos, r.Dimension, r.Server, r.Username, len(r.Data.Sections), len(r.Data.BlockEntity))
 			if route.World == "" {
 				route.World = r.Server
 			}
+			r.Dimension = strings.TrimPrefix(r.Dimension, "minecraft:")
 			if route.Dimension == "" {
 				route.Dimension = r.Dimension
 			}
