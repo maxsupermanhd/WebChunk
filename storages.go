@@ -71,8 +71,7 @@ func findCapableStorage(arr []chunkStorage.Storage, pref string) chunkStorage.Ch
 		}
 		a := arr[i].Driver.GetAbilities()
 		if a.CanCreateWorldsDimensions &&
-			a.CanAddChunks &&
-			a.CanPreserveOldChunks {
+			a.CanAddChunks {
 			sf = arr[i].Driver
 		}
 	}

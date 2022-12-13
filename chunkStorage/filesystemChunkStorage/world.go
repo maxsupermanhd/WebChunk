@@ -65,6 +65,9 @@ func (s *FilesystemChunkStorage) ListWorldNames() ([]string, error) {
 
 func (s *FilesystemChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, error) {
 	wdir := path.Join(s.Root, wname)
+	if _, err := os.Stat(wdir); os.IsNotExist(err) {
+		return nil, nil
+	}
 	var w chunkStorage.SWorld
 	w.Name = wname
 	meta, err := readWorldMeta(wdir)
@@ -77,10 +80,11 @@ func (s *FilesystemChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, e
 	data, err := readSaveLevel(path.Join(wdir, "level.dat"))
 	if err != nil {
 		log.Printf("Failed to read world data for world [%s]: %v", wname, err)
+		return nil, err
 	} else {
 		w.Data = *data
 	}
-	return &w, err
+	return &w, nil
 
 }
 

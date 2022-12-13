@@ -211,7 +211,6 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 			case <-refresher.C:
 			}
 		}
-		return
 	}
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) && create {
