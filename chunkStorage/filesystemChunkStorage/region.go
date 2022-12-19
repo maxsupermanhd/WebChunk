@@ -21,11 +21,15 @@
 package filesystemChunkStorage
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Tnze/go-mc/save"
@@ -181,15 +185,18 @@ func (s *FilesystemChunkStorage) regionRouter() {
 
 // from Path getSaveDirectory(RegistryKey<World> worldRef, Path worldDirectory)
 func (s *FilesystemChunkStorage) getRegionPath(loc regionLocator) string {
-	fname := fmt.Sprintf("r.%d.%d.mca", loc.rx, loc.rz)
+	return path.Join(s.getRegionFolder(loc), fmt.Sprintf("r.%d.%d.mca", loc.rx, loc.rz))
+}
+
+func (s *FilesystemChunkStorage) getRegionFolder(loc regionLocator) string {
 	if loc.dimension == "overworld" {
-		return path.Join(s.Root, loc.world, "region", fname)
+		return path.Join(s.Root, loc.world, "region")
 	} else if loc.dimension == "the_end" {
-		return path.Join(s.Root, loc.world, "DIM1", "region", fname)
+		return path.Join(s.Root, loc.world, "DIM1", "region")
 	} else if loc.dimension == "the_nether" {
-		return path.Join(s.Root, loc.world, "DIM-1", "region", fname)
+		return path.Join(s.Root, loc.world, "DIM-1", "region")
 	} else {
-		return path.Join(s.Root, loc.world, "dimensions", "webchunk", loc.dimension, "region", fname)
+		return path.Join(s.Root, loc.world, "dimensions", "webchunk", loc.dimension, "region")
 	}
 }
 
@@ -516,9 +523,79 @@ func (s *FilesystemChunkStorage) GetChunksCountRegion(wname, dname string, cx0, 
 }
 
 func (s *FilesystemChunkStorage) GetDimensionChunksCount(wname, dname string) (uint64, error) {
-	return 0, nil
+	dirloc := s.getRegionFolder(regionLocator{
+		world:     wname,
+		dimension: dname,
+	})
+	d, err := os.ReadDir(dirloc)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		} else {
+			return 0, err
+		}
+	}
+	var wg sync.WaitGroup
+	var r atomic.Int64
+	r.Store(0)
+	for _, i := range d {
+		if !i.IsDir() && strings.HasSuffix(i.Name(), ".mca") {
+			wg.Add(1)
+			go func(fname string) {
+				a, err := CountRegionChunks(fname)
+				if err != nil {
+					log.Println("Failed to count region chunks", fname, err)
+				}
+				r.Add(int64(a))
+				wg.Done()
+			}(path.Join(dirloc, i.Name()))
+		}
+	}
+	wg.Wait()
+	return uint64(r.Load()), nil
 }
 
-func (s *FilesystemChunkStorage) GetDimensionChunksSize(wname, dname string) (uint64, error) {
-	return 0, nil
+// counts occupied header space of the region file
+func CountRegionChunks(fname string) (int, error) {
+	f, err := os.Open(fname)
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	d := make([]int32, 1024)
+	err = binary.Read(f, binary.BigEndian, &d)
+	if err != nil {
+		return 0, err
+	}
+	s := 0
+	for i := 0; i < 1024; i++ {
+		if d[i] != 0 {
+			s++
+		}
+	}
+	return s, f.Close()
+}
+
+func (s *FilesystemChunkStorage) GetDimensionChunksSize(wname, dname string) (r uint64, err error) {
+	dirloc := s.getRegionFolder(regionLocator{
+		world:     wname,
+		dimension: dname,
+	})
+	d, err := os.ReadDir(dirloc)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		} else {
+			return 0, err
+		}
+	}
+	for _, i := range d {
+		if !i.IsDir() && strings.HasSuffix(i.Name(), ".mca") {
+			n, err := i.Info()
+			if err != nil {
+				log.Println("Error loading file info", path.Join(dirloc, i.Name()), err)
+			}
+			r += uint64(n.Size())
+		}
+	}
+	return r, nil
 }
