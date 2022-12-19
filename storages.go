@@ -162,6 +162,7 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 				Data: []byte{0, 0, 0, 0, 0},
 			}
 			var data save.Chunk
+			data.DataVersion = 760
 			data.XPos = int32(r.Pos[0])
 			data.ZPos = int32(r.Pos[1])
 			level.ChunkToSave(&r.Data, &data)
