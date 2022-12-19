@@ -91,12 +91,20 @@ func (s *FilesystemChunkStorage) regionRouter() {
 				lastRequest: time.Now(),
 			}
 			if os.IsNotExist(err) {
-				c.exists = false
-				close(c.c)
+				if r.op == "set" {
+					s.wg.Add(1)
+					go func() {
+						s.regionWorker(l, c.c, true)
+						s.wg.Done()
+					}()
+				} else {
+					c.exists = false
+					close(c.c)
+				}
 			} else {
 				s.wg.Add(1)
 				go func() {
-					s.regionWorker(l, c.c, r.op == "set")
+					s.regionWorker(l, c.c, false)
 					s.wg.Done()
 				}()
 			}
