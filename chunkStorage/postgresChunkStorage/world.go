@@ -30,7 +30,7 @@ import (
 
 func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {
 	worlds := []chunkStorage.SWorld{}
-	rows, err := s.DBPool.Query(context.Background(), `SELECT name, ip, created_at, data FROM worlds`)
+	rows, err := s.DBPool.Query(context.Background(), `SELECT name, alias, ip, created_at, data FROM worlds`)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return worlds, nil
@@ -38,14 +38,13 @@ func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {
 			return nil, err
 		}
 	}
-	worlds = make([]chunkStorage.SWorld, rows.CommandTag().RowsAffected())
-	n := 0
 	for rows.Next() {
-		err = rows.Scan(&worlds[n].Name, &worlds[n].Alias, &worlds[n].IP, &worlds[n].CreatedAt, &worlds[n].Data)
+		w := chunkStorage.SWorld{}
+		err = rows.Scan(&w.Name, &w.Alias, &w.IP, &w.CreatedAt, &w.Data)
 		if err != nil {
 			return nil, err
 		}
-		n++
+		worlds = append(worlds, w)
 	}
 	return worlds, nil
 }
@@ -59,7 +58,7 @@ func (s *PostgresChunkStorage) ListWorldNames() ([]string, error) {
 func (s *PostgresChunkStorage) GetWorld(wname string) (*chunkStorage.SWorld, error) {
 	world := chunkStorage.SWorld{}
 	derr := s.DBPool.QueryRow(context.Background(),
-		`SELECT name, ip, created_at, data FROM worlds WHERE name = $1 LIMIT 1`, wname).Scan(&world.Name, &world.Data)
+		`SELECT name, ip, created_at, data FROM worlds WHERE name = $1 LIMIT 1`, wname).Scan(&world.Name, &world.IP, &world.CreatedAt, &world.Data)
 	if derr == pgx.ErrNoRows {
 		return nil, nil
 	} else if derr == nil {

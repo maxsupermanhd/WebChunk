@@ -73,7 +73,7 @@ func (s *PostgresChunkStorage) AddDimension(wname string, dim chunkStorage.SDim)
 
 func (s *PostgresChunkStorage) GetDimension(wname, dname string) (*chunkStorage.SDim, error) {
 	dim := chunkStorage.SDim{}
-	derr := s.DBPool.QueryRow(context.Background(), "SELECT name, world, created_at, data FROM dimensions WHERE name = $1, world = $2", dname, wname).Scan(&dim.Name, &dim.World, &dim.CreatedAt, &dim.World)
+	derr := s.DBPool.QueryRow(context.Background(), "SELECT name, world, created_at, data FROM dimensions WHERE name = $1 and world = $2", dname, wname).Scan(&dim.Name, &dim.World, &dim.CreatedAt, &dim.Data)
 	if derr != nil {
 		if derr == pgx.ErrNoRows {
 			return nil, nil
@@ -84,7 +84,7 @@ func (s *PostgresChunkStorage) GetDimension(wname, dname string) (*chunkStorage.
 }
 
 func (s *PostgresChunkStorage) SetDimensionData(wname, dname string, data save.DimensionType) error {
-	_, derr := s.DBPool.Exec(context.Background(), `UPDATE dimensions SET data = $1 WHERE name = $2, world = $3`, data, dname, wname)
+	_, derr := s.DBPool.Exec(context.Background(), `UPDATE dimensions SET data = $1 WHERE name = $2 and world = $3`, data, dname, wname)
 	return derr
 }
 
