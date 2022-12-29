@@ -41,7 +41,6 @@ import (
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/auth"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/credentials"
 )
@@ -230,7 +229,6 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	go func() {
 		p.packetAcceptor(acceptorChannel, connQueue, cl)
 		wg.Done()
-		log.Println("proxy packet acceptor exit")
 	}()
 
 	closeChannel := make(chan byte, 5)
@@ -246,7 +244,6 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 		c.Conn.Socket.SetDeadline(time.UnixMilli(0))
 		connQueue.Close()
 		wg.Done()
-		log.Println("proxy closer exit")
 	}()
 
 	wg.Add(1)
@@ -260,7 +257,6 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			}
 			// log.Printf("c->s (pump) %x", pk.ID)
 			if p.ID == int32(packetid.ServerboundChat) {
-				spew.Dump(p)
 				var (
 					msg pk.String
 				)
@@ -282,7 +278,6 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 						Has: false,
 					},
 				)
-				spew.Dump(sendout)
 				err = c.Conn.WritePacket(sendout)
 				if err != nil {
 					log.Println("Failed to unmarshal packet:", err)
@@ -298,7 +293,6 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			log.Printf("Player [%s] left from server [%s] (s->c): %v", name, dest, err)
 			closeChannel <- 0
 		}
-		log.Println("c2s exit")
 		wg.Done()
 	}()
 
@@ -329,7 +323,6 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			log.Printf("Player [%s] left from server [%s] (c->s): %v", name, dest, err)
 			closeChannel <- 0
 		}
-		log.Println("s2p exit")
 		wg.Done()
 		close(acceptorChannel)
 	}()
@@ -351,10 +344,8 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			}
 		}
 	}
-	log.Println("p2c exit")
 	wg.Wait()
 	// connQueue.Close()
-	log.Printf("Proxy for [%s] is done", name)
 }
 
 func dissconnectWithError(conn *net.Conn, reason error) {
