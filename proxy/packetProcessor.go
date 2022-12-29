@@ -154,28 +154,28 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 					log.Printf("Found different block entity type on same spot %v (expected %d found %d)", bepos, be.Type, beid)
 				}
 			}
-			if len(missingbe) > 0 { // what if there is more than in sections?
-				// send to cache for completion
-				c[cachePos{
-					pos: cpos,
-					dim: currentDim,
-				}] = cacheChunk{
-					chunk:  cc,
-					tofind: missingbe,
-				}
-				log.Printf("Caching chunk %d:%d until missing %d block entities recieved or chunk unloaded", cpos[0], cpos[1], len(missingbe))
-			} else {
-				// send directly to storage because ready
-				sp.SaveChannel <- &ProxiedChunk{
-					Username:            cl.name,
-					Server:              cl.dest,
-					Dimension:           currentDim,
-					Pos:                 cpos,
-					Data:                cc,
-					DimensionLowestY:    dim.minY,
-					DimensionBuildLimit: int(dim.height),
-				}
+			// if len(missingbe) > 0 { // what if there is more than in sections?
+			// 	// send to cache for completion
+			// 	c[cachePos{
+			// 		pos: cpos,
+			// 		dim: currentDim,
+			// 	}] = cacheChunk{
+			// 		chunk:  cc,
+			// 		tofind: missingbe,
+			// 	}
+			// 	log.Printf("Caching chunk %d:%d until missing %d block entities recieved or chunk unloaded", cpos[0], cpos[1], len(missingbe))
+			// } else {
+			// send directly to storage because ready
+			sp.SaveChannel <- &ProxiedChunk{
+				Username:            cl.name,
+				Server:              cl.dest,
+				Dimension:           currentDim,
+				Pos:                 cpos,
+				Data:                cc,
+				DimensionLowestY:    dim.minY,
+				DimensionBuildLimit: int(dim.height),
 			}
+			// }
 		case p.ID == int32(packetid.ClientboundBlockEntityData):
 			dim, ok := loadedDims[currentDim]
 			if !ok {
