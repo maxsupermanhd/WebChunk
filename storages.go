@@ -21,8 +21,8 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"log"
@@ -207,14 +207,14 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 			level.ChunkToSave(&r.Data, &data)
 
 			var chunkBytes bytes.Buffer
-			chunkBytes.WriteByte(3) // compression type
-			chunkBytesWriter := bufio.NewWriter(&chunkBytes)
+			chunkBytes.WriteByte(1) // compression type
+			chunkBytesWriter := gzip.NewWriter(&chunkBytes)
 			err = nbt.NewEncoder(chunkBytesWriter).Encode(data, "")
 			if err != nil {
 				log.Printf("Failed to marshal chunk: %s", err.Error())
 				continue
 			}
-			err = chunkBytesWriter.Flush()
+			err = chunkBytesWriter.Close()
 			if err != nil {
 				log.Printf("Failed to flush chunk buffer: %s", err.Error())
 				continue
