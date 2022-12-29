@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	JARpath = `/home/max/.minecraft/versions/1.18.2/1.18.2.jar`
+	JARpath = `/home/max/.minecraft/versions/1.19.3/1.19.3.jar`
 )
 
 func must(e error) {
@@ -171,9 +171,6 @@ func getModel(vv interface{}) (map[string]interface{}, error) {
 		if !ok {
 			return map[string]interface{}{}, fmt.Errorf("bad state description: %##v", vv)
 		}
-		if len(statedesc) < 0 {
-			return map[string]interface{}{}, fmt.Errorf("bad state description: %##v", vv)
-		}
 		statedesc, ok = statedesca[0].(map[string]interface{})
 		if !ok {
 			return map[string]interface{}{}, fmt.Errorf("bad state description: %##v", vv)
@@ -225,7 +222,12 @@ func main() {
 		if fmatch == nil {
 			continue
 		}
-		if fmatch[1] == "item_frame" || fmatch[1] == "glow_item_frame" {
+		if fmatch[1] == "item_frame" ||
+			fmatch[1] == "glow_item_frame" ||
+			fmatch[1] == "piglin_wall_head" ||
+			fmatch[1] == "piglin_head" ||
+			strings.HasSuffix(fmatch[1], "_hanging_sign") ||
+			fmatch[1] == "stripped_bamboo_block" {
 			continue
 		}
 		fr, err := f.Open()
@@ -285,7 +287,11 @@ func main() {
 						}
 					} else {
 						for whi, whv := range whencase {
-							matches = append(matches, whi+"="+whv.(string))
+							whvs, ok := whv.(string)
+							if !ok {
+								continue
+							}
+							matches = append(matches, whi+"="+whvs)
 						}
 						for stateid := range block.StateList {
 							state := block.StateList[stateid]
@@ -329,7 +335,7 @@ func main() {
 					}
 				} else {
 					log.Printf("Failed to create blockstate [%s] for block [%s]", k, "minecraft:"+fmatch[1])
-					return
+					// return
 				}
 			}
 		} else {
