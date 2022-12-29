@@ -173,12 +173,10 @@ func imageCacheGetBlocking(world, dim, render string, s, x, z int) *image.RGBA {
 		img: nil,
 		ret: recv,
 	}
-	select {
-	case i := <-recv:
+	for i := range recv {
 		return i
-	default:
-		return nil
 	}
+	return nil
 }
 
 func imageCacheSave(img *image.RGBA, world, dim, render string, s, x, z int) {
