@@ -110,9 +110,10 @@ func NewTask[T *any, R *any](threads int, estimated int64, buffer int,
 	tasks := make(chan T, buffer)
 	pproxy := make(chan R, buffer)
 	for i := 0; i < threads; i++ {
+		ii := i
 		go func() {
 			defer wg.Done()
-			consumer(tid, i, tasks, results)
+			consumer(tid, ii, tasks, results)
 		}()
 	}
 	for {
