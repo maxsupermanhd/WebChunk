@@ -21,6 +21,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"log"
@@ -159,33 +161,65 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 			}
 			nbtEmptyList := nbt.RawMessage{
 				Type: nbt.TagList,
-				Data: []byte{0, 0, 0, 0, 0},
+				Data: []byte{
+					nbt.TagEnd, // type
+					0, 0, 0, 0, // length (4 bytes)
+				},
+			}
+			nbtEmptyCompound := nbt.RawMessage{
+				Type: nbt.TagCompound,
+				Data: []byte{0}, // tag end
 			}
 			var data save.Chunk
-			data.DataVersion = 760
-			data.XPos = int32(r.Pos[0])
-			data.ZPos = int32(r.Pos[1])
-			level.ChunkToSave(&r.Data, &data)
-			// for iiii, cccc := range data.Sections {
-			// 	log.Printf("Section %d palette len %d indexes len %d", iiii, len(cccc.BlockStates.Palette), len(cccc.BlockStates.Data))
-			// }
-			data.BlockEntities = []nbt.RawMessage{}
-			data.Structures = nbtEmptyList
-			data.Heightmaps = struct {
-				MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
-				MotionBlockingNoLeaves []uint64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
-				OceanFloor             []uint64 "nbt:\"OCEAN_FLOOR\""
-				WorldSurface           []uint64 "nbt:\"WORLD_SURFACE\""
-			}{
-				MotionBlocking:         r.Data.HeightMaps.MotionBlocking.Raw(),
-				MotionBlockingNoLeaves: r.Data.HeightMaps.MotionBlockingNoLeaves.Raw(),
-				OceanFloor:             r.Data.HeightMaps.OceanFloor.Raw(),
-				WorldSurface:           r.Data.HeightMaps.WorldSurface.Raw(),
+			data = save.Chunk{
+				DataVersion:   3218,
+				XPos:          r.Pos[0],
+				YPos:          r.DimensionLowestY / 16,
+				ZPos:          r.Pos[1],
+				BlockEntities: []nbt.RawMessage{},
+				Structures:    nbtEmptyCompound,
+				Heightmaps: struct {
+					MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
+					MotionBlockingNoLeaves []uint64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
+					OceanFloor             []uint64 "nbt:\"OCEAN_FLOOR\""
+					WorldSurface           []uint64 "nbt:\"WORLD_SURFACE\""
+				}{
+					MotionBlocking:         []uint64{},
+					MotionBlockingNoLeaves: []uint64{},
+					OceanFloor:             []uint64{},
+					WorldSurface:           []uint64{},
+					// MotionBlockingNoLeaves: r.Data.HeightMaps.MotionBlockingNoLeaves.Raw(),
+					// OceanFloor:             r.Data.HeightMaps.OceanFloor.Raw(),
+					// WorldSurface:           r.Data.HeightMaps.WorldSurface.Raw(),
+				},
+				Sections:       []save.Section{},
+				BlockTicks:     nbtEmptyList,
+				FluidTicks:     nbtEmptyList,
+				PostProcessing: nbtEmptyList,
+				InhabitedTime:  0,
+				IsLightOn:      0,
+				LastUpdate:     time.Now().Unix(),
+				Status:         "proxied",
 			}
-			data.BlockTicks = nbtEmptyList
-			data.FluidTicks = nbtEmptyList
-			data.PostProcessing = nbtEmptyList
-			err = s.AddChunk(w.Name, d.Name, int(r.Pos[0]), int(r.Pos[1]), data)
+			if r.DimensionLowestY%16 > 0 {
+				data.YPos++
+			}
+			level.ChunkToSave(&r.Data, &data)
+
+			var chunkBytes bytes.Buffer
+			chunkBytes.WriteByte(3) // compression type
+			chunkBytesWriter := bufio.NewWriter(&chunkBytes)
+			err = nbt.NewEncoder(chunkBytesWriter).Encode(data, "")
+			if err != nil {
+				log.Printf("Failed to marshal chunk: %s", err.Error())
+				continue
+			}
+			err = chunkBytesWriter.Flush()
+			if err != nil {
+				log.Printf("Failed to flush chunk buffer: %s", err.Error())
+				continue
+			}
+			err = s.AddChunkRaw(w.Name, d.Name, int(r.Pos[0]), int(r.Pos[1]), chunkBytes.Bytes())
 			if err != nil {
 				log.Printf("Failed to save chunk: %s", err.Error())
 			}

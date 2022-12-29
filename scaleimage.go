@@ -52,7 +52,8 @@ type ttype struct {
 var ttypes = map[ttype]ttypeProviderFunc{
 	{"terrain", "Terrain", false, true}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunk(i.(*save.Chunk))
+			c := i.(save.Chunk)
+			return drawChunk(&c)
 		}
 	},
 	{"counttiles", "Chunk count", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
@@ -67,37 +68,44 @@ var ttypes = map[ttype]ttypeProviderFunc{
 	},
 	{"heightmap", "Heightmap", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkHeightmap(i.(*save.Chunk))
+			c := i.(save.Chunk)
+			return drawChunkHeightmap(&c)
 		}
 	},
 	{"xray", "Xray", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkXray(i.(*save.Chunk))
+			c := i.(save.Chunk)
+			return drawChunkXray(&c)
 		}
 	},
 	{"biomes", "Biomes", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkBiomes(i.(*save.Chunk))
+			c := i.(save.Chunk)
+			return drawChunkBiomes(&c)
 		}
 	},
 	{"portalsheat", "Portals heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkPortalBlocksHeatmap(i.(*save.Chunk))
+			c := i.(save.Chunk)
+			return drawChunkPortalBlocksHeatmap(&c)
 		}
 	},
 	{"chestheat", "Chest heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkChestBlocksHeatmap(i.(*save.Chunk))
+			c := i.(save.Chunk)
+			return drawChunkChestBlocksHeatmap(&c)
 		}
 	},
 	{"lavaage", "Lava age", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkLavaAge(i.(*save.Chunk), 255)
+			c := i.(save.Chunk)
+			return drawChunkLavaAge(&c, 255)
 		}
 	},
 	{"lavaageoverlay", "Lava age (overlay)", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			return drawChunkLavaAge(i.(*save.Chunk), 128)
+			c := i.(save.Chunk)
+			return drawChunkLavaAge(&c, 128)
 		}
 	},
 }

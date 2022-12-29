@@ -252,7 +252,7 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 			if !ok {
 				continue
 			}
-			log.Printf("Server tolad to unload chunk %d:%d, sending chunk as it is to storage", x, z)
+			log.Printf("Server told to unload chunk %d:%d, sending chunk as it is to storage", x, z)
 			sp.SaveChannel <- &ProxiedChunk{
 				Username:            cl.name,
 				Server:              cl.dest,
@@ -387,9 +387,26 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 			}
 		}
 		conn.Push(pk.Marshal(
-			packetid.ClientboundSystemChat,
+			packetid.ClientboundSetActionBarText,
 			chat.Text(fmt.Sprintf("Cached chunks: %d", len(c))),
-			pk.Byte(0),
 		))
 	}
+	log.Printf("Shutting down packet processor for player [%s], flushing chunks", cl.name)
+	for i, j := range c {
+		dim, ok := loadedDims[currentDim]
+		if !ok {
+			log.Printf("Have no information about dimension [%s]", currentDim)
+			continue
+		}
+		sp.SaveChannel <- &ProxiedChunk{
+			Username:            cl.name,
+			Server:              cl.dest,
+			Dimension:           currentDim,
+			Pos:                 i.pos,
+			Data:                j.chunk,
+			DimensionLowestY:    dim.minY,
+			DimensionBuildLimit: int(dim.height),
+		}
+	}
+	log.Printf("Packet processor for player [%s] stopped", cl.name)
 }
