@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
@@ -33,12 +34,14 @@ import (
 
 	"github.com/Tnze/go-mc/bot"
 	"github.com/Tnze/go-mc/chat"
+	"github.com/Tnze/go-mc/chat/sign"
 	"github.com/Tnze/go-mc/data/packetid"
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/net"
 	pk "github.com/Tnze/go-mc/net/packet"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/auth"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/credentials"
 )
@@ -207,21 +210,33 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	c := bot.NewClient()
 	c.Auth = *auth
 	log.Printf("Accepting new player [%s] (%s), dialing [%s]...", name, id.String(), dest)
-	if err := c.JoinServer(dest); err != nil {
+	if err := c.JoinServerWithOptions(dest, bot.JoinOptions{
+		Dialer:      nil,
+		Context:     nil,
+		NoPublicKey: true,
+		KeyPair:     nil,
+	}); err != nil {
 		log.Printf("Failed to accept new player [%s] (%s), error connecting to [%s]: %v", name, id.String(), dest, err)
 		dissconnectWithMessage(conn, &chat.Message{Text: strings.TrimPrefix(err.Error(), "bot: disconnect error: disconnect because: ")})
 		return
 	}
 	log.Printf("Player [%s] accepted to [%s]", name, dest)
 
-	acceptorChannel := make(chan pk.Packet, 2048)
-	defer close(acceptorChannel)
-	connQueue := server.NewPacketQueue()
-	go p.packetAcceptor(acceptorChannel, connQueue, cl)
+	var wg sync.WaitGroup
 
-	closeChannel := make(chan byte)
+	acceptorChannel := make(chan pk.Packet, 2048)
+	connQueue := server.NewPacketQueue()
+	wg.Add(1)
+	go func() {
+		p.packetAcceptor(acceptorChannel, connQueue, cl)
+		wg.Done()
+		log.Println("proxy packet acceptor exit")
+	}()
+
+	closeChannel := make(chan byte, 5)
 	defer close(closeChannel)
 
+	wg.Add(1)
 	go func() {
 		select {
 		case <-closeChannel:
@@ -230,28 +245,64 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 		conn.Socket.SetDeadline(time.UnixMilli(0))
 		c.Conn.Socket.SetDeadline(time.UnixMilli(0))
 		connQueue.Close()
+		wg.Done()
+		log.Println("proxy closer exit")
 	}()
 
+	wg.Add(1)
 	go func() {
-		var pk pk.Packet
+		var p pk.Packet
 		var err error
 		for {
-			err = conn.ReadPacket(&pk)
+			err = conn.ReadPacket(&p)
 			if err != nil {
 				break
 			}
 			// log.Printf("c->s (pump) %x", pk.ID)
-			err = c.Conn.WritePacket(pk)
-			if err != nil {
-				break
+			if p.ID == int32(packetid.ServerboundChat) {
+				spew.Dump(p)
+				var (
+					msg pk.String
+				)
+				err := p.Scan(
+					&msg,
+				)
+				if err != nil {
+					log.Println("Error scanning message:", err)
+				}
+				sendout := pk.Marshal(
+					packetid.ServerboundChat,
+					pk.String(msg),
+					pk.Long(time.Now().UnixMilli()),
+					pk.Long(rand.Int63()),
+					pk.ByteArray{},
+					pk.Boolean(false),
+					pk.Array([]sign.HistoryMessage{}),
+					pk.Option[sign.HistoryMessage, *sign.HistoryMessage]{
+						Has: false,
+					},
+				)
+				spew.Dump(sendout)
+				err = c.Conn.WritePacket(sendout)
+				if err != nil {
+					log.Println("Failed to unmarshal packet:", err)
+				}
+			} else {
+				err = c.Conn.WritePacket(p)
+				if err != nil {
+					break
+				}
 			}
 		}
 		if !errors.Is(err, os.ErrDeadlineExceeded) {
 			log.Printf("Player [%s] left from server [%s] (s->c): %v", name, dest, err)
 			closeChannel <- 0
 		}
+		log.Println("c2s exit")
+		wg.Done()
 	}()
 
+	wg.Add(1)
 	go func() {
 		var pack pk.Packet
 		var err error
@@ -278,6 +329,9 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			log.Printf("Player [%s] left from server [%s] (c->s): %v", name, dest, err)
 			closeChannel <- 0
 		}
+		log.Println("s2p exit")
+		wg.Done()
+		close(acceptorChannel)
 	}()
 
 	var pack pk.Packet
@@ -297,7 +351,10 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 			}
 		}
 	}
+	log.Println("p2c exit")
+	wg.Wait()
 	// connQueue.Close()
+	log.Printf("Proxy for [%s] is done", name)
 }
 
 func dissconnectWithError(conn *net.Conn, reason error) {
