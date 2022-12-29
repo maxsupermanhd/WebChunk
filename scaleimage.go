@@ -58,12 +58,12 @@ var ttypes = map[ttype]ttypeProviderFunc{
 	},
 	{"counttiles", "Chunk count", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
-			return drawNumberOfChunks(int(i.(int32)))
+			return drawNumberOfChunks(int(i.(int)))
 		}
 	},
 	{"counttilesheat", "Chunk count heatmap", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksCountRegion, func(i interface{}) *image.RGBA {
-			return drawHeatOfChunks(int(i.(int32)))
+			return drawHeatOfChunks(int(i.(int)))
 		}
 	},
 	{"heightmap", "Heightmap", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
