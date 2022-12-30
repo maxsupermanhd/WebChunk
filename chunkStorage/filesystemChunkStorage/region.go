@@ -413,10 +413,12 @@ func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, 
 						Data: err,
 					}
 				} else {
-					r <- &chunkStorage.ChunkData{
-						X:    sx,
-						Z:    sz,
-						Data: d,
+					if d != nil {
+						r <- &chunkStorage.ChunkData{
+							X:    sx,
+							Z:    sz,
+							Data: *d,
+						}
 					}
 				}
 				s.wg.Done()
