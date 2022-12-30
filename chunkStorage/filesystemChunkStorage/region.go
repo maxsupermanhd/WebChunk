@@ -436,12 +436,15 @@ collectLoop:
 		case error:
 			// log.Println("GetChunksRegion collected error", d.X, d.Z, "left", t, d.Data)
 		default:
-			if d.Data != nil {
-				ret = append(ret, chunkStorage.ChunkData{
-					X:    d.X,
-					Z:    d.Z,
-					Data: *(d.Data.(*save.Chunk)),
-				})
+			dd, ok := d.Data.(*save.Chunk)
+			if ok {
+				if dd != nil {
+					ret = append(ret, chunkStorage.ChunkData{
+						X:    d.X,
+						Z:    d.Z,
+						Data: *dd,
+					})
+				}
 			}
 			// log.Println("GetChunksRegion collected", fmt.Sprintf("%T", d.Data), d.X, d.Z, "left", t)
 		}
