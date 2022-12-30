@@ -415,12 +415,10 @@ func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, 
 						Data: err,
 					}
 				} else {
-					if d != nil {
-						r <- &chunkStorage.ChunkData{
-							X:    sx,
-							Z:    sz,
-							Data: *d,
-						}
+					r <- &chunkStorage.ChunkData{
+						X:    sx,
+						Z:    sz,
+						Data: d,
 					}
 				}
 				s.wg.Done()
@@ -438,7 +436,13 @@ collectLoop:
 		case error:
 			// log.Println("GetChunksRegion collected error", d.X, d.Z, "left", t, d.Data)
 		default:
-			ret = append(ret, *d)
+			if d.Data != nil {
+				ret = append(ret, chunkStorage.ChunkData{
+					X:    d.X,
+					Z:    d.Z,
+					Data: *(d.Data.(*save.Chunk)),
+				})
+			}
 			// log.Println("GetChunksRegion collected", fmt.Sprintf("%T", d.Data), d.X, d.Z, "left", t)
 		}
 		if t == 0 {
