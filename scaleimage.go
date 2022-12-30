@@ -169,7 +169,10 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	if err != nil {
 		return nil
 	}
-	scale := int(2 << (cs - 1))
+	scale := 1
+	if cs > 0 {
+		scale = int(2 << (cs - 1))
+	}
 	imagesize := scale * 16
 	if imagesize > 512 {
 		imagesize = 512
@@ -191,7 +194,23 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 	for _, c := range cc {
 		placex := int(c.X - offsetx)
 		placey := int(c.Z - offsety)
-		tile := resize.Resize(uint(imagescale), uint(imagescale), painter(c.Data), resize.NearestNeighbor)
+		var chunk *image.RGBA
+		chunk = func(d interface{}) *image.RGBA {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Println(cx, cz, err)
+				}
+				chunk = nil
+			}()
+			var ret *image.RGBA
+			ret = nil
+			ret = painter(d)
+			return ret
+		}(c.Data)
+		if chunk == nil {
+			continue
+		}
+		tile := resize.Resize(uint(imagescale), uint(imagescale), chunk, resize.NearestNeighbor)
 		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
 			tile, image.Pt(0, 0), draw.Over)
 	}
