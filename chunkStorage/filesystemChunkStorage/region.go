@@ -178,7 +178,9 @@ func (s *FilesystemChunkStorage) regionRouter() {
 	close(closeTicker)
 	autocloseTicker.Stop()
 	for _, v := range w {
-		close(v.c)
+		if v.exists {
+			close(v.c)
+		}
 	}
 	log.Println("Region router stopped for storage ", s.Root)
 }
