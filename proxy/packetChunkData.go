@@ -83,7 +83,7 @@ func deserializeChunkPacket(p pk.Packet, dim loadedDim) (level.ChunkPos, level.C
 			break
 		}
 		if dl < 200 { // whole chunk structure is 207 if completely empty?
-			log.Printf("Leaving %d bytes behind while parsing chunk data!", dl)
+			// log.Printf("Leaving %d bytes behind while parsing chunk data!", dl)
 			break
 		}
 		ss := &level.Section{

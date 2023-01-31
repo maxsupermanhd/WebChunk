@@ -298,26 +298,26 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 
 	wg.Add(1)
 	go func() {
-		var pack pk.Packet
 		var err error
 		for {
+			var pack pk.Packet
 			err = c.Conn.ReadPacket(&pack)
 			if err != nil {
 				break
 			}
-			topack := pk.Packet{
-				ID:   pack.ID,
-				Data: make([]byte, len(pack.Data)),
-			}
-			copy(topack.Data, pack.Data)
+			// topack := pk.Packet{
+			// 	ID:   pack.ID,
+			// 	Data: make([]byte, len(pack.Data)),
+			// }
+			// copy(topack.Data, pack.Data)
 			for i := 0; i < len(collectPackets); i++ {
 				if collectPackets[i] == packetid.ClientboundPacketID(pack.ID) {
-					acceptorChannel <- topack
+					acceptorChannel <- pack
 					break
 				}
 			}
 			// log.Printf("s->c (queuePush) %x", pack.ID)
-			connQueue.Push(topack)
+			connQueue.Push(pack)
 		}
 		if !errors.Is(err, os.ErrDeadlineExceeded) {
 			log.Printf("Player [%s] left from server [%s] (c->s): %v", name, dest, err)
