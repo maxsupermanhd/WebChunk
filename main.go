@@ -321,7 +321,7 @@ func main() {
 	}()
 	wg.Add(1)
 	go func() {
-		chunkConsumer(ctx, chunkChannel)
+		chunkConsumer(ctx, chunkChannel, loadedConfig.RenderReceived)
 		log.Println("Chunk consumer stopped")
 		wg.Done()
 	}()

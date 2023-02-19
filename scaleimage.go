@@ -161,6 +161,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	writeImage(w, fname, img)
+	imageCacheSave(img, wname, dname, datatype, cs, cx, cz)
 }
 
 func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDataProviderFunc, painter chunkPainterFunc) *image.RGBA {

@@ -5,6 +5,11 @@
 			"name": "Docker db",
 			"type": "postgres",
 			"addr": "host=localhost dbname=chunkdb user=webchunk password=chunky81254 port=9182 connect_timeout=3"
+		},
+		{
+			"name": "storage/a",
+			"type": "filesystem",
+			"addr": "./storage/b"
 		}
 	],
 	"web": {
@@ -39,5 +44,6 @@
 		"listen": "127.0.0.1:25567",
 		"default_view_distance": 25,
 		"CompressThreshold": 0
-	}
+	},
+	"RenderReceived": true
 }

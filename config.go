@@ -54,8 +54,9 @@ type WebChunkConfig struct {
 		FallbackStorageName string `json:"fallback_storage_name"`
 		LogErrors           bool   `json:"log_errors"`
 	} `json:"api"`
-	Proxy  proxy.ProxyConfig     `json:"proxy"`
-	Routes map[string]ProxyRoute `json:"proxy_routing"`
+	Proxy          proxy.ProxyConfig     `json:"proxy"`
+	Routes         map[string]ProxyRoute `json:"proxy_routing"`
+	RenderReceived bool
 	// Reconstructor viewer.ReconstructorConfig `json:"reconstructor"`
 }
 
