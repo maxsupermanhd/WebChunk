@@ -84,7 +84,7 @@ func findCapableStorage(arr []chunkStorage.Storage, pref string) chunkStorage.Ch
 	return s
 }
 
-func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
+func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk, doRender bool) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -222,6 +222,12 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 			err = s.AddChunkRaw(w.Name, d.Name, int(r.Pos[0]), int(r.Pos[1]), chunkBytes.Bytes())
 			if err != nil {
 				log.Printf("Failed to save chunk: %s", err.Error())
+			}
+			if doRender {
+				go func() {
+					i := drawChunk(&data)
+					imageCacheSave(i, w.Name, d.Name, "terrain", 0, int(r.Pos[0]), int(r.Pos[1]))
+				}()
 			}
 		}
 	}
