@@ -398,7 +398,7 @@ func normalizeCoords(x0, z0, x1, z1 int) (int, int, int, int) {
 
 func (s *FilesystemChunkStorage) GetChunksRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]chunkStorage.ChunkData, error) {
 	cx0, cz0, cx1, cz1 = normalizeCoords(cx0, cz0, cx1, cz1)
-	log.Println("GetChunksRegion", cx0, cz0, cx1, cz1)
+	// log.Println("GetChunksRegion", cx0, cz0, cx1, cz1)
 	r := make(chan *chunkStorage.ChunkData, (cx1-cx0)*(cz1-cz0))
 	t := 0
 	for x := cx0; x < cx1; x++ {
@@ -452,7 +452,7 @@ collectLoop:
 			break collectLoop
 		}
 	}
-	log.Println("GetChunksRegion return with", len(ret), errs)
+	// log.Println("GetChunksRegion return with", len(ret), errs)
 	return ret, errs
 }
 
