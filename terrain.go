@@ -605,18 +605,40 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Bad cz id: "+err.Error())
 		return
 	}
-	c, err := s.GetChunk(wname, dname, int(cx), int(cz))
+	chunk, err := s.GetChunk(wname, dname, int(cx), int(cz))
 	if err != nil {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
 	}
-	raw, err := s.GetChunkRaw(wname, dname, int(cx), int(cz))
-	if err != nil {
-		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
-		return
+	sort.Slice(chunk.Sections, func(i, j int) bool {
+		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
+	})
+	bedrockInfo := ""
+	for _, s := range chunk.Sections {
+		if len(s.BlockStates.Data) == 0 {
+			continue
+		}
+		states := prepareSectionBlockstates(&s)
+		if states == nil {
+			continue
+		}
+		for y := 15; y >= 0; y-- {
+			for z := 0; z < 16; z++ {
+				for x := 0; x < 16; x++ {
+					state := states.Get(y*16*16 + z*16 + x)
+					block := block.StateList[state]
+					ay := int(s.Y)*16 + y
+					ax := x + int(cx)*16
+					az := z + int(cz)*16
+					if block.ID() == "minecraft:bedrock" && (ay == 4 || ay == 123) {
+						bedrockInfo += fmt.Sprintf("Block::new(%6d, %3d, %6d, BEDROCK),\n", ax, ay, az)
+					}
+				}
+			}
+		}
 	}
-	logChunkNbt(raw)
-	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": c, "PrettyChunk": template.HTML(spew.Sdump(c))})
+
+	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": chunk, "PrettyChunk": template.HTML(spew.Sdump(chunk)), "BedrockInfo": template.HTML(bedrockInfo)})
 }
 
 func drawNumberOfChunks(c int) *image.RGBA {
