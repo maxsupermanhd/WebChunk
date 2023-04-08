@@ -1,0 +1,15 @@
+{{define "cfg"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<title>WebChunk configuration</title>
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div class="px-4 py-5 container">
+			<pre>{{.cfg}}</pre>
+		</div>
+	</body>
+</html>
+{{end}}

@@ -62,7 +62,7 @@ func dimensionHandler(w http.ResponseWriter, r *http.Request) {
 		layers = append(layers, t)
 	}
 	sort.Slice(layers, func(i, j int) bool { return strings.Compare(layers[i].Name, layers[j].Name) > 0 })
-	basicLayoutLookupRespond("dim", w, r, map[string]interface{}{"Dim": dim, "World": world, "Layers": layers})
+	templateRespond("dim", w, r, map[string]interface{}{"Dim": dim, "World": world, "Layers": layers})
 }
 
 func apiAddDimension(w http.ResponseWriter, r *http.Request) (int, string) {

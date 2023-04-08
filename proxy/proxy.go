@@ -43,7 +43,15 @@ import (
 	"github.com/Tnze/go-mc/server/auth"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/credentials"
+	"github.com/maxsupermanhd/lac"
 )
+
+type ProxyRoute struct {
+	Address   string `json:"address"`
+	World     string `json:"world"`
+	Dimension string `json:"dimension"`
+	Storage   string `json:"storage"`
+}
 
 type ProxiedPacket struct {
 	Username string
@@ -67,16 +75,6 @@ type MessageFeedback struct {
 	Msg  chat.Message
 }
 
-type ProxyConfig struct {
-	MOTD              chat.Message `json:"motd"`
-	MaxPlayers        int          `json:"maxplayers"`
-	IconPath          string       `json:"icon"`
-	Listen            string       `json:"listen"`
-	CredentialsPath   string       `json:"credentials"`
-	CompressThreshold int          `json:"compress_threshold"`
-	OnlineMode        bool         `json:"online_mode"`
-}
-
 var collectPackets = []packetid.ClientboundPacketID{
 	packetid.ClientboundLevelChunkWithLight,
 	packetid.ClientboundBlockEntityData,
@@ -85,12 +83,10 @@ var collectPackets = []packetid.ClientboundPacketID{
 	packetid.ClientboundRespawn,
 }
 
-type RouteHandlerFn func(name string) string
-
-func RunProxy(ctx context.Context, routeHandler RouteHandlerFn, conf *ProxyConfig, dump chan *ProxiedChunk) {
+func RunProxy(ctx context.Context, cfg *lac.ConfSubtree, dump chan *ProxiedChunk) {
 	var icon image.Image
-	if conf.IconPath != "" {
-		f, err := os.Open(conf.IconPath)
+	if iconpath := cfg.GetDSString("", "icon_path"); iconpath != "" {
+		f, err := os.Open(iconpath)
 		if err != nil {
 			log.Println("Failed to open proxy server icon: " + err.Error())
 		} else {
@@ -102,32 +98,41 @@ func RunProxy(ctx context.Context, routeHandler RouteHandlerFn, conf *ProxyConfi
 			f.Close()
 		}
 	}
-	playerList := server.NewPlayerList(conf.MaxPlayers)
-	serverInfo := server.NewPingInfo(server.ProtocolName, server.ProtocolVersion, conf.MOTD, icon)
+	playerList := server.NewPlayerList(cfg.GetDSInt(999, "max_players"))
+	var motd chat.Message
+	if err := cfg.GetToStruct(&motd, "motd"); err != nil {
+		log.Println("Using default MOTD because failed to parse one from config: ", err.Error())
+		motd = chat.Text("WebChunk proxy")
+		cfg.Set(map[string]any{"text": "WebChunk proxy"}, "motd")
+	}
+	serverInfo := server.NewPingInfo(server.ProtocolName, server.ProtocolVersion, motd, icon)
 	s := server.Server{
 		ListPingHandler: struct {
 			*server.PlayerList
 			*server.PingInfo
 		}{playerList, serverInfo},
 		LoginHandler: &server.MojangLoginHandler{
-			OnlineMode:   conf.OnlineMode,
-			Threshold:    conf.CompressThreshold,
+			OnlineMode:   cfg.GetDSBool(true, "online_mode"),
+			Threshold:    cfg.GetDSInt(-1, "compress_threshold"),
 			LoginChecker: nil,
 		},
 		GamePlay: SnifferProxy{
-			Routing:     routeHandler,
-			CredManager: credentials.NewMicrosoftCredentialsManager(conf.CredentialsPath, "88650e7e-efee-4857-b9a9-cf580a00ef43"),
+			Routing: func(name string) string {
+				r, _ := cfg.GetString("routes", name)
+				return r
+			},
+			CredManager: credentials.NewMicrosoftCredentialsManager(cfg.GetDSString("./cmd/auth/", "credentials_path"), "88650e7e-efee-4857-b9a9-cf580a00ef43"),
 			SaveChannel: dump,
-			Conf:        *conf,
+			Conf:        cfg,
 			Ctx:         ctx,
 		},
 	}
-	listener, err := net.ListenMC(conf.Listen)
+	listener, err := net.ListenMC(cfg.GetDSString("localhost:25566", "listen_addr"))
 	if err != nil {
 		log.Println("Proxy startup error: ", err)
 		return
 	}
-	log.Println("Proxy started on " + conf.Listen)
+	log.Println("Proxy started on " + cfg.GetDSString("localhost:25566", "listen_addr"))
 	var wg sync.WaitGroup
 	lstCloseChan := make(chan struct{})
 	wg.Add(1)
@@ -164,7 +169,7 @@ type SnifferProxy struct {
 	Routing     func(name string) string
 	CredManager *credentials.MicrosoftCredentialsManager
 	SaveChannel chan *ProxiedChunk
-	Conf        ProxyConfig
+	Conf        *lac.ConfSubtree
 	Ctx         context.Context
 }
 
@@ -191,7 +196,7 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	}
 	if cl.dest == "" {
 		log.Printf("Accepting new player [%s] (%s), protocol %v, unable to find route...", cl.name, cl.id.String(), cl.proto)
-		dissconnectWithMessage(conn, &chat.Message{Text: "Dissconnected before login: Routing failed"})
+		dissconnectWithMessage(conn, &chat.Message{Text: "Dissconnected before login: no defined route for specified username"})
 		return
 	}
 	log.Printf("Accepting new player [%s] (%s), protocol %v, routing to [%s], getting auth...", cl.name, cl.id.String(), cl.proto, dest)

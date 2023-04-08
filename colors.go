@@ -25,6 +25,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"image/color"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -79,7 +80,7 @@ func colorsHandlerGET(w http.ResponseWriter, r *http.Request) {
 			hexColor(colors[uint32(i)])}
 		c[i] = s
 	}
-	basicLayoutLookupRespond("colors", w, r, map[string]interface{}{"Colors": c, "Offset": offset, "Count": count})
+	templateRespond("colors", w, r, map[string]interface{}{"Colors": c, "Offset": offset, "Count": count})
 }
 
 func ParseHexColor(s string) (c color.RGBA64, err error) {
@@ -130,7 +131,7 @@ func colorsHandlerPOST(w http.ResponseWriter, r *http.Request) {
 var colors []color.RGBA64
 
 func colorsSaveHandler(w http.ResponseWriter, r *http.Request) {
-	f, err := os.Create(loadedConfig.Web.ColorsLocation)
+	f, err := os.Create(cfg.GetDSString("./colors.gob", "colors_path"))
 	if err != nil {
 		plainmsg(w, r, plainmsgColorRed, "Error saving color palette to disk: "+err.Error())
 		return
@@ -143,8 +144,9 @@ func colorsSaveHandler(w http.ResponseWriter, r *http.Request) {
 	plainmsg(w, r, plainmsgColorGreen, "Color palette saved to disk.")
 }
 
-func loadColors() error {
-	b, err := os.ReadFile(loadedConfig.Web.ColorsLocation)
+func loadColors(path string) error {
+	log.Println("Loading color palette...")
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}

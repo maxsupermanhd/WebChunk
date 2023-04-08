@@ -106,31 +106,30 @@ type ChunkStorage interface {
 }
 
 type Storage struct {
-	Name    string       `json:"name"`
 	Type    string       `json:"type"`
-	Address string       `json:"addr"`
+	Address string       `json:"address"`
 	Driver  ChunkStorage `json:"-"`
 }
 
-func CloseStorages(s []Storage) {
-	for _, c := range s {
-		if c.Driver != nil {
-			err := c.Driver.Close()
+func CloseStorages(storages map[string]Storage) {
+	for sn, s := range storages {
+		if s.Driver != nil {
+			err := s.Driver.Close()
 			if err != nil {
-				log.Printf("Error closing storage [%v] of type %v: %v", c.Name, c.Type, err)
+				log.Printf("Error closing storage [%v] of type %v: %v", sn, s.Type, err)
 			}
-			c.Driver = nil
+			s.Driver = nil
 		}
 	}
 }
 
-func ListWorlds(storages []Storage) []SWorld {
+func ListWorlds(storages map[string]Storage) []SWorld {
 	worlds := []SWorld{}
-	for _, s := range storages {
+	for sn, s := range storages {
 		if s.Driver != nil {
 			w, err := s.Driver.ListWorlds()
 			if err != nil {
-				log.Printf("Failed to list worlds on storage %s: %s", s.Name, err.Error())
+				log.Printf("Failed to list worlds on storage %s: %s", sn, err.Error())
 			}
 			worlds = append(worlds, w...)
 		}
@@ -138,14 +137,14 @@ func ListWorlds(storages []Storage) []SWorld {
 	return worlds
 }
 
-func ListDimensions(storages []Storage, wname string) ([]SDim, error) {
+func ListDimensions(storages map[string]Storage, wname string) ([]SDim, error) {
 	dims := []SDim{}
 	if wname == "" {
-		for _, s := range storages {
+		for sn, s := range storages {
 			if s.Driver != nil {
 				d, err := s.Driver.ListDimensions()
 				if err != nil {
-					log.Printf("Failed to list dims on storage %s: %s", s.Name, err.Error())
+					log.Printf("Failed to list dims on storage %s: %s", sn, err.Error())
 				}
 				dims = append(dims, d...)
 			}
@@ -166,7 +165,7 @@ func ListDimensions(storages []Storage, wname string) ([]SDim, error) {
 	return dims, nil
 }
 
-func GetWorldStorage(storages []Storage, wname string) (*SWorld, ChunkStorage, error) {
+func GetWorldStorage(storages map[string]Storage, wname string) (*SWorld, ChunkStorage, error) {
 	for _, s := range storages {
 		if s.Driver != nil {
 			w, err := s.Driver.GetWorld(wname)

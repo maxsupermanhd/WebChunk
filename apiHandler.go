@@ -32,11 +32,14 @@ func apiHandle(f func(http.ResponseWriter, *http.Request) (int, string)) func(ht
 		if code == -1 {
 			return
 		}
-		if code == 500 && loadedConfig.API.LogErrors {
+		if code == 500 {
 			log.Println("500 error code: " + content)
 		}
 		w.Header().Set("Server", "WebChunk webserver "+CommitHash)
 		w.Header().Set("Cache-Control", "no-cache")
+		if json.Valid([]byte(content)) {
+			w.Header().Set("Content-Type", "application/json")
+		}
 		w.WriteHeader(code)
 		w.Write([]byte(content))
 	}
@@ -44,7 +47,7 @@ func apiHandle(f func(http.ResponseWriter, *http.Request) (int, string)) func(ht
 
 func marshalOrFail(code int, content interface{}) (int, string) {
 	resp, err := json.Marshal(content)
-	if err != nil && loadedConfig.API.LogErrors {
+	if err != nil {
 		log.Println("JSON serialization failed: " + err.Error())
 		return 500, "JSON serialization failed: " + err.Error()
 	}

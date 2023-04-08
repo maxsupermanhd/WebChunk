@@ -27,6 +27,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Tnze/go-mc/level"
@@ -36,22 +37,54 @@ import (
 	"github.com/maxsupermanhd/WebChunk/chunkStorage/filesystemChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage/postgresChunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
+	"github.com/maxsupermanhd/lac"
 )
 
 var (
 	errStorageTypeNotImplemented = errors.New("storage type not implemented")
+	storages                     map[string]chunkStorage.Storage
+	storagesLock                 sync.Mutex
 )
 
-func initStorage(t, a string) (driver chunkStorage.ChunkStorage, err error) {
-	switch t {
+func initStorages() error {
+	log.Println("Initializing storages...")
+	err := cfg.GetToStruct(&storages, "storages")
+	if err != nil && !errors.Is(err, lac.ErrNoKey) {
+		return err
+	}
+	if len(storages) == 0 {
+		log.Println("No storages to initialize")
+		cfg.Set(map[string]any{}, "storages")
+		return nil
+	}
+	for k, v := range storages {
+		d, err := initStorage(storages[k].Type, storages[k].Address)
+		if err != nil {
+			log.Println("Failed to initialize storage: " + err.Error())
+			continue
+		}
+		ver, err := d.GetStatus()
+		if err != nil {
+			log.Println("Error getting storage status: " + err.Error())
+			continue
+		}
+		v.Driver = d
+		storages[k] = v
+		log.Println("Storage initialized: " + ver)
+	}
+	return nil
+}
+
+func initStorage(storageStype, address string) (driver chunkStorage.ChunkStorage, err error) {
+	switch storageStype {
 	case "postgres":
-		driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), a)
+		driver, err = postgresChunkStorage.NewPostgresChunkStorage(context.Background(), address)
 		if err != nil {
 			return nil, err
 		}
 		return driver, nil
 	case "filesystem":
-		driver, err = filesystemChunkStorage.NewFilesystemChunkStorage(a)
+		driver, err = filesystemChunkStorage.NewFilesystemChunkStorage(address)
 		if err != nil {
 			return nil, err
 		}
@@ -61,57 +94,46 @@ func initStorage(t, a string) (driver chunkStorage.ChunkStorage, err error) {
 	}
 }
 
-func findCapableStorage(arr []chunkStorage.Storage, pref string) chunkStorage.ChunkStorage {
-	var s chunkStorage.ChunkStorage
-	var sf chunkStorage.ChunkStorage
-	for i := range arr {
-		if arr[i].Driver == nil || arr[i].Name == "" {
+func findCapableStorage(storages map[string]chunkStorage.Storage, pref string) chunkStorage.ChunkStorage {
+	p, ok := storages[pref]
+	if ok {
+		return p.Driver
+	}
+	for sn, s := range storages {
+		if s.Driver == nil || sn == "" {
 			continue
 		}
-		if arr[i].Name == pref {
-			s = arr[i].Driver
-			break
-		}
-		a := arr[i].Driver.GetAbilities()
-		if a.CanCreateWorldsDimensions &&
-			a.CanAddChunks {
-			sf = arr[i].Driver
+		a := s.Driver.GetAbilities()
+		if a.CanCreateWorldsDimensions && a.CanAddChunks {
+			return s.Driver
 		}
 	}
-	if s == nil {
-		s = sf
-	}
-	return s
+	return nil
 }
 
-func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk, doRender bool) {
+func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case r := <-c:
-			route, ok := loadedConfig.Routes[r.Username]
-			if !ok {
-				log.Printf("Got UNKNOWN chunk [%v](%v) from [%v] by [%v]", r.Pos, r.Dimension, r.Server, r.Username)
+			if r.Dimension == "" || r.Server == "" {
+				log.Printf("Got chunk [%v](%v) from [%v] by [%v] with empty params, DROPPING", r.Pos, r.Dimension, r.Server, r.Username)
+				continue
 			}
 			log.Printf("Got chunk %v %#v from [%v] by [%v] (%2d s) (%3d be)", r.Pos, r.Dimension, r.Server, r.Username, len(r.Data.Sections), len(r.Data.BlockEntity))
-			if route.World == "" {
-				route.World = r.Server
-			}
 			r.Dimension = strings.TrimPrefix(r.Dimension, "minecraft:")
-			if route.Dimension == "" {
-				route.Dimension = r.Dimension
-			}
-			w, s, err := chunkStorage.GetWorldStorage(storages, route.World)
+			w, s, err := chunkStorage.GetWorldStorage(storages, r.Server)
 			if err != nil {
 				log.Println("Failed to lookup world storage: ", err)
 				break
 			}
 			var d *chunkStorage.SDim
 			if w == nil || s == nil {
-				s = findCapableStorage(storages, route.Storage)
+				pref := cfg.GetDSString("", "preferred_storage")
+				s = findCapableStorage(storages, pref)
 				if s == nil {
-					log.Printf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%v] from [%v] by [%v] is LOST.", route.World, route.Storage, r.Pos, r.Server, r.Username)
+					log.Printf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%v] from [%v] by [%v] is LOST.", r.Server, pref, r.Pos, r.Server, r.Username)
 					continue
 				}
 				w = &chunkStorage.SWorld{
@@ -128,7 +150,7 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk, doRender boo
 					continue
 				}
 			}
-			d, err = s.GetDimension(w.Name, route.Dimension)
+			d, err = s.GetDimension(w.Name, r.Dimension)
 			if err != nil && !errors.Is(err, chunkStorage.ErrNoDim) {
 				log.Printf("Failed to get dim: %s", err.Error())
 				continue
@@ -223,7 +245,7 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk, doRender boo
 			if err != nil {
 				log.Printf("Failed to save chunk: %s", err.Error())
 			}
-			if doRender {
+			if cfg.GetDSBool(true, "render_received") {
 				go func() {
 					i := drawChunk(&data)
 					imageCacheSave(i, w.Name, d.Name, "terrain", 0, int(r.Pos[0]), int(r.Pos[1]))

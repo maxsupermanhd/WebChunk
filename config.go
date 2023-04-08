@@ -21,52 +21,13 @@
 package main
 
 import (
-	"encoding/json"
+	"net/http"
 	"os"
-	"sync"
 
-	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/WebChunk/proxy"
+	"github.com/maxsupermanhd/lac"
 )
 
-var loadedConfig WebChunkConfig
-var loadedConfigMutex sync.Mutex
-
-type ProxyRoute struct {
-	Address   string `json:"address"`
-	World     string `json:"world"`
-	Dimension string `json:"dimension"`
-	Storage   string `json:"storage"`
-}
-
-type WebChunkConfig struct {
-	LogsLocation string                 `json:"logs_location"`
-	Storages     []chunkStorage.Storage `json:"storages"`
-	Web          struct {
-		LayoutsLocation string `json:"layouts_location"`
-		LayoutsGlob     string `json:"layouts_glob"`
-		Listen          string `json:"listen"`
-		ColorsLocation  string `json:"color_pallete"`
-	} `json:"web"`
-	API struct {
-		CreateWorlds        bool   `json:"create_worlds"`
-		CreateDimensions    bool   `json:"create_dimensions"`
-		FallbackStorageName string `json:"fallback_storage_name"`
-		LogErrors           bool   `json:"log_errors"`
-	} `json:"api"`
-	Proxy          proxy.ProxyConfig     `json:"proxy"`
-	Routes         map[string]ProxyRoute `json:"proxy_routing"`
-	RenderReceived bool
-	// Reconstructor viewer.ReconstructorConfig `json:"reconstructor"`
-}
-
-func ProxyRoutesHandler(username string) string {
-	route, ok := loadedConfig.Routes[username]
-	if !ok {
-		return ""
-	}
-	return route.Address
-}
+var cfg = lac.NewConf()
 
 //lint:ignore U1000 for future use
 func saveConfig() error {
@@ -74,11 +35,7 @@ func saveConfig() error {
 	if path == "" {
 		path = "config.json"
 	}
-	b, err := json.MarshalIndent(loadedConfig, "", "\t")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, b, 0664)
+	return cfg.ToFileIndentJSON(path, 0644)
 }
 
 func loadConfig() error {
@@ -86,11 +43,22 @@ func loadConfig() error {
 	if path == "" {
 		path = "config.json"
 	}
-	b, err := os.ReadFile(path)
+	return cfg.SetFromFileJSON(path)
+}
+
+func cfgHandler(w http.ResponseWriter, r *http.Request) {
+	b, err := cfg.ToBytesIndentJSON()
 	if err != nil {
-		return err
+		templateRespond("plainmsg", w, r, map[string]any{"msg": err.Error()})
+		return
 	}
-	loadedConfigMutex.Lock()
-	defer loadedConfigMutex.Unlock()
-	return json.Unmarshal(b, &loadedConfig)
+	templateRespond("cfg", w, r, map[string]any{"cfg": string(b)})
+}
+
+func apiSaveConfig(_ http.ResponseWriter, _ *http.Request) (int, string) {
+	err := saveConfig()
+	if err != nil {
+		return 500, err.Error()
+	}
+	return 200, ""
 }

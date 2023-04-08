@@ -1,0 +1,67 @@
+{
+	"logs_location": "logs/WebChunk.log",
+	"storages": [
+		{
+			"name": "Docker db",
+			"type": "postgres",
+			"addr": "host=localhost dbname=chunkdb user=webchunk password=chunky81254 port=9182 connect_timeout=3"
+		},
+		{
+			"name": "bluelap db",
+			"type": "postgres",
+			"addr": "host=192.168.1.37 dbname=chunkdb user=webchunk password=chunky81254 port=9182 connect_timeout=3"
+		},
+		{
+			"name": "storage/a",
+			"type": "filesystem",
+			"addr": "/home/max/p/0mc/WebChunk/storage/b"
+		}
+	],
+	"web": {
+		"layouts_location": "./layouts/",
+		"layouts_glob": "./layouts/*.gohtml",
+		"listen": "127.0.0.1:3002",
+		"color_pallete": "./colors.gob"
+	},
+	"api": {
+		"create_worlds": true,
+		"create_dimensions": false,
+		"FallbackStorageName": "test0",
+		"log_errors": true
+	},
+	"proxy": {
+		"motd": {
+			"text": "WebChunk proxy server"
+		},
+		"maxplayers": 999,
+		"icon": "",
+		"listen": "127.0.0.1:25566",
+		"credentials": "./cmd/auth/",
+		"compress_threshold": 0,
+		"online_mode": true
+	},
+	"proxy_routing": {
+		"FlexCoral": {
+			"address": "constantiam.net",
+			"world": "",
+			"dimension": ""
+		}, 
+		"monty_python": {
+			"address": "phoenixanarchy.com",
+			"world": "",
+			"dimension": ""
+		}
+	},
+	"reconstructor": {
+		"motd": {
+			"text": "WebChunk reconstructor"
+		},
+		"maxplayers": 999,
+		"icon": "",
+		"listen": "127.0.0.1:25567",
+		"default_view_distance": 16,
+		"compress_threshold": 0,
+		"online_mode": true
+	},
+	"RenderReceived": true
+}

@@ -1,0 +1,24 @@
+{{define "chunkinfo"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<title>WebChunk {{.Server.Name}}</title>
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div class="px-4 py-5 container">
+			<h2>Server ({{.Server.ID}}) <code>{{.Server.Name}}</code></h2>
+			<small>IP: <code>{{.Server.IP}}</code></small>
+			<h3>Dimension {{.Dim.Name}}</h3>
+			<h3>Chunk X{{.Chunk.XPos}} Z{{.Chunk.ZPos}}</h3>
+			<hr>
+			<pre>{{.Chunk}}</pre>
+			<hr>
+			<pre>{{.BedrockInfo}}</pre>
+			<hr>
+			<pre>{{.PrettyChunk}}</pre>
+		</div>
+	</body>
+</html>
+{{end}}

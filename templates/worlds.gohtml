@@ -1,0 +1,22 @@
+{{define "worlds"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<title>WebChunk worlds</title>
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div class="px-4 py-5 container">
+			<p>
+				Available worlds: ({{if .Servers}}{{len .Servers}}{{else}}0{{end}})
+				<ul>
+					{{range $i, $s := .Servers}}
+					<li><a href="/worlds/{{$s.Name}}">{{$s.Name}}{{if avail "IP" $s}} (<code>{{$s.IP}}</code>){{end}}</a></li>
+					{{end}}
+				</ul>
+			</p>
+		</div>
+	</body>
+</html>
+{{end}}

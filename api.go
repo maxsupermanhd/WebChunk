@@ -41,6 +41,7 @@ import (
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
+//lint:ignore U1000 for debugging
 func logChunkNbt(d []byte) {
 	var err error
 	var r io.Reader = bytes.NewReader(d[1:])
@@ -89,9 +90,10 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 		return http.StatusInternalServerError, fmt.Sprintf("Error checking world: %s", err)
 	}
 	if s == nil {
-		s = findCapableStorage(storages, loadedConfig.API.FallbackStorageName)
+		pref := cfg.GetDSString("", "preferred_storage")
+		s = findCapableStorage(storages, pref)
 		if s == nil {
-			return http.StatusNotFound, fmt.Sprintf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%d:%d] is LOST.", wname, loadedConfig.API.FallbackStorageName, col.XPos, col.ZPos)
+			return http.StatusNotFound, fmt.Sprintf("Failed to find storage that has world [%s], named [%s] or has ability to add chunks, chunk [%d:%d] is LOST.", wname, pref, col.XPos, col.ZPos)
 		}
 		world = &chunkStorage.SWorld{
 			Name:       wname,
@@ -107,43 +109,36 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 		}
 	}
 	if world == nil {
-		if loadedConfig.API.CreateWorlds {
-			world = &chunkStorage.SWorld{
-				Name:       wname,
-				Alias:      wname,
-				IP:         "",
-				CreatedAt:  time.Now(),
-				ModifiedAt: time.Now(),
-				Data:       chunkStorage.CreateDefaultLevelData(wname),
-			}
-			err = s.AddWorld(*world)
-			if err != nil {
-				return http.StatusInternalServerError, fmt.Sprintf("Error creating world: %s", err)
-			}
+		world = &chunkStorage.SWorld{
+			Name:       wname,
+			Alias:      wname,
+			IP:         "",
+			CreatedAt:  time.Now(),
+			ModifiedAt: time.Now(),
+			Data:       chunkStorage.CreateDefaultLevelData(wname),
 		}
-		return http.StatusInternalServerError, "Unable to find/create world"
+		err = s.AddWorld(*world)
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Sprintf("Error creating world: %s", err)
+		}
 	}
 	dim, err := s.GetDimension(wname, dname)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Sprintf("Error checking dim: %s", err)
 	}
 	if dim == nil {
-		if loadedConfig.API.CreateDimensions {
-			err = s.AddDimension(wname, chunkStorage.SDim{
-				Name:       dname,
-				World:      wname,
-				CreatedAt:  time.Now(),
-				ModifiedAt: time.Now(),
-				Data:       chunkStorage.GuessDimTypeFromName(dname),
-			})
-			if err != nil {
-				return http.StatusInternalServerError, fmt.Sprintf("Error creating dim: %s", err)
-			}
-			if dim == nil {
-				return http.StatusInternalServerError, "Tried to create dim but got nil"
-			}
-		} else {
-			return http.StatusNotFound, fmt.Sprintf("Dimension not found: %s", err)
+		err = s.AddDimension(wname, chunkStorage.SDim{
+			Name:       dname,
+			World:      wname,
+			CreatedAt:  time.Now(),
+			ModifiedAt: time.Now(),
+			Data:       chunkStorage.GuessDimTypeFromName(dname),
+		})
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Sprintf("Error creating dim: %s", err)
+		}
+		if dim == nil {
+			return http.StatusInternalServerError, "Tried to create dim but got nil"
 		}
 	}
 	err = s.AddChunkRaw(wname, dname, int(col.XPos), int(col.ZPos), body)
@@ -185,7 +180,7 @@ func apiAddChunkHandler(w http.ResponseWriter, r *http.Request) (int, string) {
 	return http.StatusOK, fmt.Sprintf("Chunk %d:%d of %s:%s submitted. Thank you for your contribution!\n", col.XPos, col.ZPos, wname, dname)
 }
 
-func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {
+func apiAddRegionHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 	// params := mux.Vars(r)
 	// dids := params["did"]
@@ -265,51 +260,61 @@ func apiAddRegionHandler(w http.ResponseWriter, r *http.Request) {
 	// return
 }
 
-func apiStoragesGET(w http.ResponseWriter, r *http.Request) (int, string) {
+func apiStoragesGET(_ http.ResponseWriter, _ *http.Request) (int, string) {
 	ret := []struct {
 		Name   string
 		Type   string
-		Online bool
+		Status string
 	}{}
-	for i := range storages {
+	storagesLock.Lock()
+	defer storagesLock.Unlock()
+	for sn, s := range storages {
+		status, err := s.Driver.GetStatus()
+		if err != nil {
+			status = err.Error()
+		}
 		ret = append(ret, struct {
 			Name   string
 			Type   string
-			Online bool
+			Status string
 		}{
-			Name:   storages[i].Name,
-			Type:   storages[i].Type,
-			Online: storages[i].Driver != nil,
+			Name:   sn,
+			Type:   s.Type,
+			Status: status,
 		})
 	}
 	return marshalOrFail(200, ret)
 }
 
-func apiStorageReinit(w http.ResponseWriter, r *http.Request) (int, string) {
+func apiStorageReinit(_ http.ResponseWriter, r *http.Request) (int, string) {
 	sname := mux.Vars(r)["storage"]
-	for i := range storages {
-		if storages[i].Name == sname {
-			if storages[i].Driver != nil {
-				return 200, "Already initialized"
-			} else {
-				var err error
-				storages[i].Driver, err = initStorage(storages[i].Type, storages[i].Address)
-				if err != nil {
-					return 500, err.Error()
-				}
-				var ver string
-				ver, err = storages[i].Driver.GetStatus()
-				if err != nil {
-					return 500, err.Error()
-				}
-				return 200, ver
-			}
-		}
+	storagesLock.Lock()
+	defer storagesLock.Unlock()
+	s, ok := storages[sname]
+	if !ok {
+		return 204, "No such storage"
 	}
-	return 404, ""
+	var err error
+	if s.Driver != nil {
+		err = s.Driver.Close()
+	}
+	if err != nil {
+		return 500, "Failed to close storage: " + err.Error()
+	}
+	d, err := initStorage(s.Type, s.Address)
+	if err != nil {
+		return 500, err.Error()
+	}
+	c, err := d.GetStatus()
+	if err != nil {
+		return 500, err.Error()
+	}
+	s.Driver = d
+	storages[sname] = s
+	return 200, c
 }
 
-func apiStorageAdd(w http.ResponseWriter, r *http.Request) (int, string) {
+func apiStorageAdd(_ http.ResponseWriter, r *http.Request) (int, string) {
 	name := r.FormValue("name")
 	if name == "" {
 		return 400, "Empty name"
@@ -322,10 +327,11 @@ func apiStorageAdd(w http.ResponseWriter, r *http.Request) (int, string) {
 	if t == "" {
 		return 400, "Empty type"
 	}
-	for i := range storages {
-		if storages[i].Name == name {
-			return 400, "Storage with that name already exists"
-		}
+	storagesLock.Lock()
+	defer storagesLock.Unlock()
+	_, ok := storages[name]
+	if ok {
+		return 400, "Storage with that name already exists"
 	}
 	driver, err := initStorage(t, address)
 	if err != nil {
@@ -338,16 +344,15 @@ func apiStorageAdd(w http.ResponseWriter, r *http.Request) (int, string) {
 	if err != nil {
 		return 500, err.Error()
 	}
-	storages = append(storages, chunkStorage.Storage{
-		Name:    name,
+	storages[name] = chunkStorage.Storage{
 		Type:    t,
 		Address: address,
 		Driver:  driver,
-	})
+	}
 	return 200, ver
 }
 
-func apiListRenderers(w http.ResponseWriter, r *http.Request) (int, string) {
+func apiListRenderers(_ http.ResponseWriter, _ *http.Request) (int, string) {
 	keys := make([]ttype, 0, len(ttypes))
 	for t := range ttypes {
 		keys = append(keys, t)

@@ -1,0 +1,99 @@
+{{define "index"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<title>WebChunk main page</title>
+		<style>
+		.stattable {
+			margin:0.7rem;
+			padding:0.7rem;
+			border:1px solid;
+		}
+		.stattable td {
+			padding:0.3rem;
+			border:1px solid;
+		}
+		</style>
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div class="px-4 py-5 container">
+			<table><tr>
+			<td>
+				<table class="stattable">
+					{{if avail "ChunksCount" .}}<tr><td>Chunks in database:</td><td>{{.ChunksCount}}</td></tr>{{end}}
+					{{if avail "ChunksSize" .}}<tr><td>Chunks size:</td><td>{{.ChunksSize}}</td></tr>{{end}}
+					{{if avail "VirtMem" .}}<tr><td>Server RAM:</td><td>{{FormatBytes .VirtMem.Used}}/{{FormatBytes .VirtMem.Total}} ({{FormatPercent .VirtMem.UsedPercent}})</td></tr>{{end}}
+					{{if avail "Uptime" .}}<tr><td>Server uptime:</td><td>{{.Uptime}}</td></tr>{{end}}
+				</table>
+			</td>
+			<td>
+				<table class="stattable">
+					{{if avail "LoadAvg" .}}<tr><td>Server load 1:</td><td>{{.LoadAvg.Load1}}</td></tr>{{end}}
+					{{if avail "LoadAvg" .}}<tr><td>Server load 5:</td><td>{{.LoadAvg.Load5}}</td></tr>{{end}}
+					{{if avail "LoadAvg" .}}<tr><td>Server load 15:</td><td>{{.LoadAvg.Load15}}</td></tr>{{end}}
+					{{if avail "CPUReport" .}}<tr><td>CPU load:</td><td>{{.CPUReport}}</td></tr>{{end}}
+				</table>
+			</td>
+			</tr></table>
+			<table class="stattable">
+				<thead>
+					<td>Storage</td>
+					<td><a href="/worlds">Worlds</a></td>
+					<td>Dimensions</td>
+					<td>Chunk information</td>
+					<td>Image cache information</td>
+				</thead>
+			{{range $a, $s := .Storages}}
+				<tr>
+					{{$sspan := 0}}
+					{{range $aa, $ww := .Worlds}}
+						{{if eq (len $ww.Dims) 0}}
+							{{$sspan = add $sspan 1}}
+						{{else}}
+							{{$sspan = add $sspan (len $ww.Dims)}}
+						{{end}}
+					{{end}}
+					{{if eq $sspan 0}}
+						{{$sspan = 1}}
+					{{end}}
+					<td {{if ge $sspan 1}}rowspan="{{$sspan}}"{{end}}>
+						{{$s.S.Name}}
+					</td>
+					{{if $s.Online}}
+						{{range $j, $w := $s.Worlds}}
+								<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
+									<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
+								{{if ge (len $w.Dims) 1}}
+								<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}}</a></td>
+								<td>{{(index $w.Dims 0).ChunkCount}} chunks totaling {{(index $w.Dims 0).ChunkSize}}</td>
+								<td>Cached {{(index $w.Dims 0).CacheCount}} images totaling {{(index $w.Dims 0).CacheSize}}</td>
+								{{else}}
+								<td colspan="2">No dimensions</td>
+								{{end}}
+							</tr>
+							{{if ge (len $w.Dims) 2}}
+							{{range $k, $d := $w.Dims}}
+							{{if ge $k 1}}
+							<tr>
+								<td><a href="/worlds/{{$w.World.Name}}/{{$d.Dim.Name}}">{{$d.Dim.Name}}</a></td>
+								<td>{{$d.ChunkCount}} chunks totaling {{$d.ChunkSize}}</td>
+								<td>Cached {{$d.CacheCount}} images totaling {{$d.CacheSize}}</td>
+							</tr>
+							{{end}}
+							{{end}}
+							{{end}}
+						{{end}}
+					{{else}}
+						<td colspan="4" style="text-align:center">
+							<a style="color:red;" href="/api/storages/{{$s.S.Name}}/reinit">Offline</a>
+						</td>
+					{{end}}
+				</tr>
+			{{end}}
+			</table>
+		</div>
+	</body>
+</html>
+{{end}}

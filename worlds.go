@@ -51,7 +51,7 @@ func worldHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, plainmsgColorRed, "Error getting dimensions from world: "+err.Error())
 		return
 	}
-	basicLayoutLookupRespond("world", w, r, map[string]interface{}{"Dims": dims, "World": world})
+	templateRespond("world", w, r, map[string]interface{}{"Dims": dims, "World": world})
 }
 
 func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
@@ -69,8 +69,10 @@ func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
 	sname := r.FormValue("storage")
 	var driver chunkStorage.ChunkStorage
 	driver = nil
-	for _, s := range storages {
-		if sname == s.Name {
+	storagesLock.Lock()
+	defer storagesLock.Unlock()
+	for sn, s := range storages {
+		if sname == sn {
 			driver = s.Driver
 		}
 	}

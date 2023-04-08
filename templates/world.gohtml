@@ -1,0 +1,35 @@
+{{define "world"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<meta content="Welp, that's a website" property="og:title">
+		<title>WebChunk - {{.World.Name}}</title>
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div class="px-4 py-5 container">
+			<h4><a class="nodecoration" href="/">WebChunk</a></h4>
+			<h2>World {{.World.Name}}</h2>
+			{{if avail "IP" .World}}<small>IP: <code>{{.World.IP}}</code></small>{{end}}
+			<p>
+				<details>
+					<summary>Add dimension</summary>
+					Dimension name: <input type="text" id="adddimension-name">
+					Dimension alias: <input type="text" id="adddimension-alias">
+					Minimum world height: <input type="int" id="adddimension-height">
+					<button class="btn btn-primary" onclick="addDimension(document.getElementById('adddimension-name').value, document.getElementById('adddimension-alias').value, document.getElementById('adddimension-height').value, {{.World.Name}})">Add</button>
+				</details>
+			</p>
+			<p>
+				Available dimensions: ({{len .Dims}})
+				<ul>
+					{{range $i, $s := .Dims}}
+					<li><a href="/worlds/{{$.World.Name}}/{{$s.Name}}">{{$s.Name}}{{if avail "Alias" $s}} ({{$s.Alias}}){{end}}</a></li>
+					{{end}}
+				</ul>
+			</p>
+		</div>
+	</body>
+</html>
+{{end}}

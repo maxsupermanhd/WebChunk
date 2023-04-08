@@ -638,7 +638,7 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	basicLayoutLookupRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": chunk, "PrettyChunk": template.HTML(spew.Sdump(chunk)), "BedrockInfo": template.HTML(bedrockInfo)})
+	templateRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": chunk, "PrettyChunk": template.HTML(spew.Sdump(chunk)), "BedrockInfo": template.HTML(bedrockInfo)})
 }
 
 func drawNumberOfChunks(c int) *image.RGBA {

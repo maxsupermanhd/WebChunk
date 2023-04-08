@@ -22,34 +22,23 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"runtime/debug"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 
-	humanize "github.com/dustin/go-humanize"
-	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/natefinch/lumberjack"
-	"github.com/shirou/gopsutil/host"
-	"github.com/shirou/gopsutil/load"
-	"github.com/shirou/gopsutil/mem"
 )
 
 var (
@@ -59,66 +48,7 @@ var (
 	GitTag     = "0.0"
 )
 
-var storages []chunkStorage.Storage
-var layouts *template.Template
-var layoutFuncs = template.FuncMap{
-	"noescape": func(s string) template.HTML {
-		return template.HTML(s)
-	},
-	"noescapeJS": func(s string) template.JS {
-		return template.JS(s)
-	},
-	"inc": func(i int) int {
-		return i + 1
-	},
-	"avail": func(name string, data interface{}) bool {
-		v := reflect.ValueOf(data)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-		m, ok := data.(map[string]interface{})
-		if ok {
-			_, ok := m[name]
-			return ok
-		}
-		if v.Kind() != reflect.Struct {
-			return false
-		}
-		return v.FieldByName(name).IsValid()
-	},
-	"spew": spew.Sdump,
-	"add": func(a, b int) int {
-		return a + b
-	},
-	"FormatBytes":   ByteCountIEC,
-	"FormatPercent": FormatPercent,
-}
-
-func FormatPercent(p float64) string {
-	return fmt.Sprintf("%.1f%%", p)
-}
-
-func ByteCountIEC(b uint64) string {
-	const unit = 1024
-	if b < unit {
-		return fmt.Sprintf("%dB", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f%ciB", float64(b)/float64(div), "KMGTPE"[exp])
-}
-
-func robotsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "User-agent: *\nDisallow: /\n\n\n")
-}
-func faviconHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "./static/favicon.ico")
-}
-
-func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
+func customLogger(_ io.Writer, params handlers.LogFormatterParams) {
 	r := params.Request
 	ip := r.Header.Get("CF-Connecting-IP")
 	geo := r.Header.Get("CF-IPCountry")
@@ -129,22 +59,19 @@ func customLogger(writer io.Writer, params handlers.LogFormatterParams) {
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	buildinfo, ok := debug.ReadBuildInfo()
-	if ok {
+	if buildinfo, ok := debug.ReadBuildInfo(); ok {
 		GoVersion = buildinfo.GoVersion
 	}
-	err := loadConfig()
-	if err != nil {
-		log.Fatal("Error loading config file: " + err.Error())
+	if err := loadConfig(); err != nil {
+		log.Println("Error loading config file: " + err.Error())
+		log.Println("Defaults will be used.")
 	}
-	storages = loadedConfig.Storages
 	lg := lumberjack.Logger{
-		Filename: loadedConfig.LogsLocation,
+		Filename: cfg.GetDSString("./logs/WebChunk.log", "logs_path"),
 		MaxSize:  10,
 		Compress: true,
 	}
 	log.SetOutput(io.MultiWriter(&lg, os.Stdout))
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println()
 	log.Println("WebChunk web server is starting up...")
 	log.Printf("Built %s, Ver %s (%s) (%s)\n", BuildTime, GitTag, CommitHash, GoVersion)
@@ -153,10 +80,7 @@ func main() {
 	var wg sync.WaitGroup
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
-	prevTime = time.Now()
-
-	log.Println("Loading block colors...")
-	if err = loadColors(); err != nil {
+	if err := loadColors(cfg.GetDSString("./colors.gob", "colors_path")); err != nil {
 		log.Fatal(err)
 	}
 
@@ -172,69 +96,16 @@ func main() {
 		wg.Done()
 	}()
 
-	log.Println("Initializing storages...")
-	for i := range storages {
-		storages[i].Driver, err = initStorage(storages[i].Type, storages[i].Address)
-		if err != nil {
-			log.Println("Failed to initialize storage: " + err.Error())
-			continue
-		}
-		ver, err := storages[i].Driver.GetStatus()
-		if err != nil {
-			log.Println("Error getting storage status: " + err.Error())
-			continue
-		}
-		log.Println("Storage initialized: " + ver)
+	if err := initStorages(); err != nil {
+		log.Fatal("Failed to initialize storages: ", err)
 	}
 
-	log.Println("Loading layouts")
-	layoutsGlobPtr := &loadedConfig.Web.LayoutsGlob
-	layouts, err = template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
-	if err != nil {
-		panic(err)
-	}
-	log.Println("Starting layouts watcher")
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Println("Starting template manager")
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					log.Println("Layouts watcher failed to read from events channel")
-					return
-				}
-				log.Println("event:", event)
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					log.Println("Updating templates")
-					nlayouts, err := template.New("main").Funcs(layoutFuncs).ParseGlob(*layoutsGlobPtr)
-					if err != nil {
-						log.Println("Error while parsing templates:", err.Error())
-					} else {
-						layouts = nlayouts.Funcs(layoutFuncs)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					log.Println("Layouts watcher failed to read from error channel")
-					return
-				}
-				log.Println("Layouts watcher error:", err)
-			case <-ctx.Done():
-				watcher.Close()
-				log.Println("Layouts watcher stopped")
-				return
-			}
-		}
+		templateManager(ctx, cfg.SubTree("web"))
+		wg.Done()
 	}()
-	err = watcher.Add(loadedConfig.Web.LayoutsLocation)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	log.Println("Adding routes")
 	// wg.Add(1)
@@ -258,6 +129,9 @@ func main() {
 	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
 	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
+	router.HandleFunc("/cfg", cfgHandler).Methods("GET")
+
+	router.HandleFunc("/api/1/config/save", apiHandle(apiSaveConfig)).Methods("GET")
 
 	router.HandleFunc("/api/1/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
 	router.HandleFunc("/api/1/submit/region/{world}/{dim}", apiAddRegionHandler)
@@ -282,15 +156,16 @@ func main() {
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
 	wg.Add(1)
 	go func() {
-		if loadedConfig.Web.Listen == "" {
+		addr := cfg.GetDSString("localhost:3002", "web", "listen_addr")
+		if addr == "" {
 			log.Println("Not starting web server because listen address is empty")
 			return
 		}
 		websrv := http.Server{
-			Addr:    loadedConfig.Web.Listen,
+			Addr:    addr,
 			Handler: router4,
 		}
-		log.Println("Starting web server (http://" + loadedConfig.Web.Listen + "/)")
+		log.Println("Starting web server (http://" + addr + "/)")
 		wg.Add(1)
 		go func() {
 			if err := websrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -310,18 +185,19 @@ func main() {
 	}()
 	wg.Add(1)
 	go func() {
-		if loadedConfig.Proxy.Listen == "" {
+		addr := cfg.GetDSString("localhost:25566", "proxy", "listen_addr")
+		if addr == "" {
 			log.Println("Not starting proxy because listen address is empty")
 			return
 		}
 		log.Println("Starting proxy")
-		proxy.RunProxy(ctx, ProxyRoutesHandler, &loadedConfig.Proxy, chunkChannel)
+		proxy.RunProxy(ctx, cfg.SubTree("proxy"), chunkChannel)
 		log.Println("Proxy stopped")
 		wg.Done()
 	}()
 	wg.Add(1)
 	go func() {
-		chunkConsumer(ctx, chunkChannel, loadedConfig.RenderReceived)
+		chunkConsumer(ctx, chunkChannel)
 		log.Println("Chunk consumer stopped")
 		wg.Done()
 	}()
@@ -345,155 +221,10 @@ func main() {
 	<-c
 	log.Println("Interrupt recieved, shutting down...")
 	ctxCancel()
+	wg.Wait()
 	log.Println("Shutting down storages...")
 	chunkStorage.CloseStorages(storages)
 	log.Println("Storages closed.")
-	wg.Wait()
 	lg.Close()
 	log.Println("Shutdown complete, bye!")
-}
-
-var prevCPUIdle uint64
-var prevCPUTotal uint64
-var prevTime time.Time
-var prevCPUReport string
-var prevLock sync.Mutex
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	load, _ := load.Avg()
-	virtmem, _ := mem.VirtualMemory()
-	uptime, _ := host.Uptime()
-	uptimetime, _ := time.ParseDuration(strconv.Itoa(int(uptime)) + "s")
-
-	prevLock.Lock()
-	var CPUUsage float64
-	var idleTicks, totalTicks float64
-	if time.Since(prevTime) > 1*time.Second {
-		CPUIdle, CPUTotal := getCPUSample()
-		idleTicks = float64(CPUIdle - prevCPUIdle)
-		totalTicks = float64(CPUTotal - prevCPUTotal)
-		CPUUsage = 100 * (totalTicks - idleTicks) / totalTicks
-		// prevCPUReport = fmt.Sprintf("%.1f%% [busy: %.2f, total: %.2f] (past %s)", CPUUsage, totalTicks-idleTicks, totalTicks, (time.Duration(time.Since(prevTime).Seconds()) * time.Second).String())
-		prevCPUReport = fmt.Sprintf("%.1f%% (past %s)", CPUUsage, (time.Duration(time.Since(prevTime).Seconds()) * time.Second).String())
-		prevTime = time.Now()
-		prevCPUIdle = CPUIdle
-		prevCPUTotal = CPUTotal
-	}
-	CPUReport := prevCPUReport
-	prevLock.Unlock()
-
-	var chunksCount, chunksSizeBytes uint64
-	type DimData struct {
-		Dim        chunkStorage.SDim
-		ChunkSize  string
-		ChunkCount uint64
-		CacheSize  string
-		CacheCount int64
-	}
-	type WorldData struct {
-		World chunkStorage.SWorld
-		Dims  []DimData
-	}
-	type StorageData struct {
-		S      chunkStorage.Storage
-		Worlds []WorldData
-		Online bool
-	}
-	st := []StorageData{}
-	for _, s := range storages {
-		worlds := []WorldData{}
-		if s.Driver == nil {
-			st = append(st, StorageData{S: s, Worlds: worlds, Online: false})
-			// log.Println("Skipping storage " + s.Name + " because driver is uninitialized")
-			continue
-		}
-		achunksCount, _ := s.Driver.GetChunksCount()
-		achunksSizeBytes, _ := s.Driver.GetChunksSize()
-		chunksCount += achunksCount
-		chunksSizeBytes += achunksSizeBytes
-		worldss, err := s.Driver.ListWorlds()
-		if err != nil {
-			plainmsg(w, r, plainmsgColorRed, "Error listing worlds of storage "+s.Name+": "+err.Error())
-			return
-		}
-		for _, wrld := range worldss {
-			wd := WorldData{World: wrld, Dims: []DimData{}}
-			dims, err := s.Driver.ListWorldDimensions(wrld.Name)
-			if err != nil {
-				plainmsg(w, r, plainmsgColorRed, "Error listing dimensions of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
-				return
-			}
-			for _, dim := range dims {
-				dimChunksCount, err := s.Driver.GetDimensionChunksCount(wrld.Name, dim.Name)
-				if err != nil {
-					plainmsg(w, r, plainmsgColorRed, "Error getting chunk count of dim "+dim.Name+" of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
-					return
-				}
-				dimChunksSize, err := s.Driver.GetDimensionChunksSize(wrld.Name, dim.Name)
-				if err != nil {
-					plainmsg(w, r, plainmsgColorRed, "Error getting chunks size of dim "+dim.Name+" of world "+wrld.Name+" of storage "+s.Name+": "+err.Error())
-					return
-				}
-				dimCacheCount, dimCacheSize, err := getImageCacheCountSize(wrld.Name, dim.Name)
-				if err != nil {
-					plainmsg(w, r, plainmsgColorRed, "Error getting cache size and counts of dim "+dim.Name+" of world "+wrld.Name+": "+err.Error())
-					return
-				}
-				wd.Dims = append(wd.Dims, DimData{
-					Dim:        dim,
-					ChunkSize:  humanize.Bytes(dimChunksSize),
-					ChunkCount: dimChunksCount,
-					CacheSize:  humanize.Bytes(uint64(dimCacheSize)),
-					CacheCount: dimCacheCount,
-				})
-			}
-			worlds = append(worlds, wd)
-		}
-		st = append(st, StorageData{S: s, Worlds: worlds, Online: true})
-	}
-	chunksSize := humanize.Bytes(chunksSizeBytes)
-	basicLayoutLookupRespond("index", w, r, map[string]interface{}{
-		"BuildTime":   BuildTime,
-		"GitTag":      GitTag,
-		"CommitHash":  CommitHash,
-		"GoVersion":   GoVersion,
-		"LoadAvg":     load,
-		"VirtMem":     virtmem,
-		"Uptime":      uptimetime,
-		"ChunksCount": chunksCount,
-		"ChunksSize":  chunksSize,
-		"CPUReport":   CPUReport,
-		"Storages":    st,
-	})
-}
-
-func worldsHandler(w http.ResponseWriter, r *http.Request) {
-	worlds := chunkStorage.ListWorlds(storages)
-	basicLayoutLookupRespond("worlds", w, r, map[string]interface{}{"Worlds": worlds})
-}
-
-func getCPUSample() (idle, total uint64) {
-	contents, err := os.ReadFile("/proc/stat")
-	if err != nil {
-		return
-	}
-	lines := strings.Split(string(contents), "\n")
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if fields[0] == "cpu" {
-			numFields := len(fields)
-			for i := 1; i < numFields; i++ {
-				val, err := strconv.ParseUint(fields[i], 10, 64)
-				if err != nil {
-					fmt.Println("Error: ", i, fields[i], err)
-				}
-				total += val // tally up all the numbers to get total ticks
-				if i == 4 {  // idle is the 5th field in the cpu line
-					idle = val
-				}
-			}
-			return
-		}
-	}
-	return
 }

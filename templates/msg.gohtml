@@ -1,0 +1,30 @@
+{{define "plainmsg"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div class="px-4 py-5 my-5 {{if .nocenter}}{{else}}text-center{{end}}">
+			{{if .msggreen}}
+				<div class="alert alert-success" role="alert">
+			{{end}}
+			
+			{{if .msgred}}
+				<div class="alert alert-danger" role="alert">
+			{{end}}
+			
+			{{.msg}}
+			
+			{{if .msggreen}}
+				</div>
+			{{end}}
+			
+			{{if .msgred}}
+				</div>
+			{{end}}
+		</div>
+	</body>
+</html>
+{{end}}
