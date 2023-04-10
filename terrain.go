@@ -149,13 +149,29 @@ func prepareSectionBiomes(s *save.Section) *level.PaletteContainer[level.BiomesS
 
 func drawChunkBiomes(chunk *save.Chunk) (img *image.RGBA) {
 	img = image.NewRGBA(image.Rect(0, 0, 4, 4))
+	sort.Slice(chunk.Sections, func(i, j int) bool {
+		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
+	})
+	var colored [4 * 4]bool
 	for _, s := range chunk.Sections {
-		if s.Y != 4 {
-			continue
-		}
 		c := prepareSectionBiomes(&s)
 		for i := 0; i < 4*4; i++ {
-			img.Set(i%4, i/4, biomes.BiomeColors[int(c.Get(i))])
+			biomeid := int(c.Get(i))
+			if biomeid >= 0 && biomeid < len(biomes.BiomeColors) {
+				img.Set(i%4, i/4, biomes.BiomeColors[biomeid])
+				colored[i] = true
+			} else {
+				log.Println("Unknown biome!")
+			}
+		}
+		fullyColored := true
+		for i := 0; i < 4*4; i++ {
+			if !colored[i] {
+				fullyColored = false
+			}
+		}
+		if fullyColored {
+			break
 		}
 	}
 	return img
