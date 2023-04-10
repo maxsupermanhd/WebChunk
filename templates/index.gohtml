@@ -40,7 +40,7 @@
 			<table class="stattable">
 				<thead>
 					<td>Storage</td>
-					<td><a href="/worlds">Worlds</a></td>
+					<td>Worlds</td>
 					<td>Dimensions</td>
 					<td>Chunk information</td>
 					<td>Image cache information</td>
@@ -59,9 +59,10 @@
 						{{$sspan = 1}}
 					{{end}}
 					<td {{if ge $sspan 1}}rowspan="{{$sspan}}"{{end}}>
-						{{$s.S.Name}}
+						{{$s.Name}}
 					</td>
 					{{if $s.Online}}
+						{{if len $s.Worlds}}
 						{{range $j, $w := $s.Worlds}}
 								<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
 									<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
@@ -84,6 +85,11 @@
 							{{end}}
 							{{end}}
 							{{end}}
+						{{end}}
+						{{else}}
+						<td colspan="4" style="text-align:center">
+							No worlds
+						</td>
 						{{end}}
 					{{else}}
 						<td colspan="4" style="text-align:center">

@@ -22,6 +22,7 @@ package main
 
 import (
 	_ "embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"image"
@@ -610,35 +611,48 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
 		return
 	}
-	sort.Slice(chunk.Sections, func(i, j int) bool {
-		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
-	})
+	chunkBytes, err := s.GetChunkRaw(wname, dname, int(cx), int(cz))
+	if err != nil {
+		plainmsg(w, r, 2, "Chunk query error: "+err.Error())
+		return
+	}
 	bedrockInfo := ""
-	for _, s := range chunk.Sections {
-		if len(s.BlockStates.Data) == 0 {
-			continue
-		}
-		states := prepareSectionBlockstates(&s)
-		if states == nil {
-			continue
-		}
-		for y := 15; y >= 0; y-- {
-			for z := 0; z < 16; z++ {
-				for x := 0; x < 16; x++ {
-					state := states.Get(y*16*16 + z*16 + x)
-					block := block.StateList[state]
-					ay := int(s.Y)*16 + y
-					ax := x + int(cx)*16
-					az := z + int(cz)*16
-					if block.ID() == "minecraft:bedrock" && (ay == 4 || ay == 123) {
-						bedrockInfo += fmt.Sprintf("Block::new(%6d, %3d, %6d, BEDROCK),\n", ax, ay, az)
+	if chunk != nil && chunk.Sections != nil {
+		sort.Slice(chunk.Sections, func(i, j int) bool {
+			return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
+		})
+		for _, s := range chunk.Sections {
+			if len(s.BlockStates.Data) == 0 {
+				continue
+			}
+			states := prepareSectionBlockstates(&s)
+			if states == nil {
+				continue
+			}
+			for y := 15; y >= 0; y-- {
+				for z := 0; z < 16; z++ {
+					for x := 0; x < 16; x++ {
+						state := states.Get(y*16*16 + z*16 + x)
+						block := block.StateList[state]
+						ay := int(s.Y)*16 + y
+						ax := x + int(cx)*16
+						az := z + int(cz)*16
+						if block.ID() == "minecraft:bedrock" && (ay == 4 || ay == 123) {
+							bedrockInfo += fmt.Sprintf("Block::new(%6d, %3d, %6d, BEDROCK),\n", ax, ay, az)
+						}
 					}
 				}
 			}
 		}
 	}
-
-	templateRespond("chunkinfo", w, r, map[string]interface{}{"World": world, "Dim": dim, "Chunk": chunk, "PrettyChunk": template.HTML(spew.Sdump(chunk)), "BedrockInfo": template.HTML(bedrockInfo)})
+	templateRespond("chunkinfo", w, r, map[string]any{
+		"World":       world,
+		"Dim":         dim,
+		"Chunk":       chunk,
+		"PrettyChunk": template.HTML(spew.Sdump(chunk)),
+		"BedrockInfo": template.HTML(bedrockInfo),
+		"HexDump":     hex.Dump(chunkBytes),
+	})
 }
 
 func drawNumberOfChunks(c int) *image.RGBA {

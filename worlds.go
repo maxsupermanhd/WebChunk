@@ -25,7 +25,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 )
 
@@ -33,26 +32,6 @@ var (
 	worldNameRegexp = regexp.MustCompile(`[\-a-zA-Z0-9.]+`)
 	worldIPRegexp   = regexp.MustCompile(`[\-a-zA-Z0-9.]+`)
 )
-
-func worldHandler(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	wname := params["world"]
-	world, s, err := chunkStorage.GetWorldStorage(storages, wname)
-	if err != nil {
-		plainmsg(w, r, plainmsgColorRed, "Error looking up world storage: "+err.Error())
-		return
-	}
-	if s == nil || world == nil {
-		plainmsg(w, r, plainmsgColorRed, "World not found")
-		return
-	}
-	dims, err := s.ListWorldDimensions(wname)
-	if err != nil {
-		plainmsg(w, r, plainmsgColorRed, "Error getting dimensions from world: "+err.Error())
-		return
-	}
-	templateRespond("world", w, r, map[string]interface{}{"Dims": dims, "World": world})
-}
 
 func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
 	if r.ParseMultipartForm(0) != nil {
@@ -95,7 +74,7 @@ func apiAddWorld(w http.ResponseWriter, r *http.Request) (int, string) {
 	return marshalOrFail(200, world)
 }
 
-func apiListWorlds(w http.ResponseWriter, r *http.Request) (int, string) {
+func apiListWorlds(w http.ResponseWriter, _ *http.Request) (int, string) {
 	worlds := chunkStorage.ListWorlds(storages)
 	setContentTypeJson(w)
 	return marshalOrFail(200, worlds)

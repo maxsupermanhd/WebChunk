@@ -57,6 +57,7 @@ func customLogger(_ io.Writer, params handlers.LogFormatterParams) {
 }
 
 func main() {
+	//lint:ignore SA1019 intentional
 	rand.Seed(time.Now().UTC().UnixNano())
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	if buildinfo, ok := debug.ReadBuildInfo(); ok {
@@ -96,7 +97,7 @@ func main() {
 		wg.Done()
 	}()
 
-	if err := initStorages(); err != nil {
+	if err := storagesInit(); err != nil {
 		log.Fatal("Failed to initialize storages: ", err)
 	}
 
@@ -120,9 +121,11 @@ func main() {
 	router.HandleFunc("/robots.txt", robotsHandler).Methods("GET")
 
 	router.HandleFunc("/", indexHandler).Methods("GET")
-	router.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) { ctxCancel(); w.WriteHeader(200) }).Methods("GET")
-	router.HandleFunc("/worlds", worldsHandler).Methods("GET")
-	router.HandleFunc("/worlds/{world}", worldHandler).Methods("GET")
+	router.HandleFunc("/stop", func(w http.ResponseWriter, _ *http.Request) {
+		ctxCancel()
+		w.WriteHeader(200)
+		w.Write([]byte("Success"))
+	}).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
@@ -131,22 +134,22 @@ func main() {
 	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
 	router.HandleFunc("/cfg", cfgHandler).Methods("GET")
 
-	router.HandleFunc("/api/1/config/save", apiHandle(apiSaveConfig)).Methods("GET")
+	router.HandleFunc("/api/v1/config/save", apiHandle(apiSaveConfig)).Methods("GET")
 
-	router.HandleFunc("/api/1/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
-	router.HandleFunc("/api/1/submit/region/{world}/{dim}", apiAddRegionHandler)
+	router.HandleFunc("/api/v1/submit/chunk/{world}/{dim}", apiHandle(apiAddChunkHandler))
+	router.HandleFunc("/api/v1/submit/region/{world}/{dim}", apiAddRegionHandler)
 
-	router.HandleFunc("/api/1/renderers", apiHandle(apiListRenderers)).Methods("GET")
+	router.HandleFunc("/api/v1/renderers", apiHandle(apiListRenderers)).Methods("GET")
 
-	router.HandleFunc("/api/1/storages", apiHandle(apiStoragesGET)).Methods("GET")
-	router.HandleFunc("/api/1/storages", apiHandle(apiStorageAdd)).Methods("PUT")
-	router.HandleFunc("/api/1/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
+	router.HandleFunc("/api/v1/storages", apiHandle(apiStoragesGET)).Methods("GET")
+	router.HandleFunc("/api/v1/storages", apiHandle(apiStorageAdd)).Methods("PUT")
+	router.HandleFunc("/api/v1/storages/{storage}/reinit", apiHandle(apiStorageReinit)).Methods("GET")
 
-	router.HandleFunc("/api/1/worlds", apiHandle(apiAddWorld)).Methods("POST")
-	router.HandleFunc("/api/1/worlds", apiHandle(apiListWorlds)).Methods("GET")
+	router.HandleFunc("/api/v1/worlds", apiHandle(apiAddWorld)).Methods("POST")
+	router.HandleFunc("/api/v1/worlds", apiHandle(apiListWorlds)).Methods("GET")
 
-	router.HandleFunc("/api/1/dims", apiHandle(apiAddDimension)).Methods("POST")
-	router.HandleFunc("/api/1/dims", apiHandle(apiListDimensions)).Methods("GET")
+	router.HandleFunc("/api/v1/dims", apiHandle(apiAddDimension)).Methods("POST")
+	router.HandleFunc("/api/v1/dims", apiHandle(apiListDimensions)).Methods("GET")
 
 	router1 := handlers.ProxyHeaders(router)
 	router2 := handlers.CompressHandler(router1)

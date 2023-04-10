@@ -12,7 +12,7 @@ Path to load config from is taken from environment variable `WEBCHUNK_CONFIG` an
 | --- | --- | --- | --- | --- |
 | `logs_path` | string | No | `./logs/WebChunk.log` | Path to log file (will create files and directories if needed) |
 | `colors_path` | string | Yes 🔧 |`./colors.gob` | Path to GOB-encoded block color palette |
-| `storages` | object | Yes | `{}` | Contains defined storages, see [Storage object](#storage-object) |
+| `storages` | object | No | `{}` | Contains defined storages, see [Storage object](#storage-object) |
 | `render_received` | bool | Yes | `true` | Do render chunks immediately when received |
 | `web` | object | Parially | see below | Group for web-related parameters |
 | `web`.`listen_addr` | string | No | `localhost:3002` | Web server listen address |

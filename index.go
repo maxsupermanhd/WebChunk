@@ -113,7 +113,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			worlds = append(worlds, wd)
 		}
-		st = append(st, StorageData{S: s, Worlds: worlds, Online: true})
+		st = append(st, StorageData{Name: sn, S: s, Worlds: worlds, Online: true})
 	}
 	chunksSize := humanize.Bytes(chunksSizeBytes)
 	templateRespond("index", w, r, map[string]interface{}{
@@ -125,11 +125,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		"CPUReport":   CPUReport,
 		"Storages":    st,
 	})
-}
-
-func worldsHandler(w http.ResponseWriter, r *http.Request) {
-	worlds := chunkStorage.ListWorlds(storages)
-	templateRespond("worlds", w, r, map[string]interface{}{"Worlds": worlds})
 }
 
 func getCPUSample() (idle, total uint64) {

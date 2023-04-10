@@ -301,7 +301,7 @@ func apiStorageReinit(_ http.ResponseWriter, r *http.Request) (int, string) {
 	if err != nil {
 		return 500, "Failed to close storage: " + err.Error()
 	}
-	d, err := initStorage(s.Type, s.Address)
+	d, err := newStorage(s.Type, s.Address)
 	if err != nil {
 		return 500, err.Error()
 	}
@@ -333,7 +333,7 @@ func apiStorageAdd(_ http.ResponseWriter, r *http.Request) (int, string) {
 	if ok {
 		return 400, "Storage with that name already exists"
 	}
-	driver, err := initStorage(t, address)
+	driver, err := newStorage(t, address)
 	if err != nil {
 		if err == errStorageTypeNotImplemented {
 			return 400, err.Error()

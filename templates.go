@@ -157,3 +157,9 @@ func templateRespond(page string, w http.ResponseWriter, _ *http.Request, m map[
 		http.Error(w, "", http.StatusNotFound)
 	}
 }
+
+func basicTemplateResponseHandler(page string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		templateRespond(page, w, r, map[string]any{})
+	}
+}

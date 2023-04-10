@@ -15,19 +15,16 @@
 			crossorigin=""></script>
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+		<link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' rel='stylesheet'/>
 		<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
-		<link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' rel='stylesheet' />
-
+		<link rel="stylesheet" href="/static/Control.Loading.css" />
+		<script src="/static/Control.Loading.js"></script>
 		<title>WebChunk {{.World.Name}}</title>
 	</head>
 	<body>
 		{{template "nav" . }}
 		<div class="px-4 py-5 container">
-			<h4><a class="nodecoration" href="/">WebChunk</a></h4>
-			<h2>World {{.World.Name}}</h2>
-			{{if avail "IP" .World}}<small>IP: <code>{{.World.IP}}</code></small>{{end}}
-			<h3>Dimension {{.Dim.Name}}</h3>
-			<hr>
+			<h2><code>{{.World.Name}}</code>:<code>{{.Dim.Name}}</code></h2>
 			<div>
 				<label>X<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoX" value="-280"></label>
 				<label>Z<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoZ" value="620"></label>
@@ -97,9 +94,10 @@
 			cursor: false,
 			crs: L.CRS.Simple,
 			fullscreenControl: true,
+			loadingControl: true,
 			layers: [{{range $1, $l := .Layers}}{{if $l.IsDefault}}layer{{noescapeJS $l.Name}},{{end}}{{end}} coordinatelayer]
 		}).setView([0, 0], 3);
-		L.control.scale().addTo(mymap);
+		L.control.scale({metric: true, imperial: false}).addTo(mymap);
 		L.control.layers({
 			{{range $1, $l := .Layers}}{{if $l.IsOverlay}}{{else}}"{{$l.DisplayName}}": layer{{noescapeJS $l.Name}},
 			{{end}}{{end}}}, {

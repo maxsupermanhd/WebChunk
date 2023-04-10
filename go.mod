@@ -14,10 +14,8 @@ replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
 
 replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
-replace github.com/maxsupermanhd/lac => /home/max/p/lac
-
 require (
-	github.com/Tnze/go-mc v1.19.3-0.20230131144030-8da0424cb476
+	github.com/Tnze/go-mc v1.19.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
@@ -41,7 +39,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.12.1 // indirect
@@ -52,7 +49,7 @@ require (
 	github.com/jackc/pgtype v1.11.0 // indirect
 	github.com/jackc/puddle v1.2.1 // indirect
 	github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797
-	github.com/maxsupermanhd/lac v0.0.0-20230305082925-30eef40f6238
+	github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.5.0 // indirect

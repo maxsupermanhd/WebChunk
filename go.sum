@@ -2,16 +2,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
 github.com/Tnze/go-mc v1.17.0/go.mod h1:t0AI38F1BEmmy8/uLhr9RCOUeDbBj3oUNQH9akjzMc0=
-github.com/Tnze/go-mc v1.19.1-0.20221129063756-3750dff99dcd h1:E1Y8l2QrJ48ONFN2mqTNgJjc9uExzGs/lNcZ1Af883Q=
-github.com/Tnze/go-mc v1.19.1-0.20221129063756-3750dff99dcd/go.mod h1:DyW8IaHwJqwg4m9E+y2FV+SN62wqy0jWA0O2Hkiilmk=
-github.com/Tnze/go-mc v1.19.1-0.20221206163600-cf9accd5e40b h1:1LT8D8ACJKPQ7jUdYtu81RncFSIU6MHIZY3hODtjUgA=
-github.com/Tnze/go-mc v1.19.1-0.20221206163600-cf9accd5e40b/go.mod h1:uNMPHRugYj2nXIHbmm8XTQJ1NpQAC2p214es9BIC5Rc=
-github.com/Tnze/go-mc v1.19.1-0.20221207035247-9e33febe3f46 h1:VylkkMRfaNNO2jWumabTfrl4nXt4tLY1kuyK01AKfzg=
-github.com/Tnze/go-mc v1.19.1-0.20221207035247-9e33febe3f46/go.mod h1:uNMPHRugYj2nXIHbmm8XTQJ1NpQAC2p214es9BIC5Rc=
 github.com/Tnze/go-mc v1.19.2 h1:g2KKNeeBO4ZzgXp/hjCK/gm/8YRhx1QXdlcqkps8KdE=
 github.com/Tnze/go-mc v1.19.2/go.mod h1:uNMPHRugYj2nXIHbmm8XTQJ1NpQAC2p214es9BIC5Rc=
-github.com/Tnze/go-mc v1.19.3-0.20221229171139-77857a1a8504 h1:GzySJdPkFD8e9bihIXkpA/d+/nRtnSTz/94ZsnbsAa0=
-github.com/Tnze/go-mc v1.19.3-0.20221229171139-77857a1a8504/go.mod h1:uNMPHRugYj2nXIHbmm8XTQJ1NpQAC2p214es9BIC5Rc=
 github.com/Tnze/go-mc v1.19.3-0.20230131144030-8da0424cb476 h1:5lPbtJDnQD1Qa/B5KCqITPOjhh01DIrx6vE37cT1VCI=
 github.com/Tnze/go-mc v1.19.3-0.20230131144030-8da0424cb476/go.mod h1:uNMPHRugYj2nXIHbmm8XTQJ1NpQAC2p214es9BIC5Rc=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
@@ -44,8 +36,6 @@ github.com/gorilla/handlers v1.5.1 h1:9lRY6j8DEeeBT10CvO9hGW0gmky0BprnvDI5vfhUHH
 github.com/gorilla/handlers v1.5.1/go.mod h1:t8XrUpc4KVXb7HGyJ4/cEnwQiaxrX/hz1Zv/4g96P1Q=
 github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
 github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
-github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
-github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=
@@ -121,8 +111,8 @@ github.com/mattn/go-isatty v0.0.7/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hd
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797 h1:Jipsapvs1Fq++OK7SMWqEKot/QOzYYHWF5JhCS+dZ7Y=
 github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797/go.mod h1:WBS+Mq/0VBXcKmXH5/DSok3dsvlNrFvSyq5cjHDA3sw=
-github.com/maxsupermanhd/lac v0.0.0-20230305082925-30eef40f6238 h1:1K1zvfh0fHLEHurcTJo8Yz8C+/NvjkhdQzCd8b4MTv0=
-github.com/maxsupermanhd/lac v0.0.0-20230305082925-30eef40f6238/go.mod h1:xQezeA7Tf0qvyr6DuOjmBJTcAyM9RS7cUKxOlnQLZKo=
+github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf h1:V2EuMRfFjjAMaDWLqB9I2sPpfkL+uOLZHHbO7DOeY64=
+github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf/go.mod h1:xQezeA7Tf0qvyr6DuOjmBJTcAyM9RS7cUKxOlnQLZKo=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/natefinch/lumberjack v2.0.0+incompatible h1:4QJd3OLAMgj7ph+yZTuX13Ld4UpgHp07nNdFX7mqFfM=
