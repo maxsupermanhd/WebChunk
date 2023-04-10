@@ -56,9 +56,11 @@
 		{{template "nav" . }}
 		<div id="content">
 			<div id="sidebar">
-				<p>World: <code>{{.World.Name}}</code></p>
-				<p>Dimension: <code>{{.Dim.Name}}</code></p>
-				<div class="mt-3">
+				<div class="mb-3">
+					<p>World: <code>{{.World.Name}}</code></p>
+					<p>Dimension: <code>{{.Dim.Name}}</code></p>
+				</div>
+				<div class="mb-3">
 					<table>
 						<tr>
 							<td>X</td>
@@ -75,6 +77,15 @@
 					</table>
 					<a class="btn btn-primary" style="width: 100%" onclick="mapGoTo();">Jump to coordinates</a>
 				</div>
+				<div class="mb-3">
+					<div class="form-check form-switch">
+						<label class="form-check-label" for="enableCache">Enable cache</label>
+						<input class="form-check-input" autocomplete="off" type="checkbox" role="switch" id="enableCache" checked>
+					</div>
+				</div>
+				<div class="mb-3">
+					<a class="btn btn-primary" style="width: 100%" onclick="mapReload();">Reload images</a>
+				</div>
 			</div>
 			<div id="mapcontainer">
 					<div id="map">
@@ -83,11 +94,22 @@
 		</div>
 		<script>
 		let maxZoomBack = 8;
+		var enableCacheCheck = document.getElementById('enableCache');
+		var redrawint = Math.floor( Math.random() * 200000 ) + 1
+		var getRedrawInteger = function() {
+			return redrawint;
+		};
 		function mapGoTo() {
 			let z = document.getElementById('gotoZ').value;
 			let x = document.getElementById('gotoX').value;
 			let s = document.getElementById('gotoS').value;
 			mymap.setView([-z/16, x/16], maxZoomBack-s);
+		}
+		function mapReload() {
+			redrawint += 1;
+			mymap.eachLayer(function(layer) {
+				layer.redraw();
+			})
 		}
 		L.CursorHandler = L.Handler.extend({
 			addHooks: function () {
@@ -116,10 +138,15 @@
 		var defaultLayerSettings = {
 			maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
 			tileSize: 256, zoomReverse: true,
-			zoomSnap: 0.25, attribution: '&copy; WebChunk Contributors'}
+			zoomSnap: 0.25, attribution: '&copy; WebChunk Contributors',
+			requestCached: function() {
+				return enableCacheCheck.checked;
+			},
+			redrawnum: getRedrawInteger,
+		}
 
 		var voidlayer = L.tileLayer('/thisdoesnotexist', defaultLayerSettings);
-		{{range $i, $l := .Layers}}var layer{{noescapeJS $l.Name}} = L.tileLayer('/worlds/{{$.World.Name}}/{{$.Dim.Name}}/tiles/{{$l.Name}}/{z}/{x}/{y}/png', defaultLayerSettings);
+		{{range $i, $l := .Layers}}var layer{{noescapeJS $l.Name}} = L.tileLayer('/worlds/{{$.World.Name}}/{{$.Dim.Name}}/tiles/{{$l.Name}}/{z}/{x}/{y}/png?cached={requestCached}&redraw={redrawnum}', defaultLayerSettings);
 		{{end}}
 		
 		L.GridLayer.GridCoordinates = L.GridLayer.extend({

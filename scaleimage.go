@@ -22,7 +22,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
+	"errors"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -117,7 +119,7 @@ func tileRouterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if r.Header.Get("Cache-Control") != "no-cache" {
+	if !r.URL.Query().Has("cached") || r.URL.Query().Get("cached") == "true" {
 		img := imageCacheGetBlocking(wname, dname, datatype, cs, cx, cz)
 		if img != nil {
 			b := bytes.NewBuffer([]byte{})
@@ -193,6 +195,9 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 		return nil
 	}
 	for _, c := range cc {
+		if errors.Is(r.Context().Err(), context.Canceled) {
+			return img
+		}
 		placex := int(c.X - offsetx)
 		placey := int(c.Z - offsety)
 		var chunk *image.RGBA
