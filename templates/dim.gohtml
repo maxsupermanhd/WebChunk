@@ -4,8 +4,39 @@
 	<head>
 		{{template "head"}}
 		<style>
-		#map {height: 700px;width: 1200px;margin-left: auto; margin-right: auto}
-		img.leaflet-tile {image-rendering: pixelated;}
+		img.leaflet-tile {
+			image-rendering: pixelated;
+		}
+		html, body {
+			height: 100%;
+		}
+		#sidebar {
+			height: 100%;
+			width: 280px;
+		}
+		body {
+			display: flex;
+			overflow: hidden;
+			height: 100%;
+			flex-direction: column;
+		}
+		div#content {
+			display: flex;
+			flex-direction: row;
+			flex-grow: 2;
+		}
+		div#sidebar {
+			padding: 0.5rem;
+			min-width: 0;
+		}
+		div#mapcontainer {
+			flex: auto;
+			background-color: green;
+		}
+		div#map {
+			width: 100%;
+			height: 100%;
+		}
 		</style>
 		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
 			integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
@@ -23,16 +54,33 @@
 	</head>
 	<body>
 		{{template "nav" . }}
-		<div class="px-4 py-5 container">
-			<h2><code>{{.World.Name}}</code>:<code>{{.Dim.Name}}</code></h2>
-			<div>
-				<label>X<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoX" value="-280"></label>
-				<label>Z<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoZ" value="620"></label>
-				<label>S<input class="d-inline form-control" style="max-width: 120px" type="number" id="gotoS" value="2"></label>
-				<a class="btn btn-primary" onclick="mapGoTo();">go to</a>
+		<div id="content">
+			<div id="sidebar">
+				<p>World: <code>{{.World.Name}}</code></p>
+				<p>Dimension: <code>{{.Dim.Name}}</code></p>
+				<div class="mt-3">
+					<table>
+						<tr>
+							<td>X</td>
+							<td><input class="form-control" type="number" id="gotoX" value="-280"></td>
+						</tr>
+						<tr>
+							<td>Z</td>
+							<td><input class="form-control" type="number" id="gotoZ" value="620"></td>
+						</tr>
+						<tr>
+							<td>Zoom</td>
+							<td><input class="form-control" type="number" id="gotoS" value="5"></td>
+						</tr>
+					</table>
+					<a class="btn btn-primary" style="width: 100%" onclick="mapGoTo();">Jump to coordinates</a>
+				</div>
+			</div>
+			<div id="mapcontainer">
+					<div id="map">
+					</div>
 			</div>
 		</div>
-		<div id="map"></div>
 		<script>
 		let maxZoomBack = 8;
 		function mapGoTo() {
@@ -43,7 +91,6 @@
 		}
 		L.CursorHandler = L.Handler.extend({
 			addHooks: function () {
-				this._popup = new L.Popup();
 				this._map.on('mouseover', this._open, this);
 				this._map.on('mousemove', this._update, this);
 				this._map.on('mouseout', this._close, this);
