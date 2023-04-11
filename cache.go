@@ -222,7 +222,7 @@ func imageCacheProcessor(ctx context.Context) {
 					break
 				}
 				if p.loc.s != 0 {
-					log.Printf("Unsupported cache write of scale %d", p.loc.s)
+					// log.Printf("Unsupported cache write of scale %d", p.loc.s)
 					break
 				}
 				rx, rz := icAT(p.loc.x, p.loc.z)
