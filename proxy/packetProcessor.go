@@ -293,9 +293,6 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 				respawnScreen    pk.Boolean
 				isdebug          pk.Boolean
 				isflat           pk.Boolean
-				hasDeathLoc      pk.Boolean
-				deathDimName     pk.Identifier
-				deathLoc         pk.Position
 			)
 			err := p.Scan(
 				&eid,
@@ -314,9 +311,6 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 				&respawnScreen,
 				&isdebug,
 				&isflat,
-				&hasDeathLoc,
-				&deathDimName,
-				&deathLoc,
 			)
 			if err != nil {
 				log.Printf("Failed to parse sniffed packet: %v", err.Error())
