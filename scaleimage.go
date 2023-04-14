@@ -110,6 +110,12 @@ var ttypes = map[ttype]ttypeProviderFunc{
 			return drawChunkLavaAge(&c, 128)
 		}
 	},
+	{"shading", "Shading", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
+			c := i.(save.Chunk)
+			return drawChunkShading(&c)
+		}
+	},
 }
 
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {

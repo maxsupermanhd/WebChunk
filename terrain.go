@@ -220,6 +220,61 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
+func drawChunkShading(chunk *save.Chunk) (img *image.RGBA) {
+	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	defaultColor := color.RGBA{0, 0, 0, 0}
+	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
+	var height [16 * 16]int
+	var set [16 * 16]bool
+	sort.Slice(chunk.Sections, func(i, j int) bool {
+		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
+	})
+	for _, s := range chunk.Sections {
+		if len(s.BlockStates.Data) == 0 {
+			continue
+		}
+		states := prepareSectionBlockstates(&s)
+		if states == nil {
+			log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
+			continue
+		}
+		for y := 15; y >= 0; y-- {
+			for i := 16*16 - 1; i >= 0; i-- {
+				if set[i] {
+					continue
+				}
+				state := states.Get(y*16*16 + i)
+				if !isAirState(state) {
+					height[i] = int(s.Y)*16 + y
+					set[i] = true
+				}
+			}
+		}
+	}
+	for i := 0; i < 16*16; i++ {
+		if i%16 == 15 || i/16 == 0 {
+			continue
+		}
+		if height[i-16] < height[i] {
+			delta := height[i] - height[i-16]
+			if delta > 64 {
+				img.Set(i%16-1, i/16, color.RGBA{128, 128, 128, 32})
+			} else {
+				img.Set(i%16-1, i/16, color.RGBA{uint8(delta * 2), uint8(delta * 2), uint8(delta * 2), 32})
+			}
+		}
+		if height[i+1] < height[i] {
+			delta := height[i] - height[i+1]
+			if delta > 64 {
+				img.Set(i%16, i/16+1, color.RGBA{128, 128, 128, 32})
+			} else {
+				img.Set(i%16, i/16+1, color.RGBA{uint8(delta * 2), uint8(delta * 2), uint8(delta * 2), 32})
+			}
+		}
+	}
+	return img
+}
+
 //lint:ignore U1000 for debugging
 func printColor(c color.RGBA64) string {
 	return fmt.Sprintf("%5d %5d %5d %5d", c.R, c.G, c.B, c.A)
