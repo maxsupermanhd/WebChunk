@@ -225,6 +225,10 @@ func printColor(c color.RGBA64) string {
 	return fmt.Sprintf("%5d %5d %5d %5d", c.R, c.G, c.B, c.A)
 }
 
+// func getBiomeSpecificColor(blockID block.Block, biomeID level.BiomesState) color.RGBA64 {
+
+// }
+
 func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
@@ -237,9 +241,8 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
 	})
 	type OutputBlock struct {
-		sR, sG, sB, sA uint64
-		c              uint64
-		b              []block.Block
+		c []color.RGBA64
+		b []block.Block
 	}
 	outputs := make([]OutputBlock, 16*16)
 	failedState := 0
@@ -254,11 +257,14 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 		}
 		states := prepareSectionBlockstates(&s)
 		if states == nil {
-			if os.Getenv("REPORT_CHUNK_PROBLEMS") == "yes" || os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
-				log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
-			}
+			log.Printf("Chunk %d:%d section %d has broken states pallete", chunk.XPos, chunk.YPos, s.Y)
 			continue
 		}
+		// biomes := prepareSectionBiomes(&s)
+		// if biomes == nil {
+		// 	log.Printf("Chunk %d:%d section %d has broken biome pallete", chunk.XPos, chunk.YPos, s.Y)
+		// 	continue
+		// }
 		for y := 15; y >= 0; y-- {
 			for i := 16*16 - 1; i >= 0; i-- {
 				if colored[i] {
@@ -271,6 +277,7 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 				}
 				toColor := color.RGBA64{R: 0, G: 0, B: 0, A: 0}
 				isTransparent := false
+				isWater := false
 				switch blockState.(type) {
 				// Grass tint for plains
 				// TODO: actually grab correct tint from biome
@@ -298,80 +305,67 @@ func drawChunk(chunk *save.Chunk) (img *image.RGBA) {
 				// Foliage tint for plains
 				// TODO: actually grab correct tint from biome
 				case block.OakLeaves:
-					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0xFFFF}
+					// isTransparent = true
 				case block.JungleLeaves:
-					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0xFFFF}
+					// isTransparent = true
 				case block.AcaciaLeaves:
-					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0xFFFF}
+					// isTransparent = true
 				case block.DarkOakLeaves:
-					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0xFFFF}
+					// isTransparent = true
 				case block.BirchLeaves:
-					toColor = color.RGBA64{R: 0x80 * 257, G: 0xA7 * 257, B: 0x55 * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x80 * 257, G: 0xA7 * 257, B: 0x55 * 257, A: 0xFFFF}
+					// isTransparent = true
 				case block.SpruceLeaves:
-					toColor = color.RGBA64{R: 0x61 * 257, G: 0x99 * 257, B: 0x61 * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x61 * 257, G: 0x99 * 257, B: 0x61 * 257, A: 0xFFFF}
+					// isTransparent = true
 				case block.Vine:
-					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0x7F * 257}
-					isTransparent = true
+					toColor = color.RGBA64{R: 0x77 * 257, G: 0xAB * 257, B: 0x2F * 257, A: 0xFFFF}
+					// isTransparent = true
 
 				// Water tint for "most biomes" lmao
 
 				case block.Water:
-					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0x7F * 257}
+					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0x30 * 257}
 					isTransparent = true
+					isWater = true
 				case block.WaterCauldron:
 					toColor = color.RGBA64{R: 0x3F * 257, G: 0x76 * 257, B: 0xE4 * 257, A: 0xFF * 257}
 				default:
 					toColor = colors[state]
 				}
 
-				if isTransparent {
-					outputs[i].sR += uint64(toColor.R)
-					outputs[i].sG += uint64(toColor.G)
-					outputs[i].sB += uint64(toColor.B)
-					outputs[i].sA += uint64(toColor.A)
-					outputs[i].c++
-					outputs[i].b = append(outputs[i].b, blockState)
-				} else {
-					if outputs[i].c != 0 {
-						backColor := toColor
-						frontColor := color.RGBA64{
-							R: uint16(outputs[i].sR / outputs[i].c),
-							G: uint16(outputs[i].sG / outputs[i].c),
-							B: uint16(outputs[i].sB / outputs[i].c),
-							A: uint16(outputs[i].sA / outputs[i].c),
+				if !isTransparent {
+					if len(outputs[i].c) > 1 {
+						for c1 := 1; c1 < len(outputs[i].c); c1++ {
+							cvA := float64(outputs[i].c[c1].A) / 65535
+							outputs[i].c[0].R = uint16(float64(outputs[i].c[0].R)*(1-cvA) + float64(outputs[i].c[c1].R)*cvA)
+							outputs[i].c[0].G = uint16(float64(outputs[i].c[0].G)*(1-cvA) + float64(outputs[i].c[c1].G)*cvA)
+							outputs[i].c[0].B = uint16(float64(outputs[i].c[0].B)*(1-cvA) + float64(outputs[i].c[c1].B)*cvA)
+
 						}
-						multiply := 1 - float64(frontColor.A)/float64(65535)
-						backColor.R = uint16(float64(backColor.R) * multiply)
-						backColor.G = uint16(float64(backColor.G) * multiply)
-						backColor.B = uint16(float64(backColor.B) * multiply)
-						finalR := uint32(backColor.R) + uint32(frontColor.R)
-						finalG := uint32(backColor.G) + uint32(frontColor.G)
-						finalB := uint32(backColor.B) + uint32(frontColor.B)
-						if finalR > 65535 {
-							finalR = 65535
-						}
-						if finalG > 65535 {
-							finalG = 65535
-						}
-						if finalB > 65535 {
-							finalB = 65535
-						}
-						// I know that capping those values is a bad idea and there is a proper solution
-						// But I am too lazy and/or stupid to implement it, I tried for over 2 hours already
-						toColor = color.RGBA64{uint16(finalR), uint16(finalG), uint16(finalB), 65535}
-						// log.Println("Final blend", fmt.Sprintf("% 3d %02d:%02d", outputs[i].c, i%16, i/16), printColor(colors[state]), printColor(backColor), printColor(frontColor), printColor(toColor))
+						toColor.R = uint16(float64(toColor.R)*0.3 + float64(outputs[i].c[0].R)*0.7)
+						toColor.G = uint16(float64(toColor.G)*0.3 + float64(outputs[i].c[0].G)*0.7)
+						toColor.B = uint16(float64(toColor.B)*0.3 + float64(outputs[i].c[0].B)*0.7)
 					}
+					toColor.A = 65535
 					// log.Printf("Painting %02d:%02d %v %#v %#v", i%16, i/16, toColor, blockState.ID(), outputs[i].b)
 					img.Set(i%16, i/16, toColor)
 					colored[i] = true
+				} else {
+					if isWater {
+						if len(outputs[i].b) < 2 {
+							outputs[i].c = append(outputs[i].c, toColor)
+							outputs[i].b = append(outputs[i].b, blockState)
+						}
+					} else {
+						outputs[i].c = append(outputs[i].c, toColor)
+						outputs[i].b = append(outputs[i].b, blockState)
+					}
 				}
-				// absy := uint(int(s.Y)*16 + y)
 			}
 		}
 	}
