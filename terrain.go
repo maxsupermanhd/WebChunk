@@ -218,6 +218,7 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 }
 
 func drawChunkShading(chunk *save.Chunk) (img *image.RGBA) {
+	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
 	defaultColor := color.RGBA{0, 0, 0, 0}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
@@ -269,6 +270,7 @@ func drawChunkShading(chunk *save.Chunk) (img *image.RGBA) {
 			}
 		}
 	}
+	appendMetrics(time.Since(t), "shading")
 	return img
 }
 
