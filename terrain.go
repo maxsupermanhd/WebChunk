@@ -22,6 +22,7 @@ package main
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"html/template"
@@ -103,18 +104,14 @@ func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.St
 		if !ok {
 			b, ok = block.FromID["minecraft:"+v.Name]
 			if !ok {
-				if os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
-					log.Printf("Can not find block from id [%v]", v.Name)
-				}
+				log.Printf("Can not find block from id [%v]", v.Name)
 				return nil
 			}
 		}
 		if v.Properties.Data != nil {
 			err := v.Properties.Unmarshal(&b)
 			if err != nil {
-				if os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
-					log.Printf("Error unmarshling properties of block [%v] from [%v]: %v", v.Name, v.Properties.String(), err.Error())
-				}
+				log.Printf("Error unmarshling properties of block [%v] from [%v]: %v", v.Name, v.Properties.String(), err.Error())
 				return nil
 			}
 		}
@@ -690,24 +687,31 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 			if len(s.BlockStates.Data) == 0 {
 				continue
 			}
-			states := prepareSectionBlockstates(&s)
-			if states == nil {
-				continue
-			}
-			for y := 15; y >= 0; y-- {
-				for z := 0; z < 16; z++ {
-					for x := 0; x < 16; x++ {
-						state := states.Get(y*16*16 + z*16 + x)
-						block := block.StateList[state]
-						ay := int(s.Y)*16 + y
-						ax := x + int(cx)*16
-						az := z + int(cz)*16
-						if block.ID() == "minecraft:bedrock" && (ay == 4 || ay == 123) {
-							bedrockInfo += fmt.Sprintf("Block::new(%6d, %3d, %6d, BEDROCK),\n", ax, ay, az)
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						log.Printf("panic occurred while processing section %v: %v", s.Y, err)
+					}
+				}()
+				states := prepareSectionBlockstates(&s)
+				if states == nil {
+					return
+				}
+				for y := 15; y >= 0; y-- {
+					for z := 0; z < 16; z++ {
+						for x := 0; x < 16; x++ {
+							state := states.Get(y*16*16 + z*16 + x)
+							block := block.StateList[state]
+							ay := int(s.Y)*16 + y
+							ax := x + int(cx)*16
+							az := z + int(cz)*16
+							if block.ID() == "minecraft:bedrock" && (ay == 4 || ay == 123) {
+								bedrockInfo += fmt.Sprintf("Block::new(%6d, %3d, %6d, BEDROCK),\n", ax, ay, az)
+							}
 						}
 					}
 				}
-			}
+			}()
 		}
 	}
 	templateRespond("chunkinfo", w, r, map[string]any{
@@ -717,6 +721,7 @@ func terrainInfoHandler(w http.ResponseWriter, r *http.Request) {
 		"PrettyChunk": template.HTML(spew.Sdump(chunk)),
 		"BedrockInfo": template.HTML(bedrockInfo),
 		"HexDump":     hex.Dump(chunkBytes),
+		"Base64":      base64.StdEncoding.EncodeToString(chunkBytes),
 	})
 }
 
