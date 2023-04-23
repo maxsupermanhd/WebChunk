@@ -31,6 +31,7 @@ import (
 	"image/png"
 	"log"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	_ "sync"
 
@@ -111,9 +112,8 @@ var ttypes = map[ttype]ttypeProviderFunc{
 		}
 	},
 	{"shading", "Shading", true, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
-		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
-			c := i.(save.Chunk)
-			return drawChunkShading(&c)
+		return getChunksRegionWithContextFN(s), func(i interface{}) *image.RGBA {
+			return drawChunkShading(i.(ContextedChunkData))
 		}
 	},
 }
@@ -211,6 +211,7 @@ func scaleImageryHandler(w http.ResponseWriter, r *http.Request, getter chunkDat
 			defer func() {
 				if err := recover(); err != nil {
 					log.Println(cx, cz, err)
+					debug.PrintStack()
 				}
 				chunk = nil
 			}()

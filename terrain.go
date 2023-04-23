@@ -217,58 +217,55 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
-func drawChunkShading(chunk *save.Chunk) (img *image.RGBA) {
+func drawChunkShading(chunkContext ContextedChunkData) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
 	defaultColor := color.RGBA{0, 0, 0, 0}
 	draw.Draw(img, img.Bounds(), &image.Uniform{defaultColor}, image.Point{}, draw.Src)
-	var height [16 * 16]int
-	var set [16 * 16]bool
-	sort.Slice(chunk.Sections, func(i, j int) bool {
-		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
-	})
-	for _, s := range chunk.Sections {
-		if len(s.BlockStates.Data) == 0 {
-			continue
-		}
-		states := prepareSectionBlockstates(&s)
-		if states == nil {
-			log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
-			continue
-		}
-		for y := 15; y >= 0; y-- {
-			for i := 16*16 - 1; i >= 0; i-- {
-				if set[i] {
-					continue
-				}
-				state := states.Get(y*16*16 + i)
-				if !isAirState(state) {
-					height[i] = int(s.Y)*16 + y
-					set[i] = true
-				}
-			}
-		}
+	// TODO: generating heightmap must be done on storage/proxy level, not here and 3 times per chunk
+	hmc := genHeightmap(chunkContext.center)
+	var hmr []int
+	if chunkContext.right != nil {
+		hmr = genHeightmap(chunkContext.right)
+	}
+	var hmt []int
+	if chunkContext.top != nil {
+		hmt = genHeightmap(chunkContext.top)
 	}
 	for i := 0; i < 16*16; i++ {
-		if i%16 == 15 || i/16 == 0 {
-			continue
-		}
-		if height[i-16] < height[i] {
-			delta := height[i] - height[i-16]
-			if delta > 64 {
-				img.Set(i%16-1, i/16, color.RGBA{128, 128, 128, 32})
+		hc := hmc[i]
+		ht := -1
+		hr := -1
+		if i%16 == 15 {
+			if chunkContext.right != nil {
+				hr = hmr[i-15]
 			} else {
-				img.Set(i%16-1, i/16, color.RGBA{uint8(delta * 2), uint8(delta * 2), uint8(delta * 2), 32})
+				img.Set(i%16, i/16, color.RGBA{255, 0, 0, 255})
 			}
+		} else {
+			hr = hmc[i+1]
 		}
-		if height[i+1] < height[i] {
-			delta := height[i] - height[i+1]
-			if delta > 64 {
-				img.Set(i%16, i/16+1, color.RGBA{128, 128, 128, 32})
+		if i < 16 {
+			if chunkContext.top != nil {
+				ht = hmt[16*15+i]
 			} else {
-				img.Set(i%16, i/16+1, color.RGBA{uint8(delta * 2), uint8(delta * 2), uint8(delta * 2), 32})
+				img.Set(i%16, i/16, color.RGBA{0, 255, 0, 255})
 			}
+		} else {
+			ht = hmc[i-16]
 		}
+		d := 0
+		if ht > hc {
+			d += (ht - hc) * 16
+		}
+		if hr > hc {
+			d += (hr - hc) * 16
+		}
+		if d > 64 {
+			d = 64
+		}
+		img.Set(i%16, i/16, color.RGBA{0, 0, 0, uint8(d)})
+
 	}
 	appendMetrics(time.Since(t), "shading")
 	return img
