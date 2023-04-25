@@ -53,10 +53,15 @@ type ttype struct {
 }
 
 var ttypes = map[ttype]ttypeProviderFunc{
-	{"terrain", "Terrain", false, true}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+	{"terrain", "Terrain", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
 		return s.GetChunksRegion, func(i interface{}) *image.RGBA {
 			c := i.(save.Chunk)
 			return drawChunk(&c)
+		}
+	},
+	{"shadedterrain", "Shaded terrain", false, true}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {
+		return getChunksRegionWithContextFN(s), func(i interface{}) *image.RGBA {
+			return drawShadedTerrain(i.(ContextedChunkData))
 		}
 	},
 	{"counttiles", "Chunk count", false, false}: func(s chunkStorage.ChunkStorage) (chunkDataProviderFunc, chunkPainterFunc) {

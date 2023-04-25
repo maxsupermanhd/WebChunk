@@ -217,6 +217,13 @@ func drawChunkHeightmap(chunk *save.Chunk) (img *image.RGBA) {
 	return img
 }
 
+func drawShadedTerrain(chunkContext ContextedChunkData) *image.RGBA {
+	img := drawChunk(chunkContext.center)
+	sh := drawChunkShading(chunkContext)
+	draw.Draw(img, img.Rect, sh, image.Point{}, draw.Over)
+	return img
+}
+
 func drawChunkShading(chunkContext ContextedChunkData) (img *image.RGBA) {
 	t := time.Now()
 	img = image.NewRGBA(image.Rect(0, 0, 16, 16))
