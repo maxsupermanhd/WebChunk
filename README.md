@@ -1,6 +1,6 @@
 <p align="center"><img src="splash.svg" width="600" height="200"></p>
 
-![WebChunk with overworld section from PhoenixAnarchy](preview.jpeg)
+![WebChunk with overworld section from Constantiam](preview.png)
 
 WebChunk is a simple web server written in Go that works with Postgres datbase to store and render chunks from Minecraft to your browser.
 
@@ -22,6 +22,7 @@ Join [discord server](https://discord.com/invite/DFsMKWJJPN) for more info!
 - [x] Connect and view downloaded chunks in-game
 - [x] Biome view
 - [x] Compatibility with Minecraft's level format
+- [x] Customizable overlaying
 
 ### In plans
 
@@ -35,7 +36,6 @@ Join [discord server](https://discord.com/invite/DFsMKWJJPN) for more info!
 - [ ] Heatmap of terrain difference
 - [ ] Player activity search
 - [ ] Pre-render of areas
-- [ ] Customizable overlaying
 
 ## Data source
 
@@ -44,6 +44,8 @@ Currently storage interface operates with anvil chunk format that can be grabbed
 ## Storage
 
 WebChunk currently supports storing data in PostgreSQL database, empty template of schemas are located in `db/sql/init/init.sh`. Work has been put into making storage interfacing not complex and as easy to implemet as possible, although it supports multiple worlds (or "servers" as I call them) it is not mandatory to provide multi-world functionality or even more than one dimension.
+
+You can also specify a level-compatible regionized storage but at the cost of chunk history. There are no plans on being able to store older chunk versions with filesystem storage
 
 ## How does it work?
 

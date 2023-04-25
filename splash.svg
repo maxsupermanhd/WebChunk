@@ -276,7 +276,7 @@ c7 24 10 25 66 21 33 -1 63 -5 68 -8 4 -2 7 2 7 10 0 10 -13 12 -56 9 l-57 -4
 </g>
 	<foreignObject x="280" y="60" width="380" height="250">
 		<div xmlns="http://www.w3.org/1999/xhtml" class="tilt">
-			<div id="status" class="pop">Now with blockstates</div>
+			<div id="status" class="pop">Now with shadows</div>
 		</div>
 	</foreignObject>
 </svg>
