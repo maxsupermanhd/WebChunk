@@ -61,20 +61,13 @@
 					<p>Dimension: <code>{{.Dim.Name}}</code></p>
 				</div>
 				<div class="mb-3">
-					<table>
-						<tr>
-							<td>X</td>
-							<td><input class="form-control" type="number" id="gotoX" value="-280"></td>
-						</tr>
-						<tr>
-							<td>Z</td>
-							<td><input class="form-control" type="number" id="gotoZ" value="620"></td>
-						</tr>
-						<tr>
-							<td>Zoom</td>
-							<td><input class="form-control" type="number" id="gotoS" value="5"></td>
-						</tr>
-					</table>
+					<table><tr>
+							<td>X</td><td><input class="form-control" type="number" id="gotoX" value="0"></td>
+						</tr><tr>
+							<td>Z</td><td><input class="form-control" type="number" id="gotoZ" value="0"></td>
+						</tr><tr>
+							<td>Zoom</td><td><input class="form-control" type="number" id="gotoS" value="5"></td>
+					</tr></table>
 					<a class="btn btn-primary" style="width: 100%" onclick="mapGoTo();">Jump to coordinates</a>
 				</div>
 				<div class="mb-3">
