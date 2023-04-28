@@ -86,8 +86,9 @@ func (s *FilesystemChunkStorage) ListDimensions() ([]chunkStorage.SDim, error) {
 	for _, wname := range wnames {
 		d, err := s.ListWorldDimensions(wname)
 		if err != nil {
-			dims = append(dims, d...)
+			return dims, err
 		}
+		dims = append(dims, d...)
 	}
 	return dims, nil
 }
