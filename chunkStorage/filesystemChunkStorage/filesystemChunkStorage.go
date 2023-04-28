@@ -61,8 +61,30 @@ func (s *FilesystemChunkStorage) GetStatus() (ver string, err error) {
 }
 
 func (s *FilesystemChunkStorage) GetChunksCount() (chunksCount uint64, derr error) {
-	return 0, nil
+	dims, err := s.ListDimensions()
+	if err != nil {
+		return 0, err
+	}
+	for _, d := range dims {
+		c, err := s.GetDimensionChunksCount(d.World, d.Name)
+		if err != nil {
+			return 0, err
+		}
+		chunksCount += c
+	}
+	return chunksCount, nil
 }
 func (s *FilesystemChunkStorage) GetChunksSize() (chunksSize uint64, derr error) {
-	return 0, nil
+	dims, err := s.ListDimensions()
+	if err != nil {
+		return 0, err
+	}
+	for _, d := range dims {
+		s, err := s.GetDimensionChunksSize(d.World, d.Name)
+		if err != nil {
+			return 0, err
+		}
+		chunksSize += s
+	}
+	return chunksSize, nil
 }
