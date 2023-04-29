@@ -131,7 +131,7 @@
 		var defaultLayerSettings = {
 			maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
 			tileSize: 256, zoomReverse: true,
-			zoomSnap: 0.25, attribution: '&copy; WebChunk Contributors',
+			zoomSnap: 0.25, attribution: '&copy; WebChunk {{.WebChunkVersion}}',
 			requestCached: function() {
 				return enableCacheCheck.checked;
 			},
@@ -171,6 +171,20 @@
 			{{range $1, $l := .Layers}}{{if $l.IsOverlay}}"{{$l.DisplayName}}": layer{{noescapeJS $l.Name}},
 			{{else}}{{end}}{{end}}"Coordinates": coordinatelayer
 		}).addTo(mymap);
+		L.LogoControl = L.Control.extend({
+			options: {
+				position: 'bottomright'
+			},
+			onAdd: function (map) {
+				var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control logo-control');
+				var button = L.DomUtil.create('a', '', container);
+				button.innerHTML = '<img width="100%" class="logo-control-img" src="/static/axis.svg">';
+				button.style = 'width:105px;height:105px';
+				L.DomEvent.disableClickPropagation(button);
+				return container;
+			},
+		});
+		new L.LogoControl().addTo(mymap)
 		</script>
 	</body>
 </html>

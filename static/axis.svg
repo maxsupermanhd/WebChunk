@@ -1,0 +1,11 @@
+<svg height="105" width="105" xmlns="http://www.w3.org/2000/svg">
+ <line x1="50" y1="20" x2="50" y2="67" style="stroke:rgb(255,0,0);stroke-width:2" />
+ <path d="M50 77 L53 67 L47 67 Z" style="stroke:rgb(255,0,0);stroke-width:2"/>
+ <line x1="20" y1="50" x2="67" y2="50" style="stroke:rgb(255,0,0);stroke-width:2" />
+ <path d="M77 50 L67 53 L67 47 Z" style="stroke:rgb(255,0,0);stroke-width:2"/>
+ <text text-anchor="middle" x="90" y="55" fill="red">+X</text>
+ <text text-anchor="middle" x="10" y="55" fill="red">-X</text>
+ <text text-anchor="middle" x="50" y="15" fill="red">-Z</text>
+ <text text-anchor="middle" x="50" y="95" fill="red">+Z</text>
+ <!-- <path d="M0 0 L105 0 L105 105 L0 105 L0 0 Z" style="stroke:red;fill:none"/> -->
+</svg>
