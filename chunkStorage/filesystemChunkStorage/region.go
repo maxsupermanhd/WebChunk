@@ -27,7 +27,8 @@ import (
 	"log"
 	"os"
 	"path"
-	"strings"
+	"regexp"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -185,9 +186,40 @@ func (s *FilesystemChunkStorage) regionRouter() {
 	log.Println("Region router stopped for storage ", s.Root)
 }
 
+var (
+	regionFnameRegexp = regexp.MustCompile(`^r\.(-?\d+)\.(-?\d+)\.mca$`)
+)
+
 // from Path getSaveDirectory(RegistryKey<World> worldRef, Path worldDirectory)
 func (s *FilesystemChunkStorage) getRegionPath(loc regionLocator) string {
 	return path.Join(s.getRegionFolder(loc), fmt.Sprintf("r.%d.%d.mca", loc.rx, loc.rz))
+}
+
+func ExtractRegionPath(fname string, xx, zz *int) bool {
+	r := regionFnameRegexp.FindAllStringSubmatch(fname, -1)
+	if len(r) != 1 {
+		return false
+	}
+	if len(r[0]) != 3 {
+		return false
+	}
+	var err error
+	var x, z int
+	x, err = strconv.Atoi(r[0][1])
+	if err != nil {
+		return false
+	}
+	z, err = strconv.Atoi(r[0][2])
+	if err != nil {
+		return false
+	}
+	if xx != nil {
+		*xx = x
+	}
+	if zz != nil {
+		*zz = z
+	}
+	return true
 }
 
 func (s *FilesystemChunkStorage) getRegionFolder(loc regionLocator) string {
@@ -550,7 +582,10 @@ func (s *FilesystemChunkStorage) GetDimensionChunksCount(wname, dname string) (u
 	var r atomic.Int64
 	r.Store(0)
 	for _, i := range d {
-		if !i.IsDir() && strings.HasSuffix(i.Name(), ".mca") {
+		if i.IsDir() {
+			continue
+		}
+		if ExtractRegionPath(i.Name(), nil, nil) {
 			wg.Add(1)
 			go func(fname string) {
 				a, err := CountRegionChunks(fname)
@@ -600,7 +635,10 @@ func (s *FilesystemChunkStorage) GetDimensionChunksSize(wname, dname string) (r 
 		}
 	}
 	for _, i := range d {
-		if !i.IsDir() && strings.HasSuffix(i.Name(), ".mca") {
+		if i.IsDir() {
+			continue
+		}
+		if ExtractRegionPath(i.Name(), nil, nil) {
 			n, err := i.Info()
 			if err != nil {
 				log.Println("Error loading file info", path.Join(dirloc, i.Name()), err)
