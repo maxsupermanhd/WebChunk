@@ -75,7 +75,12 @@ func deserializeChunkPacket(p pk.Packet, dim loadedDim) (level.ChunkPos, level.C
 	if err != nil {
 		return cpos, cc, err
 	}
-	// cc.HeightMaps.MotionBlocking = heightmaps.MotionBlocking
+	if len(heightmaps.MotionBlocking) == 37 {
+		cc.HeightMaps.MotionBlocking = level.NewBitStorage(9, 16*16, heightmaps.MotionBlocking)
+	}
+	if len(heightmaps.WorldSurface) == 37 {
+		cc.HeightMaps.WorldSurface = level.NewBitStorage(9, 16*16, heightmaps.WorldSurface)
+	}
 	d := bytes.NewReader(sectionsData)
 	dl := int64(len(sectionsData))
 	for {
