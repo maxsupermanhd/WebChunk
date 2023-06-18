@@ -39,6 +39,7 @@ import (
 	"github.com/Tnze/go-mc/level"
 	"github.com/Tnze/go-mc/net"
 	pk "github.com/Tnze/go-mc/net/packet"
+	"github.com/Tnze/go-mc/net/queue"
 	"github.com/Tnze/go-mc/server"
 	"github.com/Tnze/go-mc/server/auth"
 	"github.com/google/uuid"
@@ -214,12 +215,7 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	c := bot.NewClient()
 	c.Auth = *auth
 	log.Printf("Accepting new player [%s] (%s), dialing [%s]...", name, id.String(), dest)
-	if err := c.JoinServerWithOptions(dest, bot.JoinOptions{
-		Dialer:      nil,
-		Context:     nil,
-		NoPublicKey: true,
-		KeyPair:     nil,
-	}); err != nil {
+	if err := c.JoinServerWithOptions(dest, bot.JoinOptions{NoPublicKey: true}); err != nil {
 		log.Printf("Failed to accept new player [%s] (%s), error connecting to [%s]: %v", name, id.String(), dest, err)
 		dissconnectWithMessage(conn, &chat.Message{Text: strings.TrimPrefix(err.Error(), "bot: disconnect error: disconnect because: ")})
 		return
@@ -229,7 +225,7 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 	var wg sync.WaitGroup
 
 	acceptorChannel := make(chan pk.Packet, 2048)
-	connQueue := server.NewPacketQueue()
+	connQueue := queue.NewChannelQueue[pk.Packet](20)
 	wg.Add(1)
 	go func() {
 		p.packetAcceptor(acceptorChannel, connQueue, cl)
@@ -246,7 +242,8 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 		case <-p.Ctx.Done():
 		}
 		conn.Socket.SetDeadline(time.UnixMilli(0))
-		c.Conn.Socket.SetDeadline(time.UnixMilli(0))
+		c.Conn.Close()
+		// c.Conn..SetDeadline(time.UnixMilli(0))
 		connQueue.Close()
 		wg.Done()
 	}()

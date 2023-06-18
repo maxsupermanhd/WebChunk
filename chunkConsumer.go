@@ -97,27 +97,25 @@ func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
 				Type: nbt.TagCompound,
 				Data: []byte{0}, // tag end
 			}
+			gethm := func(hm *level.BitStorage) []uint64 {
+				if hm != nil {
+					return hm.Raw()
+				}
+				return nil
+			}
 			var data save.Chunk
 			data = save.Chunk{
-				DataVersion:   3218,
+				DataVersion:   3120,
 				XPos:          r.Pos[0],
 				YPos:          r.DimensionLowestY / 16,
 				ZPos:          r.Pos[1],
 				BlockEntities: []nbt.RawMessage{},
 				Structures:    nbtEmptyCompound,
-				Heightmaps: struct {
-					MotionBlocking         []uint64 "nbt:\"MOTION_BLOCKING\""
-					MotionBlockingNoLeaves []uint64 "nbt:\"MOTION_BLOCKING_NO_LEAVES\""
-					OceanFloor             []uint64 "nbt:\"OCEAN_FLOOR\""
-					WorldSurface           []uint64 "nbt:\"WORLD_SURFACE\""
-				}{
-					MotionBlocking:         []uint64{},
-					MotionBlockingNoLeaves: []uint64{},
-					OceanFloor:             []uint64{},
-					WorldSurface:           []uint64{},
-					// MotionBlockingNoLeaves: r.Data.HeightMaps.MotionBlockingNoLeaves.Raw(),
-					// OceanFloor:             r.Data.HeightMaps.OceanFloor.Raw(),
-					// WorldSurface:           r.Data.HeightMaps.WorldSurface.Raw(),
+				Heightmaps: map[string][]uint64{
+					"MOTION_BLOCKING":           gethm(r.Data.HeightMaps.MotionBlocking),
+					"MOTION_BLOCKING_NO_LEAVES": gethm(r.Data.HeightMaps.MotionBlockingNoLeaves),
+					"OCEAN_FLOOR":               gethm(r.Data.HeightMaps.OceanFloor),
+					"WORLD_SURFACE":             gethm(r.Data.HeightMaps.WorldSurface),
 				},
 				Sections:       []save.Section{},
 				BlockTicks:     nbtEmptyList,

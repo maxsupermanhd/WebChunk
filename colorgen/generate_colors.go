@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/gob"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -23,7 +24,7 @@ import (
 )
 
 var (
-	JARpath = `/home/max/.minecraft/versions/1.19.3/1.19.3.jar`
+	JARpath = flag.String("jar", "~/.minecraft/versions/1.19.4.jar", "path to jar")
 )
 
 func must(e error) {
@@ -188,6 +189,7 @@ func getModel(vv interface{}) (map[string]interface{}, error) {
 }
 
 func main() {
+	flag.Parse()
 	log.SetFlags(log.Lshortfile)
 	spew.Config.Indent = "   "
 
@@ -195,8 +197,8 @@ func main() {
 
 	blockstateRegex := regexp.MustCompile("assets/minecraft/blockstates/([A-Za-z_]+).json")
 
-	log.Printf("Opening jar [%s]", JARpath)
-	r, err := zip.OpenReader(JARpath)
+	log.Printf("Opening jar [%s]", *JARpath)
+	r, err := zip.OpenReader(*JARpath)
 	must(err)
 	defer r.Close()
 	log.Print("Enumerating files in jar...")

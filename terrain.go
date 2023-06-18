@@ -122,18 +122,9 @@ func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.St
 }
 
 func prepareSectionBiomes(s *save.Section) *level.PaletteContainer[level.BiomesState] {
-	if len(s.Biomes.Palette) == 1 {
-		v := strings.TrimPrefix(s.Biomes.Palette[0], "minecraft:")
-		i, ok := biomes.BiomeID[v]
-		if !ok && os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
-			log.Printf("Failed to find id of biome [%s], fallback to plains", v)
-			i = 1
-		}
-		return level.NewBiomesPaletteContainer(4*4*4, level.BiomesState(i))
-	}
 	rawp := []level.BiomesState{}
 	for _, vv := range s.Biomes.Palette {
-		v := strings.TrimPrefix(vv, "minecraft:")
+		v := strings.TrimPrefix(string(vv), "minecraft:")
 		i, ok := biomes.BiomeID[v]
 		if !ok && os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
 			log.Printf("Failed to find id of biome [%s], fallback to plains", v)

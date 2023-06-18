@@ -148,7 +148,7 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 					// cc.Sections[sectionIndex]
 					continue
 				}
-				if beid == be.Type {
+				if beid == int32(be.Type) {
 					delete(missingbe, bepos)
 				} else {
 					log.Printf("Found different block entity type on same spot %v (expected %d found %d)", bepos, be.Type, beid)
@@ -216,7 +216,7 @@ func (sp SnifferProxy) packetAcceptor(recv chan pk.Packet, conn server.PacketQue
 			cachedLevel.chunk.BlockEntity = append(cachedLevel.chunk.BlockEntity, level.BlockEntity{
 				XZ:   compactBlockEntityPos(loc.X, loc.Z), // int8(((loc.X & 15) << 4) | (loc.Z & 15)),
 				Y:    int16(loc.Y),
-				Type: int32(t),
+				Type: block.EntityType(t),
 				Data: data,
 			})
 			log.Printf("Recieved block entity %d at %v", t, loc)
