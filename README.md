@@ -1,4 +1,4 @@
-<p align="center"><img src="splash.svg" width="600" height="200"></p>
+<p align="center"><img src="splash.svg" width="680" height="200"></p>
 
 ![WebChunk with overworld section from Constantiam](preview.png)
 
