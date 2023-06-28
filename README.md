@@ -12,40 +12,30 @@ Join [discord server](https://discord.com/invite/DFsMKWJJPN) for more info!
 
 ## Features
 
-- [x] Colored view
-- [x] Heightmap view
-- [x] Portals/chests overlay
-- [x] Accepting compressed chunks
-- [x] Caching
-- [x] Colors customization
-- [x] Concurrent use
-- [x] Connect and view downloaded chunks in-game
-- [x] Biome view
-- [x] Compatibility with Minecraft's level format
-- [x] Customizable overlaying
+- Map rendering:
+  - [x] Colored terrain view
+  - [x] Heightmap terrain view
+  - [x] Portals/chests heatmap overlay
+  - [x] Colors customization
+  - [x] Biome view
+  - [x] Serving images over HTTP
+  - [x] Customizable overlaying
+- Connectivity:
+  - [x] Accepting chunks from HTTP
+  - [x] Sniffing chunks through proxied connection
+  - [x] Accepting compressed chunks
+  - [x] Concurrent use
+  - [x] Compatibility with Minecraft's region file format
 
-### In plans
-
-- [ ] Automatic seed cracking
-- [ ] Seed based generation of waypoints
-- [ ] Block formation search
-- [ ] "New chunks" overlay
-- [ ] Map markers
-- [ ] Websocket interface
-- [ ] Realtime position sharing
-- [ ] Heatmap of terrain difference
-- [ ] Player activity search
-- [ ] Pre-render of areas
+[Complete roadmap](https://github.com/maxsupermanhd/WebChunk/blob/master/docs/roadmap.md)
 
 ## Data source
 
-Currently storage interface operates with anvil chunk format that can be grabbed from both region files and game itself. Storing multiple versions of same chunk is also permitted and viewed as a feature that can be further supported and used to analyze how terrain/world changed, potentially converting whole thing into data analysis framework.
+Currently storage interface operates with anvil chunk format that can be grabbed from both region files and game itself. WebChunk acts like a proxy for server connections and will sniff chunk information from the connection. World directories can be used directly. Storing multiple versions of same chunk is also permitted and viewed as a feature that can be further supported and used to analyze how terrain/world changed, potentially converting whole thing into data analysis framework (only with postgresql storage).
 
 ## Storage
 
-WebChunk currently supports storing data in PostgreSQL database, empty template of schemas are located in `db/sql/init/init.sh`. Work has been put into making storage interfacing not complex and as easy to implemet as possible, although it supports multiple worlds (or "servers" as I call them) it is not mandatory to provide multi-world functionality or even more than one dimension.
-
-You can also specify a level-compatible regionized storage but at the cost of chunk history. There are no plans on being able to store older chunk versions with filesystem storage
+WebChunk currently supports storing data in PostgreSQL database (empty template of schemas are located in `db/sql/init/init.sh`) and in region files. Work has been put into making storage interfacing not complex and as easy to implemet as possible, although it supports multiple worlds it is not mandatory to provide multi-world functionality or even more than one dimension. There are no plans on being able to store older chunk versions with filesystem storage.
 
 ## How does it work?
 
