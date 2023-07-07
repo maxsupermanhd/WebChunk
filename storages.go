@@ -102,3 +102,29 @@ func findCapableStorage(storages map[string]chunkStorage.Storage, pref string) c
 	}
 	return nil
 }
+
+func listNamesWnD() map[string][]string {
+	worlds := map[string][]string{}
+	storagesLock.Lock()
+	defer storagesLock.Unlock()
+	for _, storage := range storages {
+		if storage.Driver == nil {
+			continue
+		}
+		dims, err := storage.Driver.ListDimensions()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		for _, d := range dims {
+			world, ok := worlds[d.World]
+			if ok {
+				world = append(world, d.Name)
+			} else {
+				world = []string{d.Name}
+			}
+			worlds[d.World] = world
+		}
+	}
+	return worlds
+}

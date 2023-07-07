@@ -23,6 +23,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
@@ -50,8 +51,12 @@ type cachedImage struct {
 }
 
 type imageLoc struct {
-	world, dim, render string
-	s, x, z            int
+	World, Dimension, Layer string
+	S, X, Z                 int
+}
+
+func (i imageLoc) String() string {
+	return fmt.Sprintf("{%s:%s:%s at %ds %dx %dz}", i.World, i.Dimension, i.Layer, i.S, i.X, i.Z)
 }
 
 type cacheTask struct {
@@ -79,9 +84,9 @@ func imageCacheProcessor(ctx context.Context) {
 			log.Println("Image cache sutting down...")
 			for k, v := range imageCache {
 				if !v.syncedToDisk {
-					err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
+					err := cacheSave(v.img, k.World, k.Dimension, k.Layer, k.S, k.X, k.Z)
 					if err != nil {
-						log.Printf("Failed to save cache of %s:%s:%s at %ds %dx %dz because %v", k.world, k.dim, k.render, k.s, k.x, k.z, err)
+						log.Printf("Failed to save cache of %s because %v", k, err)
 					}
 				}
 			}
@@ -92,7 +97,7 @@ func imageCacheProcessor(ctx context.Context) {
 					log.Printf("Requested image but no return channel?! %v", spew.Sdump(p))
 					break
 				}
-				if p.loc.s == imageCacheStorageLevel {
+				if p.loc.S == imageCacheStorageLevel {
 					i, ok := imageCache[p.loc]
 					if ok {
 						p.ret <- copyImage(i.img)
@@ -101,7 +106,7 @@ func imageCacheProcessor(ctx context.Context) {
 						break
 					}
 					var err error
-					i.img, err = cacheLoad(p.loc.world, p.loc.dim, p.loc.render, imageCacheStorageLevel, p.loc.x, p.loc.z)
+					i.img, err = cacheLoad(p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, p.loc.X, p.loc.Z)
 					if err != nil {
 						if !errors.Is(err, os.ErrNotExist) {
 							log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
@@ -113,17 +118,17 @@ func imageCacheProcessor(ctx context.Context) {
 					i.syncedToDisk = true
 					i.lastUse = time.Now()
 					imageCache[p.loc] = i
-				} else if p.loc.s < imageCacheStorageLevel {
-					ax, az := p.loc.x*powarr[p.loc.s], p.loc.z*powarr[p.loc.s]
+				} else if p.loc.S < imageCacheStorageLevel {
+					ax, az := p.loc.X*powarr[p.loc.S], p.loc.Z*powarr[p.loc.S]
 					rx, rz := icAT(ax, az)
 					ix, iz := icIN(ax, az)
-					is := powarr[p.loc.s] * 16
+					is := powarr[p.loc.S] * 16
 
-					rl := imageLoc{world: p.loc.world, dim: p.loc.dim, render: p.loc.render, s: imageCacheStorageLevel, x: rx, z: rz}
+					rl := imageLoc{World: p.loc.World, Dimension: p.loc.Dimension, Layer: p.loc.Layer, S: imageCacheStorageLevel, X: rx, Z: rz}
 					i, ok := imageCache[rl]
 					if !ok {
 						var err error
-						i.img, err = cacheLoad(p.loc.world, p.loc.dim, p.loc.render, imageCacheStorageLevel, rx, rz)
+						i.img, err = cacheLoad(p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, rx, rz)
 						if err != nil {
 							if !errors.Is(err, os.ErrNotExist) {
 								log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
@@ -151,7 +156,7 @@ func imageCacheProcessor(ctx context.Context) {
 					}
 
 					ret := image.NewRGBA(image.Rect(0, 0, is, is))
-					pt := image.Point{(ix / powarr[p.loc.s]) * is, (iz / powarr[p.loc.s]) * is}
+					pt := image.Point{(ix / powarr[p.loc.S]) * is, (iz / powarr[p.loc.S]) * is}
 					// log.Printf("Draw %4d %4d %4d %4d %#v", rl.x, rl.z, p.loc.x, p.loc.z, pt)
 					draw.Draw(ret, ret.Rect, i.img, pt, draw.Over)
 
@@ -159,24 +164,24 @@ func imageCacheProcessor(ctx context.Context) {
 
 				} else { // p.loc.z > imageCacheStorageLevel
 					// log.Printf("Unimlemented load of s > imageCacheStorageLevel, %#v", p.loc)
-					if p.loc.s > 9 {
+					if p.loc.S > 9 {
 						// too big
 						close(p.ret)
 						break
 					}
-					ax, az := p.loc.x*powarr[p.loc.s], p.loc.z*powarr[p.loc.s]
+					ax, az := p.loc.X*powarr[p.loc.S], p.loc.Z*powarr[p.loc.S]
 					bx, bz := icAT(ax, az)
-					rs := powarr[p.loc.s-imageCacheStorageLevel]
+					rs := powarr[p.loc.S-imageCacheStorageLevel]
 					ret := image.NewRGBA(image.Rect(0, 0, rs*powarr[imageCacheStorageLevel]*16, rs*powarr[imageCacheStorageLevel]*16))
 
 					for x := 0; x < rs; x++ {
 						for z := 0; z < rs; z++ {
 							rx, rz := bx+x, bz+z
-							rl := imageLoc{world: p.loc.world, dim: p.loc.dim, render: p.loc.render, s: imageCacheStorageLevel, x: rx, z: rz}
+							rl := imageLoc{World: p.loc.World, Dimension: p.loc.Dimension, Layer: p.loc.Layer, S: imageCacheStorageLevel, X: rx, Z: rz}
 							i, ok := imageCache[rl]
 							if !ok {
 								var err error
-								i.img, err = cacheLoad(p.loc.world, p.loc.dim, p.loc.render, imageCacheStorageLevel, rx, rz)
+								i.img, err = cacheLoad(p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, rx, rz)
 								if err != nil {
 									if !errors.Is(err, os.ErrNotExist) {
 										log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
@@ -199,14 +204,14 @@ func imageCacheProcessor(ctx context.Context) {
 								imageCache[rl] = i
 							}
 							w := powarr[imageCacheStorageLevel] * 16
-							log.Printf("Draw %3d %3d %3d base %3d %3d tile %3d %3d to %3d %3d", p.loc.x, p.loc.z, rs, bx, bz, rl.x, rl.z, x*w, z*w)
+							log.Printf("Draw %3d %3d %3d base %3d %3d tile %3d %3d to %3d %3d", p.loc.X, p.loc.Z, rs, bx, bz, rl.X, rl.Z, x*w, z*w)
 							draw.Draw(ret, image.Rect(x*w, z*w, x*w+w, z*w+w), i.img, image.Point{}, draw.Src)
 						}
 					}
 					p.ret <- ret
 				}
 			} else { // write
-				if p.loc.s == imageCacheStorageLevel {
+				if p.loc.S == imageCacheStorageLevel {
 					iimg, ok := imageCache[p.loc]
 					if !ok {
 						imageCache[p.loc] = cachedImage{
@@ -221,19 +226,19 @@ func imageCacheProcessor(ctx context.Context) {
 					iimg.syncedToDisk = false
 					break
 				}
-				if p.loc.s != 0 {
+				if p.loc.S != 0 {
 					// log.Printf("Unsupported cache write of scale %d", p.loc.s)
 					break
 				}
-				rx, rz := icAT(p.loc.x, p.loc.z)
-				ix, iz := icIN(p.loc.x, p.loc.z)
+				rx, rz := icAT(p.loc.X, p.loc.Z)
+				ix, iz := icIN(p.loc.X, p.loc.Z)
 
-				rl := imageLoc{world: p.loc.world, dim: p.loc.dim, render: p.loc.render, s: imageCacheStorageLevel, x: rx, z: rz}
+				rl := imageLoc{World: p.loc.World, Dimension: p.loc.Dimension, Layer: p.loc.Layer, S: imageCacheStorageLevel, X: rx, Z: rz}
 
 				i, ok := imageCache[rl]
 				if !ok {
 					var err error
-					i.img, err = cacheLoad(p.loc.world, p.loc.dim, p.loc.render, imageCacheStorageLevel, rx, rz)
+					i.img, err = cacheLoad(p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, rx, rz)
 					if err != nil {
 						if !errors.Is(err, os.ErrNotExist) {
 							log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
@@ -262,14 +267,23 @@ func imageCacheProcessor(ctx context.Context) {
 				imageCache[rl] = i
 			}
 		case <-flushTicker.C:
+			saveCount := 0
 			for k, v := range imageCache {
 				if !v.syncedToDisk {
-					err := cacheSave(v.img, k.world, k.dim, k.render, k.s, k.x, k.z)
+					if saveCount == 0 {
+						log.Println("Saving images to disk...")
+					}
+					err := cacheSave(v.img, k.World, k.Dimension, k.Layer, k.S, k.X, k.Z)
 					if err != nil {
-						log.Printf("Failed to save cache of %s:%s:%s at %ds %dx %dz: %v", k.world, k.dim, k.render, k.s, k.x, k.z, err)
+						log.Printf("Failed to save cache of %s: %v", k, err)
+						continue
 					}
 					v.syncedToDisk = true
+					saveCount++
 				}
+			}
+			if saveCount != 0 {
+				log.Printf("Saved %d images to disk", saveCount)
 			}
 		}
 	}
@@ -282,16 +296,13 @@ func copyImage(img *image.RGBA) *image.RGBA {
 }
 
 func imageCacheGetBlocking(world, dim, render string, s, x, z int) *image.RGBA {
+	return imageCacheGetBlockingLoc(imageLoc{world, dim, render, s, x, z})
+}
+
+func imageCacheGetBlockingLoc(loc imageLoc) *image.RGBA {
 	recv := make(chan *image.RGBA)
 	imageCacheProcess <- cacheTask{
-		loc: imageLoc{
-			world:  world,
-			dim:    dim,
-			render: render,
-			s:      s,
-			x:      x,
-			z:      z,
-		},
+		loc: loc,
 		img: nil,
 		ret: recv,
 	}
@@ -304,12 +315,12 @@ func imageCacheGetBlocking(world, dim, render string, s, x, z int) *image.RGBA {
 func imageCacheSave(img *image.RGBA, world, dim, render string, s, x, z int) {
 	imageCacheProcess <- cacheTask{
 		loc: imageLoc{
-			world:  world,
-			dim:    dim,
-			render: render,
-			s:      s,
-			x:      x,
-			z:      z,
+			World:     world,
+			Dimension: dim,
+			Layer:     render,
+			S:         s,
+			X:         x,
+			Z:         z,
 		},
 		img: img,
 		ret: nil,

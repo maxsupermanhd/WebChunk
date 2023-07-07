@@ -32,7 +32,9 @@ import (
 	"log"
 	"net/http"
 	"runtime/debug"
+	"sort"
 	"strconv"
+	"strings"
 	_ "sync"
 
 	"github.com/Tnze/go-mc/save"
@@ -121,6 +123,15 @@ var ttypes = map[ttype]ttypeProviderFunc{
 			return drawChunkShading(i.(ContextedChunkData))
 		}
 	},
+}
+
+func listttypes() []ttype {
+	keys := make([]ttype, 0, len(ttypes))
+	for t := range ttypes {
+		keys = append(keys, t)
+	}
+	sort.Slice(keys, func(i, j int) bool { return strings.Compare(keys[i].Name, keys[j].Name) > 0 })
+	return keys
 }
 
 func tileRouterHandler(w http.ResponseWriter, r *http.Request) {

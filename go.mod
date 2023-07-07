@@ -21,6 +21,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/joho/godotenv v1.4.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible

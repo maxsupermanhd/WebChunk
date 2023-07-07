@@ -1,0 +1,382 @@
+{{define "view"}}
+<!doctype html>
+<html translate="no">
+	<head>
+		{{template "head"}}
+		<style>
+		img.leaflet-tile {
+			image-rendering: pixelated;
+		}
+		html, body {
+			height: 100%;
+		}
+		#sidebar {
+			height: 100%;
+			width: 280px;
+		}
+		body {
+			display: flex;
+			overflow: hidden;
+			height: 100%;
+			flex-direction: column;
+		}
+		div#content {
+			display: flex;
+			flex-direction: row;
+			flex-grow: 2;
+		}
+		div#sidebar {
+			padding: 0.5rem;
+			min-width: 0;
+		}
+		div#mapcontainer {
+			flex: auto;
+			background-color: gray;
+		}
+		div#map {
+			width: 100%;
+			height: 100%;
+		}
+		.mouseposition {  
+			border: 2px solid rgba(0,0,0,0.2);
+			border-radius: 4px;
+			background-clip: padding-box;
+			background-color: #fff;
+			padding: 3px;
+		}
+		</style>
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+			integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+			crossorigin=""/>
+		<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+			integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+			crossorigin=""></script>
+		<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+		<link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' rel='stylesheet'/>
+		<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
+		<link rel="stylesheet" href="/static/Control.Loading.css" />
+		<script src="/static/Control.Loading.js"></script>
+		<title>WebChunk</title>
+	</head>
+	<body>
+		{{template "nav" . }}
+		<div id="content">
+			<div id="sidebar">
+				<div class="mb-3">
+					<p>World: <select class="form-select" id="worldSelect"></select></p>
+					<p>Dimension: <select class="form-select" id="dimSelect"></select></p>
+				</div>
+				<div class="mb-3">
+					<table><tr>
+							<td>X</td><td><input class="form-control" type="number" id="gotoX" value="0"></td>
+						</tr><tr>
+							<td>Z</td><td><input class="form-control" type="number" id="gotoZ" value="0"></td>
+						</tr><tr>
+							<td>Zoom</td><td><input class="form-range" type="range" min="0" max="9" id="gotoS"></td>
+					</tr></table>
+					<a class="btn btn-primary" style="width: 100%" onclick="mapGoTo();">Jump to coordinates</a>
+				</div>
+				<div class="mb-3">
+					<div class="form-check form-switch">
+						<label class="form-check-label" for="enableCache">Enable cache</label>
+						<input class="form-check-input" autocomplete="off" type="checkbox" role="switch" id="enableCache" checked>
+					</div>
+				</div>
+				<div class="mb-3">
+					<a class="btn btn-primary" style="width: 100%" onclick="mapReload();">Reload images</a>
+				</div>
+				<div class="mb-3">
+					<p>Players:</p>
+				</div>
+			</div>
+			<div id="mapcontainer">
+				<div id="map">
+				</div>
+			</div>
+		</div>
+		<script>
+		function sendToast(text) {
+			let t = document.getElementById("toast-templ").content.cloneNode(true).firstElementChild;
+			t.children[0].innerText = text; 
+			document.getElementById("toasts-container").appendChild(t);
+			let a = new bootstrap.Toast(t, {"autohide": true, "delay": 5000});
+			a.show();
+			t.addEventListener('hidden.bs.toast', () => {
+				t.innerHTML = "";
+				document.getElementById("toasts-container").removeChild(t);
+			})
+		}
+		var connIndicator = document.getElementById('connectionIndicator');
+		function setIndicator(color, text) {
+			if (color != "") {
+				connIndicator.style.color = color;
+			}
+			if (text != "") {
+				connIndicator.innerHTML = text;
+			}
+		}
+		var wSelector = document.getElementById('worldSelect');
+		var dSelector = document.getElementById('dimSelect');
+
+		setIndicator("orange", "Connecting...");
+		var socket = new WebSocket("ws"+(location.protocol == "https:"?"s":"")+"://"+window.document.location.host+"/api/v1/ws");
+		socket.binaryType = "arraybuffer";
+
+		let maxZoomBack = 8;
+		var enableCacheCheck = document.getElementById('enableCache');
+		var redrawint = Math.floor( Math.random() * 200000 ) + 1;
+		function mapGoTo() {
+			let z = document.getElementById('gotoZ').value;
+			let x = document.getElementById('gotoX').value;
+			let s = document.getElementById('gotoS').value;
+			mymap.setView([-z/16, x/16], maxZoomBack-s);
+		}
+		function mapReload() {
+			redrawint += 1;
+			mymap.eachLayer(function(layer) {
+				layer.redraw();
+			})
+		}
+		var defaultLayerSettings = {
+			maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
+			tileSize: 256, zoomReverse: true,
+			zoomSnap: 0.25, attribution: '&copy; WebChunk {{.WebChunkVersion}}',
+			requestCached: function() {
+				return enableCacheCheck.checked;
+			},
+			redrawnum: () => redrawint,
+		}
+
+		L.GridLayer.GridCoordinates = L.GridLayer.extend({
+			createTile: function (coords) {
+				const tile = document.createElement('div');
+				tile.style.outline = '1px solid green';
+				tile.style.fontWeight = 'bold';
+				tile.style.fontSize = '14pt';
+				tile.innerHTML = [maxZoomBack-coords.z, coords.x, coords.y].join('/');
+				tile.innerHTML += '<br>'+[coords.x*Math.pow(2, maxZoomBack-coords.z)*16, coords.y*Math.pow(2, maxZoomBack-coords.z)*16].join('/');
+				return tile;
+			},
+		});
+		L.gridLayer.gridCoordinates = function (opts) {return new L.GridLayer.GridCoordinates(opts);};
+		let coordinatelayer = L.gridLayer.gridCoordinates();
+		var mymap = L.map('map', {
+			cursor: false,
+			crs: L.CRS.Simple,
+			fullscreenControl: true,
+			loadingControl: true,
+			layers: [coordinatelayer],
+		});
+		L.control.scale({metric: true, imperial: false}).addTo(mymap);
+
+		L.LogoControl = L.Control.extend({
+			options: {position: 'bottomright'},
+			onAdd: function (map) {
+				var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control logo-control');
+				var button = L.DomUtil.create('a', '', container);
+				button.innerHTML = '<img width="100%" class="logo-control-img" src="/static/axis.svg">';
+				button.style = 'width:105px;height:105px;z-index:100;';
+				L.DomEvent.disableClickPropagation(button);
+				return container;
+			},
+		});
+		new L.LogoControl().addTo(mymap);
+
+		L.CursorPosition = L.Control.extend({
+			options: {position: 'bottomleft'},
+			onAdd: function (map) {
+				this.posdiv = L.DomUtil.create('div', 'mouseposition');
+				this.posdiv.innerHTML = `X: ??? Z: ???`;
+				return this.posdiv;
+			},
+			updateHTML: function(x, z) {
+				this.posdiv.innerHTML = `X: ${~~x} Z: ${~~z}`;
+			}
+		});
+		let posTracker = new L.CursorPosition();
+		posTracker.addTo(mymap);
+		mymap.addEventListener('mousemove', (event) => {
+			posTracker.updateHTML(event.latlng.lat*16, event.latlng.lng*16);
+		});
+
+		var tiles = {};
+		var worlds = {};
+
+		var windowUrl = window.URL || window.webkitURL;
+
+		L.GridLayer.WebsocketManagedLayer = L.GridLayer.extend({
+			createTile: function (coords) {
+				var tile = document.createElement('img');
+				var tileSize = this.getTileSize();
+				tile.setAttribute('width', tileSize.x);
+				tile.setAttribute('height', tileSize.y);
+				tile.alt = '';
+				let coordsKey = (coords.x).toString() + ":" + (coords.y).toString() + ":" + (maxZoomBack-coords.z).toString();
+				tiles[this.options.layerName][coordsKey] = tile;
+				socket.send(JSON.stringify({
+					Action: "tileSubscribe",
+					Data: {
+						World: wSelector.value,
+						Dimension: dSelector.value,
+						Layer: this.options.layerName,
+						S: maxZoomBack-coords.z,
+						X: coords.x,
+						Z: coords.y,
+					}
+				}));
+				return tile;
+			}
+		});
+
+		function handleUnload(e) {
+			socket.send(JSON.stringify({
+				Action: "tileUnsubscribe",
+				Data: {
+					World: wSelector.value,
+					Dimension: dSelector.value,
+					Layer: e.target.options.layerName,
+					S: maxZoomBack-e.coords.z,
+					X: e.coords.x,
+					Z: e.coords.y,
+				}
+			}));
+			delete tiles[e.target.options.layerName][e.coords]
+		}
+
+		socket.addEventListener("open", (event) => {
+			setIndicator("green", "Connected");
+		});
+		socket.addEventListener("close", (event) => {
+			setIndicator("red", "Disconnected");
+		});
+		let utf8decoder = new TextDecoder();
+		socket.addEventListener("message", (event) => {
+			if (event.data instanceof ArrayBuffer) {
+				const view = new DataView(event.data);
+				let offset = 0;
+				const op = view.getUint8(0);
+				offset += 1;
+				switch(op) {
+					case 1:
+					const lWorld = view.getUint32(offset);
+					offset += 4;
+					const sWorld = utf8decoder.decode(event.data.slice(offset, offset+lWorld));
+					offset += lWorld;
+
+					const lDimension = view.getUint32(offset);
+					offset += 4;
+					const sDimension = utf8decoder.decode(event.data.slice(offset, offset+lDimension));
+					offset += lDimension;
+
+					const lLayer = view.getUint32(offset);
+					offset += 4;
+					const sLayer = utf8decoder.decode(event.data.slice(offset, offset+lLayer));
+					offset += lLayer;
+					
+					const cs = view.getUint8(offset);
+					offset += 1;
+					const cx = view.getInt32(offset);
+					offset += 4;
+					const cz = view.getInt32(offset);
+					offset += 4;
+
+					let coords = cx + ":" + cz + ":" + cs;
+					let tile = tiles[sLayer][coords];
+					if (tile == undefined) {
+						console.log(tiles, tile, sLayer, coords);
+						break;
+					}
+					if (event.data.byteLength == offset) {
+						break;
+					}
+					let imgbytes = event.data.slice(offset, event.data.byteLength);
+					let imgblob = new Blob([imgbytes]);
+					let url = URL.createObjectURL(imgblob);
+					tile.src = url;
+					tile.onload = e => URL.revokeObjectURL(url);
+				}
+			} else {
+				let pl = JSON.parse(event.data);
+				console.log("Message from server ", pl);
+				switch(pl.Action) {
+					case 'updateLayers':
+					let layers = {};
+					let overlays = {"Coordinates": coordinatelayer};
+					pl.Data.forEach(layer => {
+						let llayer = new L.GridLayer.WebsocketManagedLayer({
+							layerName: layer.Name,
+							maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
+							tileSize: 256, zoomReverse: true,
+							zoomSnap: 0.25, attribution: '&copy; WebChunk',
+						});
+						tiles[layer.Name] = {};
+						llayer.addEventListener('tileunload', handleUnload);
+						if (layer.IsOverlay) {
+							overlays[layer.DisplayName] = llayer;
+						} else {
+							layers[layer.DisplayName] = llayer;
+						}
+						if (layer.IsDefault) {
+							llayer.addTo(mymap);
+						}
+					});
+					L.control.layers(layers, overlays).addTo(mymap);
+					sendToast("Layers updated.");
+					break;
+
+					case 'updateWorldsAndDims':
+					worlds = pl.Data;
+					wSelector.innerHTML = '';
+					Object.keys(worlds).forEach((kWorld) => {
+						let wOption = document.createElement('option');
+						wOption.innerText = kWorld;
+						wSelector.appendChild(wOption);
+					});
+					wSelector.value = '';
+					sendToast("Worlds and dimensions updated.");
+					break;
+				}
+			}
+		});
+		wSelector.addEventListener("change", (event) => {
+			dSelector = document.getElementById('dimSelect');
+			dSelector.innerHTML = '';
+			worlds[event.target.value].forEach(dim => {
+				let dOption = document.createElement('option');
+				dOption.innerText = dim;
+				dSelector.appendChild(dOption);
+			});
+			dSelector.value = '';
+			socket.send(JSON.stringify({
+				Action: "resubWorldDimension",
+				Data: {
+					World: wSelector.value,
+					Dimension: dSelector.value
+				}
+			}));
+		});
+		dSelector.addEventListener("change", (event) => {
+			socket.send(JSON.stringify({
+				Action: "resubWorldDimension",
+				Data: {
+					World: wSelector.value,
+					Dimension: dSelector.value
+				}
+			}));
+		});
+
+		mymap.setView([0, 0], 3);
+		</script>
+
+		<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1999;" id="toasts-container">
+		</div>
+		<template id="toast-templ">
+			<div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+				<div class="toast-body" data-bs-dismiss="toast">
+					this is a bug
+				</div>
+			</div>
+		</template>
+	</body>
+</html>
+{{end}}

@@ -17,6 +17,10 @@
 					<a class="nav-link {{if eq .NavWhere "cfg"}}active{{end}}" href="/cfg">Configuration</a>
 				</li>
 			</ul>
+			{{if eq .NavWhere "view"}}
+			<span class="navbar-text" id="connectionIndicator" style="margin-right:1rem;">
+			</span>
+			{{end}}
 			<span class="navbar-text">
 				{{.WebChunkVersion}}
 			</span>

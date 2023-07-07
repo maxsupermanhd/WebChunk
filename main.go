@@ -79,7 +79,7 @@ func main() {
 	log.Println()
 
 	var wg sync.WaitGroup
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 	if err := loadColors(cfg.GetDSString("./colors.gob", "colors_path")); err != nil {
 		log.Fatal(err)
@@ -94,6 +94,14 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		closeMetrics()
+		wg.Done()
+	}()
+
+	log.Println("Starting event router")
+	wg.Add(1)
+	go func() {
+		globalEventRouter.Run(ctx)
+		log.Println("Event router shut down")
 		wg.Done()
 	}()
 
@@ -129,6 +137,7 @@ func main() {
 	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
+	router.HandleFunc("/view", basicTemplateResponseHandler("view")).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerPOST).Methods("POST")
 	router.HandleFunc("/colors/save", colorsSaveHandler).Methods("GET")
@@ -150,6 +159,8 @@ func main() {
 
 	router.HandleFunc("/api/v1/dims", apiHandle(apiAddDimension)).Methods("POST")
 	router.HandleFunc("/api/v1/dims", apiHandle(apiListDimensions)).Methods("GET")
+
+	router.HandleFunc("/api/v1/ws", wsClientHandlerWrapper(ctx))
 
 	router1 := handlers.ProxyHeaders(router)
 	router2 := handlers.CompressHandler(router1)
@@ -219,12 +230,11 @@ func main() {
 		wg.Done()
 	}()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
+	<-ctx.Done()
 	log.Println("Interrupt recieved, shutting down...")
 	ctxCancel()
 	wg.Wait()
+	wsClients.Wait()
 	log.Println("Shutting down storages...")
 	chunkStorage.CloseStorages(storages)
 	log.Println("Storages closed.")
