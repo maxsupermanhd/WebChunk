@@ -65,9 +65,9 @@
 						{{if len $s.Worlds}}
 						{{range $j, $w := $s.Worlds}}
 								<td {{if ge (len $w.Dims) 1}}rowspan="{{len $w.Dims}}"{{end}}>
-									<a href="/worlds/{{$w.World.Name}}">{{$w.World.Name}} ({{$w.World.IP}})</a></td>
+									{{$w.World.Name}} ({{$w.World.IP}})</td>
 								{{if ge (len $w.Dims) 1}}
-								<td><a href="/worlds/{{$w.World.Name}}/{{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}}</a></td>
+								<td><a href="/view?world={{$w.World.Name}}&dim={{(index $w.Dims 0).Dim.Name}}">{{(index $w.Dims 0).Dim.Name}}</a></td>
 								<td>{{(index $w.Dims 0).ChunkCount}} chunks totaling {{(index $w.Dims 0).ChunkSize}}</td>
 								<td>Cached {{(index $w.Dims 0).CacheCount}} images totaling {{(index $w.Dims 0).CacheSize}}</td>
 								{{else}}

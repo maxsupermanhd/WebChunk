@@ -334,12 +334,44 @@
 					});
 					wSelector.value = '';
 					sendToast("Worlds and dimensions updated.");
+					let sp = new URLSearchParams(window.location.search);
+					if (sp.has("world") && sp.has("dim")) {
+						let nw = sp.get("world");
+						let nd = sp.get("dim");
+						let nnw = worlds[nw];
+						if (nnw != undefined && nnw.includes(nd)) {
+							wSelector.value = nw;
+							dSelector.innerHTML = "";
+							worlds[nw].forEach(dim => {
+								let dOption = document.createElement('option');
+								dOption.innerText = dim;
+								dSelector.appendChild(dOption);
+							});
+							dSelector.value = nd;
+							sp.delete("world");
+							sp.delete("dim");
+							sendToast("Viewing " + nd + " of " + nw);
+							let nls = sp.toString();
+							if (nls != "") {
+								nls = "?" + nls;
+							}
+							let nurl = new URL(window.location);
+							nurl.search = nls;
+							window.history.replaceState({}, "", nurl);
+							socket.send(JSON.stringify({
+								Action: "resubWorldDimension",
+								Data: {
+									World: nw,
+									Dimension: nd
+								}
+							}));
+						}
+					}
 					break;
 				}
 			}
 		});
 		wSelector.addEventListener("change", (event) => {
-			dSelector = document.getElementById('dimSelect');
 			dSelector.innerHTML = '';
 			worlds[event.target.value].forEach(dim => {
 				let dOption = document.createElement('option');
