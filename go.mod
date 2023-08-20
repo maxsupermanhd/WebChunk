@@ -23,16 +23,15 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/joho/godotenv v1.4.0
+	github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/shirou/gopsutil v3.21.11+incompatible
 )
 
 require (
-	github.com/Tnze/go-mc v1.19.4 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
