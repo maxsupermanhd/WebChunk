@@ -29,14 +29,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tnze/go-mc/chat"
-	"github.com/Tnze/go-mc/data/packetid"
-	pk "github.com/Tnze/go-mc/net/packet"
-	"github.com/Tnze/go-mc/server"
-	"github.com/Tnze/go-mc/server/command"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/chat"
+	"github.com/maxsupermanhd/go-vmc/v762/data/packetid"
+	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v762/server"
+	"github.com/maxsupermanhd/go-vmc/v762/server/command"
 )
 
 type timeUpdater struct {

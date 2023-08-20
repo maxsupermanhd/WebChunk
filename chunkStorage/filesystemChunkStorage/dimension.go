@@ -25,8 +25,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 //lint:ignore U1000 Perhaps for later

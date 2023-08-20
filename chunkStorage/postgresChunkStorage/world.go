@@ -23,9 +23,9 @@ package postgresChunkStorage
 import (
 	"context"
 
-	"github.com/Tnze/go-mc/save"
 	"github.com/jackc/pgx/v4"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {

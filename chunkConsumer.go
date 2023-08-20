@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tnze/go-mc/level"
-	"github.com/Tnze/go-mc/nbt"
-	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
+	"github.com/maxsupermanhd/go-vmc/v762/level"
+	"github.com/maxsupermanhd/go-vmc/v762/nbt"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {

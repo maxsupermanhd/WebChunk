@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Tnze/go-mc/level/block"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/maxsupermanhd/go-vmc/v762/level/block"
 )
 
 var (

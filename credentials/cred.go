@@ -26,7 +26,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/Tnze/go-mc/bot"
 	gmma "github.com/maxsupermanhd/go-mc-ms-auth"
 )
 
@@ -67,7 +66,7 @@ func WriteCredentials(path string, cred *StoredMicrosoftCredentials) error {
 	return os.WriteFile(path, filebytes, 0600)
 }
 
-func (c *MicrosoftCredentialsManager) GetAuthForUsername(username string) (*bot.Auth, error) {
+func (c *MicrosoftCredentialsManager) GetAuthForUsername(username string) (*gmma.BotAuth, error) {
 	s, err := ReadCredentials(c.GetFilePath(username))
 	if err != nil {
 		return nil, err
@@ -98,7 +97,7 @@ func (c *MicrosoftCredentialsManager) GetAuthForUsername(username string) (*bot.
 		s.MinecraftUUID = resauth.UUID
 		return &resauth, WriteCredentials(c.GetFilePath(resauth.Name), s)
 	} else {
-		return &bot.Auth{
+		return &gmma.BotAuth{
 			Name: username,
 			UUID: s.MinecraftUUID,
 			AsTk: s.Minecraft.Token,

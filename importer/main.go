@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	// "github.com/Tnze/go-mc/save"
-	"github.com/Tnze/go-mc/save"
-	"github.com/Tnze/go-mc/save/region"
+	// "github.com/maxsupermanhd/go-vmc/v762/save"
 	"github.com/jackc/pgx/v4"
 	"github.com/joho/godotenv"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v762/save/region"
 )
 
 var (

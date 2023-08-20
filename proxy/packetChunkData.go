@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 
-	"github.com/Tnze/go-mc/level"
-	pk "github.com/Tnze/go-mc/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v762/level"
+	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
 )
 
 // and now we need to guess how long is sections array in this packet...
@@ -51,7 +51,7 @@ import (
 // completely tanks performance with allocations, not a solution...
 // log.Printf("Scanned with len of %d", cclen)
 
-func deserializeChunkPacket(p pk.Packet, dim loadedDim) (level.ChunkPos, level.Chunk, error) {
+func deserializeChunkPacket(p pk.Packet, _ loadedDim) (level.ChunkPos, level.Chunk, error) {
 	var (
 		heightmaps struct {
 			MotionBlocking []uint64 `nbt:"MOTION_BLOCKING"`

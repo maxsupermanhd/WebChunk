@@ -32,18 +32,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tnze/go-mc/bot"
-	"github.com/Tnze/go-mc/chat"
-	"github.com/Tnze/go-mc/chat/sign"
-	"github.com/Tnze/go-mc/data/packetid"
-	"github.com/Tnze/go-mc/level"
-	"github.com/Tnze/go-mc/net"
-	pk "github.com/Tnze/go-mc/net/packet"
-	"github.com/Tnze/go-mc/net/queue"
-	"github.com/Tnze/go-mc/server"
-	"github.com/Tnze/go-mc/server/auth"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/credentials"
+	"github.com/maxsupermanhd/go-vmc/v762/bot"
+	"github.com/maxsupermanhd/go-vmc/v762/chat"
+	"github.com/maxsupermanhd/go-vmc/v762/chat/sign"
+	"github.com/maxsupermanhd/go-vmc/v762/data/packetid"
+	"github.com/maxsupermanhd/go-vmc/v762/level"
+	"github.com/maxsupermanhd/go-vmc/v762/net"
+	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v762/net/queue"
+	"github.com/maxsupermanhd/go-vmc/v762/server"
+	"github.com/maxsupermanhd/go-vmc/v762/server/auth"
 	"github.com/maxsupermanhd/lac"
 )
 
@@ -213,7 +213,11 @@ func (p SnifferProxy) AcceptPlayer(name string, id uuid.UUID, profilePubKey *aut
 		return
 	}
 	c := bot.NewClient()
-	c.Auth = *auth
+	c.Auth = bot.Auth{
+		Name: auth.Name,
+		UUID: auth.UUID,
+		AsTk: auth.AsTk,
+	}
 	log.Printf("Accepting new player [%s] (%s), dialing [%s]...", name, id.String(), dest)
 	if err := c.JoinServerWithOptions(dest, bot.JoinOptions{NoPublicKey: true}); err != nil {
 		log.Printf("Failed to accept new player [%s] (%s), error connecting to [%s]: %v", name, id.String(), dest, err)

@@ -25,14 +25,14 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Tnze/go-mc/chat"
-	"github.com/Tnze/go-mc/data/packetid"
-	"github.com/Tnze/go-mc/level"
-	"github.com/Tnze/go-mc/level/block"
-	"github.com/Tnze/go-mc/nbt"
-	pk "github.com/Tnze/go-mc/net/packet"
-	"github.com/Tnze/go-mc/server"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/maxsupermanhd/go-vmc/v762/chat"
+	"github.com/maxsupermanhd/go-vmc/v762/data/packetid"
+	"github.com/maxsupermanhd/go-vmc/v762/level"
+	"github.com/maxsupermanhd/go-vmc/v762/level/block"
+	"github.com/maxsupermanhd/go-vmc/v762/nbt"
+	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v762/server"
 )
 
 // 4 bits for x, 4 bits for z

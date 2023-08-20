@@ -25,8 +25,8 @@ import (
 	"regexp"
 	"strconv"
 
-	pk "github.com/Tnze/go-mc/net/packet"
-	"github.com/Tnze/go-mc/server/command"
+	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v762/server/command"
 )
 
 type BlockPosParser struct{}

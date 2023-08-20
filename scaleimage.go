@@ -37,9 +37,9 @@ import (
 	"strings"
 	_ "sync"
 
-	"github.com/Tnze/go-mc/save"
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 	"github.com/nfnt/resize"
 )
 

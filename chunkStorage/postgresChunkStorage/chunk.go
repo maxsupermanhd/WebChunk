@@ -25,10 +25,10 @@ import (
 	"errors"
 	"log"
 
-	"github.com/Tnze/go-mc/save"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 func (s *PostgresChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error) {

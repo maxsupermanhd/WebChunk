@@ -33,10 +33,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Tnze/go-mc/save"
-	"github.com/Tnze/go-mc/save/region"
 	"github.com/hashicorp/go-multierror"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v762/save/region"
 )
 
 type regionLocator struct {

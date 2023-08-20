@@ -12,11 +12,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Tnze/go-mc/level"
-	"github.com/Tnze/go-mc/level/block"
-	"github.com/Tnze/go-mc/save"
-	"github.com/Tnze/go-mc/save/region"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage/filesystemChunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/level"
+	"github.com/maxsupermanhd/go-vmc/v762/level/block"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v762/save/region"
 )
 
 var (

@@ -30,7 +30,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/Tnze/go-mc/level/block"
+	"github.com/maxsupermanhd/go-vmc/v762/level/block"
 )
 
 func hexColor(c color.Color) string {

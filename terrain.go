@@ -38,13 +38,13 @@ import (
 	_ "sync"
 	"time"
 
-	"github.com/Tnze/go-mc/level"
-	"github.com/Tnze/go-mc/level/block"
-	"github.com/Tnze/go-mc/save"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	biomes "github.com/maxsupermanhd/WebChunk/data/biomes"
+	"github.com/maxsupermanhd/go-vmc/v762/level"
+	"github.com/maxsupermanhd/go-vmc/v762/level/block"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 type metricsCollect struct {

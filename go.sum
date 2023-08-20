@@ -1,9 +1,12 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
+github.com/Tnze/go-mc v1.17.0 h1:eux33waaSNAUJmnRjYjUmR3NgoHgQStFxHSBYg9I1WM=
 github.com/Tnze/go-mc v1.17.0/go.mod h1:t0AI38F1BEmmy8/uLhr9RCOUeDbBj3oUNQH9akjzMc0=
 github.com/Tnze/go-mc v1.19.4-pre1.0.20230606012513-b09ea0a3eb7f h1:+K3/tl0i62YCqtBKiCJRdnNz159CHaPkylyNYBoq5Co=
 github.com/Tnze/go-mc v1.19.4-pre1.0.20230606012513-b09ea0a3eb7f/go.mod h1:c1znJQglgqa1Jjs3Dr29woN/msguiJrlNtWXhKedh2U=
+github.com/Tnze/go-mc v1.19.4 h1:9qtxH+xRJWswOYnlf/dsFY4EI2f5jsFhtqTYOObaGIE=
+github.com/Tnze/go-mc v1.19.4/go.mod h1:c1znJQglgqa1Jjs3Dr29woN/msguiJrlNtWXhKedh2U=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
@@ -111,6 +114,14 @@ github.com/mattn/go-isatty v0.0.7/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hd
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797 h1:Jipsapvs1Fq++OK7SMWqEKot/QOzYYHWF5JhCS+dZ7Y=
 github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797/go.mod h1:WBS+Mq/0VBXcKmXH5/DSok3dsvlNrFvSyq5cjHDA3sw=
+github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230525160111-dbc518186eaf h1:/4vyYtBCylHsqZxTObSyKedmvQfrs5BuMa5S16QPEtI=
+github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230525160111-dbc518186eaf/go.mod h1:WBS+Mq/0VBXcKmXH5/DSok3dsvlNrFvSyq5cjHDA3sw=
+github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230820124233-224c486a58d7 h1:Q1HwqGqJz9OYfJJKq4dSM1gthaYz30xv0CtXYwo94jI=
+github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230820124233-224c486a58d7/go.mod h1:nUJqyBOVWiWm1XHwFpvFhLewsX2vKpp3zEFYpcIbQIc=
+github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc h1:ib2jqemeYjB2F4SJi9nU7uhr9vML4sUf63mpOIYU2sY=
+github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc/go.mod h1:LUlOdIlnkyFBf/Hm3SjCoanrORKe2ZqduVtweorqFkc=
+github.com/maxsupermanhd/go-vmc/v762/v762 v762.0.0-20230819214439-d83374773778 h1:kBN0HTkWWdOtX+Kw7CwT5YA4cNVFlbHplCAogwd4e9c=
+github.com/maxsupermanhd/go-vmc/v762/v762 v762.0.0-20230819214439-d83374773778/go.mod h1:LUlOdIlnkyFBf/Hm3SjCoanrORKe2ZqduVtweorqFkc=
 github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf h1:V2EuMRfFjjAMaDWLqB9I2sPpfkL+uOLZHHbO7DOeY64=
 github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf/go.mod h1:xQezeA7Tf0qvyr6DuOjmBJTcAyM9RS7cUKxOlnQLZKo=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=

@@ -26,8 +26,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/Tnze/go-mc/save"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 func (s *FilesystemChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {

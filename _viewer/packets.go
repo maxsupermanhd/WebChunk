@@ -21,11 +21,11 @@
 package viewer
 
 import (
-	"github.com/Tnze/go-mc/chat"
-	"github.com/Tnze/go-mc/data/packetid"
-	pk "github.com/Tnze/go-mc/net/packet"
-	"github.com/Tnze/go-mc/server"
 	"github.com/google/uuid"
+	"github.com/maxsupermanhd/go-vmc/v762/chat"
+	"github.com/maxsupermanhd/go-vmc/v762/data/packetid"
+	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v762/server"
 )
 
 func SendUnloadChunk(p *server.Client, x, z int32) {

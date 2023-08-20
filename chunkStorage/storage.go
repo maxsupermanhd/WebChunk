@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tnze/go-mc/save"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 var (

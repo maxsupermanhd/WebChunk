@@ -27,8 +27,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/Tnze/go-mc/nbt"
-	"github.com/Tnze/go-mc/save"
+	"github.com/maxsupermanhd/go-vmc/v762/nbt"
+	"github.com/maxsupermanhd/go-vmc/v762/save"
 )
 
 // reads level data from file

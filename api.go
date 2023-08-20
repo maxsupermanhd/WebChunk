@@ -34,11 +34,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tnze/go-mc/nbt"
-	_ "github.com/Tnze/go-mc/save/region"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	"github.com/maxsupermanhd/go-vmc/v762/nbt"
+	_ "github.com/maxsupermanhd/go-vmc/v762/save/region"
 )
 
 //lint:ignore U1000 for debugging

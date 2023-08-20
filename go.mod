@@ -15,7 +15,6 @@ replace github.com/maxsupermanhd/WebChunk/proxy => ./proxy
 replace github.com/maxsupermanhd/WebChunk/cmd/auth => ./cmd/auth
 
 require (
-	github.com/Tnze/go-mc v1.19.4-pre1.0.20230606012513-b09ea0a3eb7f
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.5.4
@@ -30,7 +29,9 @@ require (
 )
 
 require (
+	github.com/Tnze/go-mc v1.19.4 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -49,7 +50,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.11.0 // indirect
 	github.com/jackc/puddle v1.2.1 // indirect
-	github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20220223195356-5256511fc797
+	github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230820124233-224c486a58d7
 	github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
