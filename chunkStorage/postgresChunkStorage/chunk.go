@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -252,4 +253,20 @@ func (s *PostgresChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, dat 
 				 where dimensions.world = $4 and dimensions.name = $5))`,
 		cx, cz, dat, wname, dname)
 	return err
+}
+
+func (s *PostgresChunkStorage) GetChunkModDate(wname, dname string, cx, cz int) (*time.Time, error) {
+	var t time.Time
+	err := s.DBPool.QueryRow(context.Background(), `
+		SELECT created_at FROM chunks
+		WHERE x = $1 AND z = $2 AND dim = (select dimensions.id from dimensions where dimensions.world = $3 and dimensions.name = $4)
+		ORDER BY created_at DESC
+		LIMIT 1`, cx, cz, wname, dname).Scan(&t)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &t, nil
 }

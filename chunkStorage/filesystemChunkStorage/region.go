@@ -46,13 +46,25 @@ type regionLocator struct {
 }
 
 type regionRequest struct {
-	op                 string
+	op                 regionRouterComand
 	world              string
 	dimension          string
 	cx1, cx2, cz1, cz2 int // 1 top left 2 bottom right
 	data               []byte
 	result             chan interface{}
 }
+
+type regionRouterComand int
+
+const (
+	regionRouterCloseRegion regionRouterComand = iota
+	regionRouterCloseInactive
+	regionRouterGetChunk
+	regionRouterSetChunk
+	regionRouterGetModDate
+	regionRouterCountRegionChunks
+	regionRouterCountIndividualChunks
+)
 
 // region router will recieve requests for operations
 // and start a gorutine worker for each different
@@ -73,7 +85,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			select {
 			case <-autocloseTicker.C:
 				s.requests <- regionRequest{
-					op: "closeInactive",
+					op: regionRouterCloseInactive,
 				}
 			case <-closeTicker:
 				return
@@ -96,7 +108,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 				lastRequest: time.Now(),
 			}
 			if os.IsNotExist(err) {
-				if r.op == "set" {
+				if r.op == regionRouterSetChunk {
 					s.wg.Add(1)
 					go func() {
 						s.regionWorker(l, c.c, true)
@@ -134,7 +146,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 		}
 		// log.Println("Region router", s.Root, r.op, r.cx1, r.cz1, r.cx2, r.cz2)
 		switch r.op {
-		case "closeInactive":
+		case regionRouterCloseInactive:
 			toclose := []regionLocator{}
 			for k, v := range w {
 				if time.Since(v.lastRequest) > 1*time.Minute {
@@ -152,7 +164,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 					delete(w, k)
 				}
 			}
-		case "regionClose":
+		case regionRouterCloseRegion:
 			l.rx, l.rz = r.cx1, r.cz1
 			c, ok := w[l]
 			if !ok {
@@ -161,12 +173,14 @@ func (s *FilesystemChunkStorage) regionRouter() {
 				close(c.c)
 				delete(w, l)
 			}
-		case "get":
+		case regionRouterGetModDate:
 			fallthrough
-		case "set":
+		case regionRouterGetChunk:
+			fallthrough
+		case regionRouterSetChunk:
 			rx1, rz1 := region.At(r.cx1, r.cz1)
 			getOrCreateWorker(r.world, r.dimension, rx1, rz1, r)
-		case "countRegion":
+		case regionRouterCountIndividualChunks:
 			rx1, rz1 := region.At(r.cx1, r.cz1)
 			rx2, rz2 := region.At(r.cx2, r.cz2)
 			for rz := rz1; rz < rz2; rz++ {
@@ -243,7 +257,7 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 	refresher := time.NewTicker(500 * time.Millisecond)
 	sendClose := func(err error) {
 		s.requests <- regionRequest{
-			op:        "regionClose",
+			op:        regionRouterCloseRegion,
 			world:     loc.world,
 			dimension: loc.dimension,
 			cx1:       loc.rx,
@@ -281,7 +295,10 @@ workerLoop:
 				break workerLoop
 			}
 			switch r.op {
-			case "set":
+			case regionRouterGetModDate:
+				x, z := region.In(r.cx1, r.cz1)
+				r.result <- reg.Timestamps[x][z]
+			case regionRouterSetChunk:
 				x, z := region.In(r.cx1, r.cz1)
 				err = reg.WriteSector(x, z, r.data)
 				if err != nil {
@@ -290,7 +307,7 @@ workerLoop:
 				} else {
 					r.result <- nil
 				}
-			case "get":
+			case regionRouterGetChunk:
 				x, z := region.In(r.cx1, r.cz1)
 				d, err := reg.ReadSector(x, z)
 				if err != nil {
@@ -304,7 +321,7 @@ workerLoop:
 				} else {
 					r.result <- d
 				}
-			case "count":
+			case regionRouterCountRegionChunks:
 				c := 0
 				for x := 0; x < 32; x++ {
 					for z := 0; z < 32; z++ {
@@ -314,7 +331,7 @@ workerLoop:
 					}
 				}
 				r.result <- c
-			case "countRegion":
+			case regionRouterCountIndividualChunks:
 				for rx := 0; rx < 32; rx++ {
 					for rz := 0; rz < 32; rz++ {
 						x := rx * loc.rx
@@ -354,7 +371,7 @@ func (s *FilesystemChunkStorage) AddChunk(wname, dname string, cx, cz int, col s
 func (s *FilesystemChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, dat []byte) error {
 	r := make(chan interface{}, 2)
 	s.requests <- regionRequest{
-		op:        "set",
+		op:        regionRouterSetChunk,
 		world:     wname,
 		dimension: dname,
 		cx1:       cx,
@@ -375,6 +392,29 @@ func (s *FilesystemChunkStorage) AddChunkRaw(wname, dname string, cx, cz int, da
 	return errors.New("no response from region worker")
 }
 
+func (s *FilesystemChunkStorage) GetChunkModDate(wname, dname string, cx, cz int) (*time.Time, error) {
+	r := make(chan interface{}, 2)
+	s.requests <- regionRequest{
+		op:        regionRouterGetModDate,
+		world:     wname,
+		dimension: dname,
+		cx1:       cx,
+		cx2:       0,
+		cz1:       cz,
+		cz2:       0,
+		result:    r,
+	}
+	for ret := range r {
+		switch v := ret.(type) {
+		case error:
+			return nil, v
+		case time.Time:
+			return &v, nil
+		}
+	}
+	return nil, errors.New("no response from region worker")
+}
+
 func (s *FilesystemChunkStorage) GetChunk(wname, dname string, cx, cz int) (*save.Chunk, error) {
 	d, err := s.GetChunkRaw(wname, dname, cx, cz)
 	if err != nil {
@@ -391,7 +431,7 @@ func (s *FilesystemChunkStorage) GetChunk(wname, dname string, cx, cz int) (*sav
 func (s *FilesystemChunkStorage) GetChunkRaw(wname, dname string, cx, cz int) ([]byte, error) {
 	r := make(chan interface{}, 2)
 	s.requests <- regionRequest{
-		op:        "get",
+		op:        regionRouterGetChunk,
 		world:     wname,
 		dimension: dname,
 		cx1:       cx,
@@ -540,7 +580,7 @@ func (s *FilesystemChunkStorage) GetChunksCountRegion(wname, dname string, cx0, 
 	resCount := (cx1 - cx0) * (cz1 - cz0)
 	res := make(chan interface{}, (resCount)/2)
 	s.requests <- regionRequest{
-		op:        "countRegion",
+		op:        regionRouterCountIndividualChunks,
 		world:     wname,
 		dimension: dname,
 		cx1:       cx0,

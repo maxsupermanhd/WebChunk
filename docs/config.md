@@ -14,6 +14,7 @@ Path to load config from is taken from environment variable `WEBCHUNK_CONFIG` an
 | `colors_path` | string | Yes 🔧 |`./colors.gob` | Path to GOB-encoded block color palette |
 | `storages` | object | No | `{}` | Contains defined storages, see [Storage object](#storage-object) |
 | `render_received` | bool | Yes | `true` | Do render chunks immediately when received |
+| `cache_workers` | int | No | `4` | Essentially number of IO threads that read/write from cache |
 | `web` | object | Parially | see below | Group for web-related parameters |
 | `web`.`listen_addr` | string | No | `localhost:3002` | Web server listen address |
 | `web`.`templates_glob` | string | Yes | `./templates/*.gohtml` | Glob for HTML templates |

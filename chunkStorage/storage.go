@@ -102,6 +102,8 @@ type ChunkStorage interface {
 	// Warning, chunk data array may be real big!
 	GetChunksCountRegion(wname, dname string, cx0, cz0, cx1, cz1 int) ([]ChunkData, error)
 
+	GetChunkModDate(wname, dname string, cx, cz int) (*time.Time, error)
+
 	Close() error
 }
 

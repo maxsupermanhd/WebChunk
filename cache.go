@@ -32,6 +32,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -40,7 +41,7 @@ import (
 var (
 	imageCacheMaxCache     = 512
 	imageCacheStorageLevel = 5
-	imageCacheProcess      = make(chan cacheTask, 32)
+	imageCacheProcess      = make(chan imageTask, 32)
 	powarr                 = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
 )
 
@@ -59,7 +60,7 @@ func (i imageLoc) String() string {
 	return fmt.Sprintf("{%s:%s:%s at %ds %dx %dz}", i.World, i.Dimension, i.Layer, i.S, i.X, i.Z)
 }
 
-type cacheTask struct {
+type imageTask struct {
 	loc imageLoc
 	img *image.RGBA
 	ret chan<- *image.RGBA
@@ -75,22 +76,81 @@ func icIN(cx, cz int) (int, int) {
 	return cx & (powarr[imageCacheStorageLevel] - 1), cz & (powarr[imageCacheStorageLevel] - 1)
 }
 
+// Does actual IO
+func imageCacheWorker(requests chan imageTask, responses chan imageTask) {
+	for p := range requests {
+		if p.img == nil { // read
+			var err error
+			p.img, err = cacheLoad(p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, p.loc.X, p.loc.Z)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					log.Printf("Error reading image cache %v: %v", p.loc, err)
+				}
+				continue
+			}
+			responses <- p
+		} else {
+			err := cacheSave(p.img, p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, p.loc.X, p.loc.Z)
+			if err != nil {
+				log.Printf("Error writing image cache %v: %v", p.loc, err)
+			}
+		}
+	}
+}
+
 func imageCacheProcessor(ctx context.Context) {
 	imageCache := map[imageLoc]cachedImage{}
+
 	flushTicker := time.NewTicker(15 * time.Second)
+
+	var wg sync.WaitGroup
+
+	iotasks := make(chan imageTask, 32)
+	ioreturn := make(chan imageTask, 128)
+
+	ioreadwaiting := map[imageLoc][]chan<- *image.RGBA{}
+
+	ion := cfg.GetDSInt(4, "cache_workers")
+	wg.Add(ion)
+	for i := 0; i < ion; i++ {
+		go func() {
+			imageCacheWorker(iotasks, ioreturn)
+			wg.Done()
+		}()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Image cache sutting down...")
+			savecount := 0
 			for k, v := range imageCache {
 				if !v.syncedToDisk {
-					err := cacheSave(v.img, k.World, k.Dimension, k.Layer, k.S, k.X, k.Z)
-					if err != nil {
-						log.Printf("Failed to save cache of %s because %v", k, err)
+					iotasks <- imageTask{
+						loc: k,
+						img: v.img,
+						ret: nil,
 					}
+					savecount++
 				}
 			}
+			log.Printf("Saving %d images...", savecount)
+			close(iotasks)
+			wg.Wait()
+			log.Println("Image cache done")
 			return
+		case p := <-ioreturn:
+			if p.img != nil { // was read
+				i, ok := ioreadwaiting[p.loc]
+				if !ok {
+					log.Println("Useless read? ", p.loc)
+					break
+				}
+				for _, r := range i {
+					r <- p.img
+				}
+				delete(ioreadwaiting, p.loc)
+			}
 		case p := <-imageCacheProcess:
 			if p.img == nil { // read
 				if p.ret == nil {
@@ -105,19 +165,14 @@ func imageCacheProcessor(ctx context.Context) {
 						imageCache[p.loc] = i
 						break
 					}
-					var err error
-					i.img, err = cacheLoad(p.loc.World, p.loc.Dimension, p.loc.Layer, imageCacheStorageLevel, p.loc.X, p.loc.Z)
-					if err != nil {
-						if !errors.Is(err, os.ErrNotExist) {
-							log.Printf("Weird stuff you got with image cache %v: %v", p.loc, err)
-						}
-						close(p.ret)
+					w, ok := ioreadwaiting[p.loc]
+					if ok {
+						w = append(w, p.ret)
+						ioreadwaiting[p.loc] = w
 						break
 					}
-					p.ret <- copyImage(i.img)
-					i.syncedToDisk = true
-					i.lastUse = time.Now()
-					imageCache[p.loc] = i
+					ioreadwaiting[p.loc] = []chan<- *image.RGBA{p.ret}
+					iotasks <- p
 				} else if p.loc.S < imageCacheStorageLevel {
 					ax, az := p.loc.X*powarr[p.loc.S], p.loc.Z*powarr[p.loc.S]
 					rx, rz := icAT(ax, az)
@@ -204,7 +259,7 @@ func imageCacheProcessor(ctx context.Context) {
 								imageCache[rl] = i
 							}
 							w := powarr[imageCacheStorageLevel] * 16
-							log.Printf("Draw %3d %3d %3d base %3d %3d tile %3d %3d to %3d %3d", p.loc.X, p.loc.Z, rs, bx, bz, rl.X, rl.Z, x*w, z*w)
+							// log.Printf("Draw %3d %3d %3d base %3d %3d tile %3d %3d to %3d %3d", p.loc.X, p.loc.Z, rs, bx, bz, rl.X, rl.Z, x*w, z*w)
 							draw.Draw(ret, image.Rect(x*w, z*w, x*w+w, z*w+w), i.img, image.Point{}, draw.Src)
 						}
 					}
@@ -301,7 +356,7 @@ func imageCacheGetBlocking(world, dim, render string, s, x, z int) *image.RGBA {
 
 func imageCacheGetBlockingLoc(loc imageLoc) *image.RGBA {
 	recv := make(chan *image.RGBA)
-	imageCacheProcess <- cacheTask{
+	imageCacheProcess <- imageTask{
 		loc: loc,
 		img: nil,
 		ret: recv,
@@ -313,7 +368,7 @@ func imageCacheGetBlockingLoc(loc imageLoc) *image.RGBA {
 }
 
 func imageCacheSave(img *image.RGBA, world, dim, render string, s, x, z int) {
-	imageCacheProcess <- cacheTask{
+	imageCacheProcess <- imageTask{
 		loc: imageLoc{
 			World:     world,
 			Dimension: dim,
