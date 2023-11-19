@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	imagecache "github.com/maxsupermanhd/WebChunk/imageCache"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -109,9 +110,9 @@ func wsClientHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 		wg.Done()
 	}()
 
-	subbedTiles := map[imageLoc]bool{}
+	subbedTiles := map[imagecache.ImageLocation]bool{}
 
-	asyncTileRequestor := func(loc imageLoc) {
+	asyncTileRequestor := func(loc imagecache.ImageLocation) {
 		ret := marshalBinaryTileUpdate(loc, imageCacheGetBlockingLoc(loc))
 		if !wQdidClose.Load() {
 			wQ <- wsmessage{
@@ -175,7 +176,7 @@ clientLoop:
 				}
 				switch msg.Action {
 				case "tileSubscribe":
-					var loc imageLoc
+					var loc imagecache.ImageLocation
 					err := mapstructure.Decode(msg.Data, &loc)
 					if err != nil {
 						log.Printf("Websocket %s sent malformed tile sub: %s", r.RemoteAddr, err.Error())
@@ -190,7 +191,7 @@ clientLoop:
 					}
 					go asyncTileRequestor(loc)
 				case "tileUnsubscribe":
-					var loc imageLoc
+					var loc imagecache.ImageLocation
 					err := mapstructure.Decode(msg.Data, &loc)
 					if err != nil {
 						log.Printf("Websocket %s sent malformed tile unsub: %s", r.RemoteAddr, err.Error())
@@ -220,7 +221,7 @@ clientLoop:
 						break
 					}
 					oldSubbed := subbedTiles
-					subbedTiles = map[imageLoc]bool{}
+					subbedTiles = map[imagecache.ImageLocation]bool{}
 					for k := range oldSubbed {
 						k.World = nWorld
 						k.Dimension = nDimension
@@ -241,15 +242,15 @@ clientLoop:
 	log.Printf("Websocket handler %s exited", r.RemoteAddr)
 }
 
-func marshalBinaryTileUpdate(loc imageLoc, img *image.RGBA) []byte {
+func marshalBinaryTileUpdate(loc imagecache.ImageLocation, img *image.RGBA) []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint8(0x01))
 	binary.Write(buf, binary.BigEndian, uint32(len(loc.World)))
 	buf.WriteString(loc.World)
 	binary.Write(buf, binary.BigEndian, uint32(len(loc.Dimension)))
 	buf.WriteString(loc.Dimension)
-	binary.Write(buf, binary.BigEndian, uint32(len(loc.Layer)))
-	buf.WriteString(loc.Layer)
+	binary.Write(buf, binary.BigEndian, uint32(len(loc.Variant)))
+	buf.WriteString(loc.Variant)
 	binary.Write(buf, binary.BigEndian, uint8(loc.S))
 	binary.Write(buf, binary.BigEndian, int32(loc.X))
 	binary.Write(buf, binary.BigEndian, int32(loc.Z))

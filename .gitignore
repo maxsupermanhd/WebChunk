@@ -6,7 +6,7 @@ WebChunk
 *.log.gz
 tags
 db/data*
-imageCache
+cachedImages
 config.json
 __debug_bin
 storage

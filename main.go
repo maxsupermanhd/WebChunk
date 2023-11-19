@@ -24,7 +24,6 @@ import (
 	"context"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,6 +33,7 @@ import (
 	"time"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	imagecache "github.com/maxsupermanhd/WebChunk/imageCache"
 	"github.com/maxsupermanhd/WebChunk/proxy"
 
 	"github.com/gorilla/handlers"
@@ -48,24 +48,32 @@ var (
 	GitTag     = "0.0"
 )
 
+var (
+	ic *imagecache.ImageCache
+)
+
 func customLogger(_ io.Writer, params handlers.LogFormatterParams) {
 	r := params.Request
 	ip := r.Header.Get("CF-Connecting-IP")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
 	geo := r.Header.Get("CF-IPCountry")
+	if geo == "" {
+		geo = "??"
+	}
 	ua := r.Header.Get("user-agent")
 	log.Println("["+geo+" "+ip+"]", r.Method, params.StatusCode, r.RequestURI, "["+ua+"]")
 }
 
 func main() {
-	//lint:ignore SA1019 intentional
-	rand.Seed(time.Now().UTC().UnixNano())
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	if buildinfo, ok := debug.ReadBuildInfo(); ok {
-		GoVersion = buildinfo.GoVersion
-	}
 	if err := loadConfig(); err != nil {
 		log.Println("Error loading config file: " + err.Error())
 		log.Println("Defaults will be used.")
+	}
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	if buildinfo, ok := debug.ReadBuildInfo(); ok {
+		GoVersion = buildinfo.GoVersion
 	}
 	lg := lumberjack.Logger{
 		Filename: cfg.GetDSString("./logs/WebChunk.log", "logs_path"),
@@ -85,10 +93,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// log.Println("Starting image scaler")
+	// wg.Add(1)
+	// go func() {
+	// 	imagingProcessor(ctx)
+	// 	log.Println("Image scaler stopped")
+	// 	wg.Done()
+	// }()
+
 	log.Println("Starting metrix dispatcher")
 	wg.Add(2)
 	go func() {
 		metricsDispatcher()
+		log.Println("Metrix dispatcher stopped")
 		wg.Done()
 	}()
 	go func() {
@@ -101,7 +118,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		globalEventRouter.Run(ctx)
-		log.Println("Event router shut down")
+		log.Println("Event router stopped")
 		wg.Done()
 	}()
 
@@ -225,7 +242,8 @@ func main() {
 	// }()
 	wg.Add(1)
 	go func() {
-		imageCacheProcessor(ctx)
+		ic = imagecache.NewImageCache(log.Default(), cfg.SubTree("imageCache"), ctx)
+		ic.WaitExit()
 		log.Println("Image cache stopped")
 		wg.Done()
 	}()

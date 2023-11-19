@@ -98,7 +98,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 					plainmsg(w, r, plainmsgColorRed, "Error getting chunks size of dim "+dim.Name+" of world "+wrld.Name+" of storage "+sn+": "+err.Error())
 					return
 				}
-				dimCacheCount, dimCacheSize, err := getImageCacheCountSize(wrld.Name, dim.Name)
+				// dimCacheCount, dimCacheSize, err := getImageCacheCountSize(wrld.Name, dim.Name)
+				dimCacheCount, dimCacheSize, err := int64(0), 0, nil
 				if err != nil {
 					plainmsg(w, r, plainmsgColorRed, "Error getting cache size and counts of dim "+dim.Name+" of world "+wrld.Name+": "+err.Error())
 					return

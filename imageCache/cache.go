@@ -1,0 +1,305 @@
+package imagecache
+
+import (
+	"container/list"
+	"context"
+	"fmt"
+	"image"
+	"image/draw"
+	"io"
+	"log"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/maxsupermanhd/lac"
+)
+
+var (
+	powarr     = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
+	powarr16   = []int{1 * 16, 2 * 16, 4 * 16, 8 * 16, 16 * 16, 32 * 16, 64 * 16, 128 * 16, 256 * 16, 512 * 16, 1024 * 16, 2048 * 16, 4096 * 16}
+	powarr16m1 = []int{1*16 - 1, 2*16 - 1, 4*16 - 1, 8*16 - 1, 16*16 - 1, 32*16 - 1, 64*16 - 1, 128*16 - 1, 256*16 - 1, 512*16 - 1, 1024*16 - 1, 2048*16 - 1, 4096*16 - 1}
+)
+
+const (
+	StorageLevel           = int(5)
+	DefaultTaskQueueLen    = int(256)
+	DefaultIOProcessors    = int(4)
+	DefaultIOTasksQueueLen = int(256)
+)
+
+func AT(cx, cz int) (int, int) {
+	return cx >> StorageLevel, cz >> StorageLevel
+}
+
+func IN(cx, cz int) (int, int) {
+	return cx & powarr16m1[StorageLevel], cz & powarr16m1[StorageLevel]
+}
+
+type ImageLocation struct {
+	World, Dimension, Variant string
+	S, X, Z                   int
+}
+
+func (i ImageLocation) String() string {
+	return fmt.Sprintf("{%s:%s:%s at %ds %dx %dz}", i.World, i.Dimension, i.Variant, i.S, i.X, i.Z)
+}
+
+type CachedImage struct {
+	Img           *image.RGBA
+	Loc           ImageLocation
+	SyncedToDisk  bool
+	lastUse       time.Time
+	ModTime       time.Time
+	imageUnloaded bool
+}
+
+type cacheTask struct {
+	loc ImageLocation
+	img *image.RGBA
+	ret chan *CachedImage
+}
+
+type ImageCache struct {
+	ctx                 context.Context
+	logger              *log.Logger
+	cfg                 *lac.ConfSubtree
+	root                string
+	tasks               chan *cacheTask
+	ioTasks             chan *cacheTaskIO
+	ioReturn            chan *cacheTaskIO
+	cache               map[ImageLocation]*CachedImage
+	cacheReturn         map[ImageLocation][]*cacheTask
+	backlog             *list.List
+	wg                  sync.WaitGroup
+	cacheStatLen        atomic.Int64
+	cacheStatUncommited atomic.Int64
+}
+
+func NewImageCache(logger *log.Logger, cfg *lac.ConfSubtree, ctx context.Context) *ImageCache {
+	if logger == nil {
+		logger = log.New(io.Discard, "", 0)
+	}
+	taskQueueLen := gtzero(logger, cfg, DefaultTaskQueueLen, "taskQueueLen")
+	ioQueueLen := gtzero(logger, cfg, DefaultIOTasksQueueLen, "ioQueueLen")
+	ioProcessors := gtzero(logger, cfg, DefaultIOProcessors, "ioProcessors")
+	c := &ImageCache{
+		ctx:         ctx,
+		logger:      logger,
+		cfg:         cfg,
+		root:        cfg.GetDSString("cachedImages", "root"),
+		tasks:       make(chan *cacheTask, taskQueueLen),
+		ioTasks:     make(chan *cacheTaskIO, ioQueueLen),
+		ioReturn:    make(chan *cacheTaskIO, ioQueueLen),
+		cache:       map[ImageLocation]*CachedImage{},
+		cacheReturn: map[ImageLocation][]*cacheTask{},
+		backlog:     list.New(),
+	}
+	c.wg.Add(ioProcessors)
+	for i := 0; i < ioProcessors; i++ {
+		go c.processorIO(c.ioTasks, c.ioReturn)
+	}
+	go c.processor()
+	return c
+}
+
+func (c *ImageCache) WaitExit() {
+	c.wg.Wait()
+}
+
+func (c *ImageCache) processor() {
+	autosaveInterval := c.cfg.GetDSInt(15, "autosaveInterval")
+	autosaveTimer := time.NewTicker(time.Duration(autosaveInterval) * time.Second)
+
+processorLoop:
+	for {
+		select {
+		case <-c.ctx.Done():
+			break processorLoop
+		case task := <-c.tasks:
+			c.processTask(task)
+		case ret := <-c.ioReturn:
+			c.processReturn(ret)
+		case <-autosaveTimer.C:
+			c.processSave()
+		}
+	}
+
+	c.processSave()
+
+	close(c.ioTasks)
+
+	c.wg.Wait()
+}
+
+func (c *ImageCache) processTask(task *cacheTask) {
+	if task.img == nil {
+		if task.loc.S != StorageLevel {
+			c.logger.Printf("Requested unsupported image scale of %d", task.loc.S)
+			return
+		}
+		c.processImageGet(task)
+	} else {
+		c.processImageSet(task)
+	}
+}
+
+func (c *ImageCache) processImageGet(task *cacheTask) {
+	if task.loc.S != StorageLevel {
+		c.logger.Printf("Requested not storage level get (%s)", task.loc.String())
+		task.ret <- &CachedImage{
+			Img:     nil,
+			Loc:     task.loc,
+			lastUse: time.Time{},
+			ModTime: time.Time{},
+		}
+		return
+	}
+	l, ok := c.cache[task.loc]
+	if ok {
+		task.ret <- copyCachedImage(l)
+		return
+	}
+	r, ok := c.cacheReturn[task.loc]
+	if ok {
+		r = append(r, task)
+	} else {
+		r = []*cacheTask{task}
+	}
+	c.cacheReturn[task.loc] = r
+	c.ioTasks <- &cacheTaskIO{
+		loc: task.loc,
+		img: nil,
+		err: nil,
+	}
+}
+
+func copyCachedImage(img *CachedImage) *CachedImage {
+	return &CachedImage{
+		Img:           copyRGBA(img.Img),
+		SyncedToDisk:  img.SyncedToDisk,
+		lastUse:       img.lastUse,
+		ModTime:       img.ModTime,
+		imageUnloaded: false,
+	}
+}
+
+func copyRGBA(from *image.RGBA) *image.RGBA {
+	dx := from.Rect.Dx()
+	dy := from.Rect.Dy()
+	to := image.NewRGBA(image.Rect(0, 0, dx, dy))
+	draw.DrawMask(to, to.Rect, from, image.Point{}, nil, image.Point{}, draw.Src)
+	return to
+}
+
+func (c *ImageCache) processImageSet(task *cacheTask) {
+	t, ok := c.cache[task.loc]
+	if !ok {
+		c.ioTasks <- &cacheTaskIO{
+			loc: task.loc,
+			img: nil,
+			err: nil,
+		}
+		t = &CachedImage{
+			Img:           image.NewRGBA(image.Rect(0, 0, 512, 512)),
+			Loc:           task.loc,
+			lastUse:       time.Now(),
+			imageUnloaded: true,
+		}
+		c.cache[task.loc] = t
+	}
+	if task.loc.S == 0 {
+		rx, rz := IN(task.loc.X, task.loc.Z)
+		r := image.Rect(rx*16, rz*16, rx*16+16, rz*16+16)
+		draw.Draw(t.Img, r, task.img, image.Point{}, draw.Src)
+	} else if task.loc.S == StorageLevel {
+		draw.Draw(t.Img, t.Img.Rect, task.img, image.Point{}, draw.Src)
+	} else {
+		c.logger.Printf("Set of non-native and non-zero scaled image %s", task.loc.String())
+	}
+}
+
+func (c *ImageCache) processReturn(task *cacheTaskIO) {
+	if task.img == nil {
+		if task.err != nil {
+			c.logger.Printf("Error reading image at %s", task.loc.String())
+			return
+		}
+	}
+
+	t, ok := c.cache[task.loc]
+	if ok {
+		if !t.imageUnloaded {
+			c.logger.Printf("IO return at %s but already have loaded image in cache", task.loc.String())
+			return
+		}
+		if task.img == nil {
+			t.imageUnloaded = false
+		} else {
+			draw.Draw(task.img.Img, task.img.Img.Bounds(), t.Img, image.Point{}, draw.Src)
+		}
+	} else {
+		c.cache[task.loc] = task.img
+	}
+
+	ret, ok := c.cacheReturn[task.loc]
+	if !ok {
+		c.logger.Printf("Unexpected IO return at %s", task.loc.String())
+		return
+	}
+	for _, v := range ret {
+		c.processTask(v)
+	}
+	delete(c.cacheReturn, task.loc)
+}
+
+func (c *ImageCache) SetCachedImage(loc ImageLocation, img *image.RGBA) {
+	c.tasks <- &cacheTask{
+		loc: loc,
+		img: img,
+		ret: nil,
+	}
+}
+
+func (c *ImageCache) GetCachedImageBlocking(loc ImageLocation) *CachedImage {
+	ret := make(chan *CachedImage)
+	c.tasks <- &cacheTask{
+		loc: loc,
+		img: nil,
+		ret: ret,
+	}
+	return <-ret
+}
+
+func (c *ImageCache) GetCachedImage(loc ImageLocation, ret chan *CachedImage) {
+	c.tasks <- &cacheTask{
+		loc: loc,
+		img: nil,
+		ret: ret,
+	}
+}
+
+func (c *ImageCache) GetCachedImageModTime(loc ImageLocation) time.Time {
+	return c.getModTimeLoc(loc)
+}
+
+func (c *ImageCache) GetStats() map[string]any {
+	return map[string]any{
+		"root":                c.root,
+		"io queue capacity":   cap(c.ioTasks),
+		"io queue length":     len(c.ioTasks),
+		"task queue capacity": cap(c.tasks),
+		"task queue length":   len(c.tasks),
+		"cached images":       c.cacheStatLen.Load(),
+		"unwritten images":    c.cacheStatUncommited.Load(),
+	}
+}
+
+func gtzero(l *log.Logger, c *lac.ConfSubtree, d int, p ...string) int {
+	v := c.GetDSInt(d, p...)
+	if v > 0 {
+		return v
+	}
+	l.Printf("Negative %v, defaulting to %d!", p, d)
+	return d
+}
