@@ -187,7 +187,7 @@ func main() {
 	chunkChannel := make(chan *proxy.ProxiedChunk, 12*12)
 	wg.Add(1)
 	go func() {
-		addr := cfg.GetDSString("localhost:3002", "web", "listen_addr")
+		addr := cfg.GetDSString("0.0.0.0:3002", "web", "listen_addr")
 		if addr == "" {
 			log.Println("Not starting web server because listen address is empty")
 			return
@@ -216,7 +216,7 @@ func main() {
 	}()
 	wg.Add(1)
 	go func() {
-		addr := cfg.GetDSString("localhost:25566", "proxy", "listen_addr")
+		addr := cfg.GetDSString("0.0.0.0:25566", "proxy", "listen_addr")
 		if addr == "" {
 			log.Println("Not starting proxy because listen address is empty")
 			return
