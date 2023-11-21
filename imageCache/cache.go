@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	powarr     = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
-	powarr16   = []int{1 * 16, 2 * 16, 4 * 16, 8 * 16, 16 * 16, 32 * 16, 64 * 16, 128 * 16, 256 * 16, 512 * 16, 1024 * 16, 2048 * 16, 4096 * 16}
-	powarr16m1 = []int{1*16 - 1, 2*16 - 1, 4*16 - 1, 8*16 - 1, 16*16 - 1, 32*16 - 1, 64*16 - 1, 128*16 - 1, 256*16 - 1, 512*16 - 1, 1024*16 - 1, 2048*16 - 1, 4096*16 - 1}
+// powarr     = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
+// powarr16   = []int{1 * 16, 2 * 16, 4 * 16, 8 * 16, 16 * 16, 32 * 16, 64 * 16, 128 * 16, 256 * 16, 512 * 16, 1024 * 16, 2048 * 16, 4096 * 16}
+// powarr16m1 = []int{1*16 - 1, 2*16 - 1, 4*16 - 1, 8*16 - 1, 16*16 - 1, 32*16 - 1, 64*16 - 1, 128*16 - 1, 256*16 - 1, 512*16 - 1, 1024*16 - 1, 2048*16 - 1, 4096*16 - 1}
 )
 
 const (
@@ -33,7 +33,8 @@ func AT(cx, cz int) (int, int) {
 }
 
 func IN(cx, cz int) (int, int) {
-	return cx & powarr16m1[StorageLevel], cz & powarr16m1[StorageLevel]
+	// return cx & powarr16m1[StorageLevel], cz & powarr16m1[StorageLevel]
+	return cx & 31, cz & 31
 }
 
 type ImageLocation struct {
@@ -185,6 +186,9 @@ func copyCachedImage(img *CachedImage) *CachedImage {
 }
 
 func copyRGBA(from *image.RGBA) *image.RGBA {
+	if from == nil {
+		return nil
+	}
 	dx := from.Rect.Dx()
 	dy := from.Rect.Dy()
 	to := image.NewRGBA(image.Rect(0, 0, dx, dy))
@@ -220,26 +224,15 @@ func (c *ImageCache) processImageSet(task *cacheTask) {
 }
 
 func (c *ImageCache) processReturn(task *cacheTaskIO) {
-	if task.img == nil {
-		if task.err != nil {
-			c.logger.Printf("Error reading image at %s", task.loc.String())
-			return
-		}
+	if task.err != nil {
+		c.logger.Printf("Error reading image at %s", task.loc.String())
+		return
 	}
-
 	t, ok := c.cache[task.loc]
-	if ok {
-		if !t.imageUnloaded {
-			c.logger.Printf("IO return at %s but already have loaded image in cache", task.loc.String())
-			return
-		}
-		if task.img == nil {
-			t.imageUnloaded = false
-		} else {
-			draw.Draw(task.img.Img, task.img.Img.Bounds(), t.Img, image.Point{}, draw.Src)
-		}
-	} else {
+	if !ok {
 		c.cache[task.loc] = task.img
+	} else {
+		c.processCacheLoad(t, task)
 	}
 
 	ret, ok := c.cacheReturn[task.loc]
@@ -251,6 +244,19 @@ func (c *ImageCache) processReturn(task *cacheTaskIO) {
 		c.processTask(v)
 	}
 	delete(c.cacheReturn, task.loc)
+}
+
+func (c *ImageCache) processCacheLoad(t *CachedImage, task *cacheTaskIO) {
+	if task.img == nil {
+		t.imageUnloaded = false
+		return
+	}
+	if !t.imageUnloaded {
+		c.logger.Printf("IO return at %s but already have loaded image in cache", task.loc.String())
+		return
+	}
+	draw.Draw(task.img.Img, task.img.Img.Bounds(), t.Img, image.Point{}, draw.Src)
+	t.Img = task.img.Img
 }
 
 func (c *ImageCache) SetCachedImage(loc ImageLocation, img *image.RGBA) {

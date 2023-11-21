@@ -70,7 +70,14 @@ func (c *ImageCache) cacheLoad(loc ImageLocation) (*CachedImage, error) {
 	f, err := os.Open(fp)
 	if err != nil {
 		if os.IsNotExist(err) { // weird
-			return nil, nil
+			return &CachedImage{
+				Img:           nil,
+				Loc:           loc,
+				SyncedToDisk:  true,
+				lastUse:       time.Now(),
+				ModTime:       time.Time{},
+				imageUnloaded: false,
+			}, nil
 		}
 		return nil, err
 	}
