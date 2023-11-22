@@ -139,7 +139,7 @@
 		}
 		var defaultLayerSettings = {
 			maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
-			tileSize: 256, zoomReverse: true,
+			tileSize: 512, zoomReverse: true,
 			zoomSnap: 0.25, attribution: '&copy; WebChunk {{.WebChunkVersion}}',
 			requestCached: function() {
 				return enableCacheCheck.checked;
@@ -306,7 +306,7 @@
 						let llayer = new L.GridLayer.WebsocketManagedLayer({
 							layerName: layer.Name,
 							maxNativeZoom: maxZoomBack, minNativeZoom: 0, maxZoom: maxZoomBack, minZoom: 0,
-							tileSize: 256, zoomReverse: true,
+							tileSize: 512, zoomReverse: true,
 							zoomSnap: 0.25, attribution: '&copy; WebChunk',
 						});
 						tiles[layer.Name] = {};
