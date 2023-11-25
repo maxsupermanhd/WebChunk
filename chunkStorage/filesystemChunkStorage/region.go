@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -644,12 +645,18 @@ func (s *FilesystemChunkStorage) GetDimensionChunksCount(wname, dname string) (u
 // counts occupied header space of the region file
 func CountRegionChunks(fname string) (int, error) {
 	f, err := os.Open(fname)
-	if os.IsNotExist(err) {
-		return 0, nil
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
 	}
 	d := make([]int32, 1024)
 	err = binary.Read(f, binary.BigEndian, &d)
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return 0, nil
+		}
 		return 0, err
 	}
 	s := 0
