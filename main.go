@@ -232,14 +232,6 @@ func main() {
 		log.Println("Chunk consumer stopped")
 		wg.Done()
 	}()
-	// go func() {
-	// 	if loadedConfig.Reconstructor.Listen == "" {
-	// 		log.Println("Not starting reconstructor because listen address is empty")
-	// 		return
-	// 	}
-	// 	log.Println("Starting reconstructor")
-	// 	viewer.StartReconstructor(storages, &loadedConfig.Reconstructor)
-	// }()
 	wg.Add(1)
 	go func() {
 		ic = imagecache.NewImageCache(log.Default(), cfg.SubTree("imageCache"), ctx)
