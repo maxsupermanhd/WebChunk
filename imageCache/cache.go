@@ -99,7 +99,10 @@ func NewImageCache(logger *log.Logger, cfg *lac.ConfSubtree, ctx context.Context
 	}
 	c.wg.Add(ioProcessors)
 	for i := 0; i < ioProcessors; i++ {
-		go c.processorIO(c.ioTasks, c.ioReturn)
+		go func() {
+			c.processorIO(c.ioTasks, c.ioReturn)
+			c.wg.Done()
+		}()
 	}
 	go c.processor()
 	return c
