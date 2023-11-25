@@ -16,8 +16,9 @@ import (
 )
 
 var (
-// powarr     = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
-// powarr16   = []int{1 * 16, 2 * 16, 4 * 16, 8 * 16, 16 * 16, 32 * 16, 64 * 16, 128 * 16, 256 * 16, 512 * 16, 1024 * 16, 2048 * 16, 4096 * 16}
+	powarr   = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
+	powarr16 = []int{1 * 16, 2 * 16, 4 * 16, 8 * 16, 16 * 16, 32 * 16, 64 * 16, 128 * 16, 256 * 16, 512 * 16, 1024 * 16, 2048 * 16, 4096 * 16}
+
 // powarr16m1 = []int{1*16 - 1, 2*16 - 1, 4*16 - 1, 8*16 - 1, 16*16 - 1, 32*16 - 1, 64*16 - 1, 128*16 - 1, 256*16 - 1, 512*16 - 1, 1024*16 - 1, 2048*16 - 1, 4096*16 - 1}
 )
 
@@ -135,10 +136,6 @@ processorLoop:
 
 func (c *ImageCache) processTask(task *cacheTask) {
 	if task.img == nil {
-		if task.loc.S != StorageLevel {
-			c.logger.Printf("Requested unsupported image scale of %d", task.loc.S)
-			return
-		}
 		c.processImageGet(task)
 	} else {
 		c.processImageSet(task)
@@ -146,8 +143,8 @@ func (c *ImageCache) processTask(task *cacheTask) {
 }
 
 func (c *ImageCache) processImageGet(task *cacheTask) {
-	if task.loc.S != StorageLevel {
-		c.logger.Printf("Requested not storage level get (%s)", task.loc.String())
+	if task.loc.S > StorageLevel {
+		c.logger.Printf("Requested larger than storage level get (%s)", task.loc.String())
 		task.ret <- &CachedImage{
 			Img:     nil,
 			Loc:     task.loc,
@@ -156,11 +153,21 @@ func (c *ImageCache) processImageGet(task *cacheTask) {
 		}
 		return
 	}
+	if task.loc.S == StorageLevel {
+		c.processNativeImageGet(task)
+	} else { // task.loc.S < StorageLevel
+		c.processSmallerImageGet(task)
+	}
+}
+
+func (c *ImageCache) processNativeImageGet(task *cacheTask) {
 	l, ok := c.cache[task.loc]
 	if ok {
+		c.logger.Printf("Processing native image get, cache hit %s", task.loc.String())
 		task.ret <- copyCachedImage(l)
 		return
 	}
+	c.logger.Printf("Processing native image get, not in cache, scheduling io %s", task.loc.String())
 	r, ok := c.cacheReturn[task.loc]
 	if ok {
 		r = append(r, task)
@@ -173,6 +180,63 @@ func (c *ImageCache) processImageGet(task *cacheTask) {
 		img: nil,
 		err: nil,
 	}
+}
+
+func (c *ImageCache) processSmallerImageGet(task *cacheTask) {
+	loc := getStorageLevelLoc(task.loc)
+	l, ok := c.cache[loc]
+	if ok {
+		c.logger.Printf("Processing smaller image get, cache hit %s", task.loc.String())
+		task.ret <- copySmallerCachedImage(l, task.loc)
+		return
+	}
+	c.logger.Printf("Processing smaller image get, not in cache, scheduling io %s for %s", loc.String(), task.loc.String())
+	r, ok := c.cacheReturn[loc]
+	if ok {
+		r = append(r, task)
+	} else {
+		r = []*cacheTask{task}
+	}
+	c.cacheReturn[task.loc] = r
+	c.ioTasks <- &cacheTaskIO{
+		loc: loc,
+		img: nil,
+		err: nil,
+	}
+}
+
+func getStorageLevelLoc(loc ImageLocation) ImageLocation {
+	rx, rz := AT(loc.X*powarr[loc.S], loc.Z*powarr[loc.S])
+	return ImageLocation{
+		World:     loc.World,
+		Dimension: loc.Dimension,
+		Variant:   loc.Variant,
+		S:         StorageLevel,
+		X:         rx,
+		Z:         rz,
+	}
+}
+
+func copySmallerCachedImage(img *CachedImage, target ImageLocation) *CachedImage {
+	return &CachedImage{
+		Img:           copyFragmentRGBA(img.Img, target),
+		Loc:           img.Loc,
+		SyncedToDisk:  img.SyncedToDisk,
+		lastUse:       img.lastUse,
+		ModTime:       img.ModTime,
+		imageUnloaded: false,
+	}
+}
+
+func copyFragmentRGBA(from *image.RGBA, target ImageLocation) *image.RGBA {
+	if from == nil {
+		return nil
+	}
+	ax, az := AT(target.X*powarr[target.S], target.Z*powarr[target.S])
+	rx, rz := IN(ax, az)
+	to := image.NewRGBA(image.Rect(rx*16, rz*16, powarr16[target.S], powarr16[target.S]))
+	draw.DrawMask(to, to.Rect, from, image.Point{}, nil, image.Point{}, draw.Src)
+	return to
 }
 
 func copyCachedImage(img *CachedImage) *CachedImage {
