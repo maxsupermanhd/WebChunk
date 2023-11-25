@@ -232,10 +232,9 @@ func copyFragmentRGBA(from *image.RGBA, target ImageLocation) *image.RGBA {
 	if from == nil {
 		return nil
 	}
-	ax, az := AT(target.X*powarr[target.S], target.Z*powarr[target.S])
-	rx, rz := IN(ax, az)
-	to := image.NewRGBA(image.Rect(rx*16, rz*16, powarr16[target.S], powarr16[target.S]))
-	draw.DrawMask(to, to.Rect, from, image.Point{}, nil, image.Point{}, draw.Src)
+	ax, az := IN(target.X*powarr[target.S], target.Z*powarr[target.S])
+	to := image.NewRGBA(image.Rect(0, 0, powarr16[target.S], powarr16[target.S]))
+	draw.DrawMask(to, to.Rect, from, image.Point{X: ax * 16, Y: az * 16}, nil, image.Point{}, draw.Src)
 	return to
 }
 
