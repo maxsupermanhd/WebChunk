@@ -21,6 +21,7 @@
 package filesystemChunkStorage
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
@@ -57,7 +58,7 @@ func (s *FilesystemChunkStorage) GetAbilities() chunkStorage.StorageAbilities {
 }
 
 func (s *FilesystemChunkStorage) GetStatus() (ver string, err error) {
-	return
+	return fmt.Sprintf("Filesystem storage at %s", s.Root), nil
 }
 
 func (s *FilesystemChunkStorage) GetChunksCount() (chunksCount uint64, derr error) {
