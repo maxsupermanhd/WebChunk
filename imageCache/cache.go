@@ -326,6 +326,9 @@ func (c *ImageCache) processCacheLoad(t *CachedImage, task *cacheTaskIO) {
 }
 
 func (c *ImageCache) SetCachedImage(loc ImageLocation, img *image.RGBA) {
+	if img == nil {
+		return // dumbass
+	}
 	c.tasks <- &cacheTask{
 		loc: loc,
 		img: img,
