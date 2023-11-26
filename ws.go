@@ -113,7 +113,20 @@ func wsClientHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 	subbedTiles := map[imagecache.ImageLocation]bool{}
 
 	asyncTileRequestor := func(loc imagecache.ImageLocation) {
-		ret := marshalBinaryTileUpdate(loc, imageCacheGetBlockingLoc(loc))
+		img, err := imageGetSync(loc, false)
+		if err != nil {
+			b, _ := json.Marshal(map[string]any{
+				"Action": "message",
+				"Data":   fmt.Sprintf("Error rendering tile %s: %s", loc.String(), err),
+			})
+			wQ <- wsmessage{
+				msgType: websocket.TextMessage,
+				msgData: b,
+			}
+			return
+		}
+		// TODO: fix time of check time of use
+		ret := marshalBinaryTileUpdate(loc, img)
 		if !wQdidClose.Load() {
 			wQ <- wsmessage{
 				msgType: websocket.BinaryMessage,

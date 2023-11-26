@@ -1,86 +1,103 @@
 package main
 
-// type imagingTask struct {
-// 	target imagecache.ImageLocation
-// 	in     chan imagecache.ImageCache
-// 	out    chan *image.RGBA
-// }
+import (
+	"image"
+	"image/draw"
+	"log"
+	"runtime/debug"
 
-// var (
-// 	imageScaleProcess = make(chan imagingTask, 256)
-// )
+	"github.com/maxsupermanhd/WebChunk/chunkStorage"
+	imagecache "github.com/maxsupermanhd/WebChunk/imageCache"
+	"github.com/nfnt/resize"
+)
 
-// func imagingWorker(tasks <-chan imagingTask) {
-// 	for t := range tasks {
-// 		if t.target.S < imageCacheStorageLevel {
-// 			from := <-t.in
-// 			t.out <- imageScaleGetWithin(from.img, t.target)
-// 		} else {
-// 			log.Println("Unimplemented scaler > imageCacheStorageLevel")
-// 		}
-// 	}
-// }
+func imageGetSync(loc imagecache.ImageLocation, ignoreCache bool) (*image.RGBA, error) {
+	if !ignoreCache {
+		i := imageCacheGetBlockingLoc(loc)
+		if i != nil {
+			return i, nil
+		}
+	}
+	img, err := renderTile(loc)
+	if err != nil {
+		return img, err
+	}
+	if img != nil {
+		imageCacheSaveLoc(img, loc)
+	}
+	return img, err
+}
 
-// func imagingProcessor(ctx context.Context) {
-// 	var wg sync.WaitGroup
+func renderTile(loc imagecache.ImageLocation) (*image.RGBA, error) {
 
-// 	sn := cfg.GetDSInt(4, "imaging_workers")
-// 	wg.Add(sn)
-// 	for i := 0; i < sn; i++ {
-// 		go func() {
-// 			imagingWorker(imageScaleProcess)
-// 			wg.Done()
-// 		}()
-// 	}
+	f := findTTypeProviderFunc(loc)
+	if f == nil {
+		log.Printf("Image variant %q was not found", loc.Variant)
+		return nil, nil
+	}
+	ff := *f
 
-// 	<-ctx.Done()
-// 	log.Println("Image worker shutting down")
-// 	close(imageScaleProcess)
+	_, s, err := chunkStorage.GetWorldStorage(storages, loc.World)
+	if err != nil {
+		return nil, nil
+	}
+	getter, painter := ff(s)
 
-// 	wg.Wait()
-// 	log.Println("Image worker shutdown")
-// }
+	scale := 1
+	if loc.S > 0 {
+		scale = int(2 << (loc.S - 1)) // because math.Pow is very slow (43.48 vs 0.1881 ns/op)
+	}
 
-// // gets subsection from image based in icIN
-// func imageScaleGetWithin(from *image.RGBA, target imagecache.ImageLocation) *image.RGBA {
-// 	// target image size
-// 	is := powarr16[target.S]
+	imagesize := scale * 16
+	if imagesize > 512 {
+		imagesize = 512
+	}
 
-// 	// TODO: probably reuse buffers with sync.Pool
-// 	ret := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{is, is}})
+	img := image.NewRGBA(image.Rect(0, 0, int(imagesize), int(imagesize)))
+	imagescale := int(imagesize / scale)
+	offsetx := loc.X * scale
+	offsety := loc.Z * scale
+	cc, err := getter(loc.World, loc.Dimension, loc.X*scale, loc.Z*scale, loc.X*scale+scale, loc.Z*scale+scale)
+	if err != nil {
+		return nil, err
+	}
+	if len(cc) == 0 {
+		return nil, nil
+	}
+	for _, c := range cc {
+		// TODO: break on cancel
+		placex := int(c.X - offsetx)
+		placey := int(c.Z - offsety)
+		var chunk *image.RGBA
+		chunk = func(d interface{}) *image.RGBA {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Println(loc.X, loc.Z, err) // TODO: pass error outwards
+					debug.PrintStack()
+				}
+				chunk = nil
+			}()
+			var ret *image.RGBA
+			ret = nil
+			ret = painter(d)
+			return ret
+		}(c.Data)
+		if chunk == nil {
+			continue
+		}
+		tile := resize.Resize(uint(imagescale), uint(imagescale), chunk, resize.NearestNeighbor)
+		draw.Draw(img, image.Rect(placex*int(imagescale), placey*int(imagescale), placex*int(imagescale)+imagescale, placey*int(imagescale)+imagescale),
+			tile, image.Pt(0, 0), draw.Over)
+	}
+	return img, nil
+}
 
-// 	// absolute position of the target
-// 	ax, az := target.X*powarr[target.S], target.Z*powarr[target.S]
-
-// 	// input relative position of the target
-// 	ix, iz := icIN(ax, az)
-
-// 	pt := image.Point{(ix / powarr[target.S]) * is, (iz / powarr[target.S]) * is}
-// 	draw.Draw(ret, ret.Rect, from, pt, draw.Over)
-
-// 	return ret
-// }
-
-// // stitches multiple images together
-// func imageScaleGetFrom(from <-chan imageTask, target imagecache.ImageLocation) *image.RGBA {
-// 	// TODO: probably reuse buffers with sync.Pool
-// 	is := powarr16[target.S]
-
-// 	ret := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{is, is}})
-
-// 	// TODO: scale down images
-// 	return ret
-// }
-
-// func imageGetSync(loc imagecache.ImageLocation, ignoreCache bool, doDrawing bool) (*image.RGBA, error) {
-// 	if !ignoreCache {
-// 		i := imageCacheGetBlockingLoc(loc)
-// 		if i != nil {
-// 			return i, nil
-// 		}
-// 	}
-// 	if doDrawing {
-
-// 	}
-// 	return nil, nil
-// }
+func findTTypeProviderFunc(loc imagecache.ImageLocation) *ttypeProviderFunc {
+	for tt := range ttypes {
+		if tt.Name == loc.Variant {
+			f := ttypes[tt]
+			return &f // TODO: fix this ugly thing
+		}
+	}
+	return nil
+}
