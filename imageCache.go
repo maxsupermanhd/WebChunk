@@ -21,13 +21,17 @@ func imageCacheGetBlocking(wname, dname, variant string, cs, cx, cz int) *image.
 	}).Img
 }
 
+func imageCacheSaveLoc(img *image.RGBA, loc imagecache.ImageLocation) {
+	ic.SetCachedImage(loc, img)
+}
+
 func imageCacheSave(img *image.RGBA, wname, dname, variant string, cs, cx, cz int) {
-	ic.SetCachedImage(imagecache.ImageLocation{
+	imageCacheSaveLoc(img, imagecache.ImageLocation{
 		World:     wname,
 		Dimension: dname,
 		Variant:   variant,
 		S:         cs,
 		X:         cx,
 		Z:         cz,
-	}, img)
+	})
 }
