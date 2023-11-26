@@ -36,7 +36,7 @@ type FilesystemChunkStorage struct {
 func NewFilesystemChunkStorage(root string) (*FilesystemChunkStorage, error) {
 	r := FilesystemChunkStorage{
 		Root:     root,
-		requests: make(chan regionRequest, 2048),
+		requests: make(chan regionRequest, 2048*64), // TODO fix deadlocks
 	}
 	r.wg.Add(1)
 	go r.regionRouter()
