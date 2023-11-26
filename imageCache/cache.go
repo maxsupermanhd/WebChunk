@@ -278,6 +278,9 @@ func (c *ImageCache) processImageSet(task *cacheTask) {
 		}
 		c.cache[task.loc] = t
 	}
+	if t.Img == nil {
+		t.Img = image.NewRGBA(image.Rect(0, 0, 512, 512))
+	}
 	if task.loc.S == 0 {
 		rx, rz := IN(task.loc.X, task.loc.Z)
 		r := image.Rect(rx*16, rz*16, rx*16+16, rz*16+16)
@@ -347,6 +350,9 @@ func (c *ImageCache) GetCachedImageBlocking(loc ImageLocation) *CachedImage {
 }
 
 func (c *ImageCache) GetCachedImage(loc ImageLocation, ret chan *CachedImage) {
+	if ret == nil {
+		return // wtf do you expect?
+	}
 	c.tasks <- &cacheTask{
 		loc: loc,
 		img: nil,
