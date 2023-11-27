@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -82,9 +83,18 @@ func main() {
 	}
 	log.SetOutput(io.MultiWriter(&lg, os.Stdout))
 	log.Println()
-	log.Println("WebChunk web server is starting up...")
+	log.Println("WebChunk server is starting up...")
 	log.Printf("Built %s, Ver %s (%s) (%s)\n", BuildTime, GitTag, CommitHash, GoVersion)
 	log.Println()
+
+	profileCPU := cfg.GetDBool(false, "cpuprofile")
+	if profileCPU {
+		f, err := os.Create("webchunk.prof")
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+	}
 
 	var wg sync.WaitGroup
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -248,6 +258,9 @@ func main() {
 	log.Println("Shutting down storages...")
 	chunkStorage.CloseStorages(storages)
 	log.Println("Storages closed.")
+	if profileCPU {
+		pprof.StopCPUProfile()
+	}
 	lg.Close()
 	log.Println("Shutdown complete, bye!")
 }

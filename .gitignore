@@ -11,3 +11,4 @@ config.json
 __debug_bin
 storage
 out.nbt
+*.prof
