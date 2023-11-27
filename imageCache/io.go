@@ -28,6 +28,8 @@ func (c *ImageCache) processorIO(in <-chan *cacheTaskIO, out chan<- *cacheTaskIO
 }
 
 func (c *ImageCache) processSave() {
+	c.logger.Println("Saving cached images...")
+	saved := 0
 	for k, v := range c.cache {
 		if v.SyncedToDisk {
 			continue
@@ -37,7 +39,10 @@ func (c *ImageCache) processSave() {
 			c.logger.Printf("Failed to save cache of %s (%s): %v", k.String(), c.cacheGetFilenameLoc(k), err)
 			continue
 		}
+		v.SyncedToDisk = true
+		saved++
 	}
+	c.logger.Printf("Saved %d cached images (%d total entries in cache)", saved, len(c.cache))
 }
 
 func (c *ImageCache) cacheGetFilename(world, dim, variant string, s, x, z int) string {
