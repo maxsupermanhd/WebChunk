@@ -278,6 +278,7 @@ func (c *ImageCache) processImageSet(task *cacheTask) {
 		}
 		c.cache[task.loc] = t
 	}
+	t.SyncedToDisk = false
 	if t.Img == nil {
 		t.Img = image.NewRGBA(image.Rect(0, 0, 512, 512))
 	}
