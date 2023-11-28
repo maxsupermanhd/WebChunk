@@ -93,7 +93,7 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			}
 		}
 	}()
-	getOrCreateWorker := func(world, dimension string, rx, rz int, r regionRequest) {
+	scheduleWorker := func(world, dimension string, rx, rz int, r regionRequest) {
 		l := regionLocator{
 			world:     world,
 			dimension: dimension,
@@ -101,41 +101,23 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			rz:        rz,
 		}
 		c, ok := w[l]
-		if !ok {
-			_, err := os.Stat(s.getRegionPath(l))
+		if ok {
+			if c.exists {
+				c.c <- r
+			} else {
+				r.result <- nil
+			}
+		} else {
 			c = regionInterface{
 				exists:      true,
 				c:           make(chan regionRequest, 32),
 				lastRequest: time.Now(),
 			}
-			if os.IsNotExist(err) {
-				if r.op == regionRouterSetChunk {
-					s.wg.Add(1)
-					go func() {
-						s.regionWorker(l, c.c, true)
-						s.wg.Done()
-					}()
-				} else {
-					c.exists = false
-					close(c.c)
-				}
-			} else {
-				s.wg.Add(1)
-				go func() {
-					s.regionWorker(l, c.c, false)
-					s.wg.Done()
-				}()
-			}
-		}
-		if !c.exists {
-			r.result <- nil
-		} else {
-			deadlockTimer := time.After(5 * time.Second)
-			select {
-			case c.c <- r:
-			case <-deadlockTimer:
-				log.Println("Deadlock on region", l)
-			}
+			s.wg.Add(1)
+			go func() {
+				s.regionWorker(l, c.c, r)
+				s.wg.Done()
+			}()
 		}
 		c.lastRequest = time.Now()
 		w[l] = c
@@ -180,13 +162,13 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			fallthrough
 		case regionRouterSetChunk:
 			rx1, rz1 := region.At(r.cx1, r.cz1)
-			getOrCreateWorker(r.world, r.dimension, rx1, rz1, r)
+			scheduleWorker(r.world, r.dimension, rx1, rz1, r)
 		case regionRouterCountIndividualChunks:
 			rx1, rz1 := region.At(r.cx1, r.cz1)
 			rx2, rz2 := region.At(r.cx2, r.cz2)
 			for rz := rz1; rz < rz2; rz++ {
 				for rx := rx1; rx < rx2; rx++ {
-					getOrCreateWorker(r.world, r.dimension, rx, rz, r)
+					scheduleWorker(r.world, r.dimension, rx, rz, r)
 				}
 			}
 		}
@@ -253,7 +235,7 @@ func (s *FilesystemChunkStorage) getRegionFolder(loc regionLocator) string {
 // if it fails to open or other error occurs it will signal router
 // to close a region and respond to all pending requests with error
 // until no more requests will arrive (router will close channel)
-func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regionRequest, create bool) {
+func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regionRequest, initial regionRequest) {
 	reg, err := region.Open(s.getRegionPath(loc))
 	refresher := time.NewTicker(500 * time.Millisecond)
 	sendClose := func(err error) {
@@ -277,7 +259,7 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 		}
 	}
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && create {
+		if errors.Is(err, os.ErrNotExist) && initial.op == regionRouterSetChunk {
 			reg, err = region.Create(s.getRegionPath(loc))
 			if err != nil {
 				sendClose(err)
