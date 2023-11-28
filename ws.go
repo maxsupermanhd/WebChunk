@@ -255,6 +255,12 @@ clientLoop:
 	log.Printf("Websocket handler %s exited", r.RemoteAddr)
 }
 
+var (
+	pngEncoder = &png.Encoder{
+		CompressionLevel: png.NoCompression,
+	}
+)
+
 func marshalBinaryTileUpdate(loc imagecache.ImageLocation, img *image.RGBA) []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint8(0x01))
@@ -268,7 +274,7 @@ func marshalBinaryTileUpdate(loc imagecache.ImageLocation, img *image.RGBA) []by
 	binary.Write(buf, binary.BigEndian, int32(loc.X))
 	binary.Write(buf, binary.BigEndian, int32(loc.Z))
 	if img != nil {
-		png.Encode(buf, img)
+		pngEncoder.Encode(buf, img)
 	}
 	return buf.Bytes()
 }
