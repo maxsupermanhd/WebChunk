@@ -317,13 +317,16 @@ func (c *ImageCache) processReturn(task *cacheTaskIO) {
 }
 
 func (c *ImageCache) processCacheLoad(t *CachedImage, task *cacheTaskIO) {
-	if task.img == nil {
+	if task.img == nil || task.img.Img == nil {
 		t.imageUnloaded = false
 		return
 	}
 	if !t.imageUnloaded {
 		c.logger.Printf("IO return at %s but already have loaded image in cache", task.loc.String())
 		return
+	}
+	if t.Img == nil {
+		t.Img = image.NewRGBA(image.Rect(0, 0, 512, 512))
 	}
 	draw.Draw(task.img.Img, task.img.Img.Bounds(), t.Img, image.Point{}, draw.Src)
 	t.Img = task.img.Img
