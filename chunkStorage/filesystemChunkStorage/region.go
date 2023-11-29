@@ -72,7 +72,6 @@ const (
 // region file and route requests to them
 func (s *FilesystemChunkStorage) regionRouter() {
 	log.Println("Region router started for storage", s.Root)
-	defer s.wg.Done()
 	type regionInterface struct {
 		exists      bool
 		c           chan regionRequest
@@ -154,7 +153,8 @@ func (s *FilesystemChunkStorage) regionRouter() {
 				log.Printf("Region router got a command to close region but there is no open region (%#v)", l)
 			} else {
 				close(c.c)
-				delete(w, l)
+				c.exists = false
+				w[l] = c
 			}
 		case regionRouterGetModDate:
 			fallthrough
@@ -180,6 +180,8 @@ func (s *FilesystemChunkStorage) regionRouter() {
 			close(v.c)
 		}
 	}
+	log.Println("Waiting for region workers")
+	s.wg.Done()
 	log.Println("Region router stopped for storage ", s.Root)
 }
 
@@ -259,17 +261,88 @@ func (s *FilesystemChunkStorage) regionWorker(loc regionLocator, ch <-chan regio
 		}
 	}
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && initial.op == regionRouterSetChunk {
-			reg, err = region.Create(s.getRegionPath(loc))
-			if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if initial.op == regionRouterSetChunk {
+				reg, err = region.Create(s.getRegionPath(loc))
+				if err != nil {
+					initial.result <- err
+					sendClose(err)
+					return
+				}
+			} else {
+				initial.result <- nil
 				sendClose(err)
 				return
 			}
 		} else {
+			initial.result <- nil
 			sendClose(err)
 			return
 		}
 	}
+	processRequest := func(r regionRequest) {
+		switch r.op {
+		case regionRouterGetModDate:
+			x, z := region.In(r.cx1, r.cz1)
+			r.result <- reg.Timestamps[x][z]
+		case regionRouterSetChunk:
+			x, z := region.In(r.cx1, r.cz1)
+			err = reg.WriteSector(x, z, r.data)
+			if err != nil {
+				sendClose(err)
+				return
+			} else {
+				r.result <- nil
+			}
+		case regionRouterGetChunk:
+			x, z := region.In(r.cx1, r.cz1)
+			d, err := reg.ReadSector(x, z)
+			if err != nil {
+				if errors.Is(err, region.ErrNoData) || errors.Is(err, region.ErrNoSector) || errors.Is(err, region.ErrSectorNegativeLength) {
+					r.result <- nil
+				} else if errors.Is(err, region.ErrTooLarge) {
+					r.result <- nil //TODO: read c.x.z.mcc data
+				} else {
+					sendClose(err)
+				}
+			} else {
+				r.result <- d
+			}
+		case regionRouterCountRegionChunks:
+			c := 0
+			for x := 0; x < 32; x++ {
+				for z := 0; z < 32; z++ {
+					if reg.ExistSector(x, z) {
+						c++
+					}
+				}
+			}
+			r.result <- c
+		case regionRouterCountIndividualChunks:
+			for rx := 0; rx < 32; rx++ {
+				for rz := 0; rz < 32; rz++ {
+					x := rx * loc.rx
+					z := rz * loc.rz
+					if x >= r.cx1 && x <= r.cx2 && z >= r.cz1 && z <= r.cz2 {
+						if reg.ExistSector(rx, rz) {
+							r.result <- chunkStorage.ChunkData{
+								X:    x,
+								Z:    z,
+								Data: int(1),
+							}
+						} else {
+							r.result <- chunkStorage.ChunkData{
+								X:    x,
+								Z:    z,
+								Data: int(1),
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	processRequest(initial)
 workerLoop:
 	for {
 		select {
@@ -277,66 +350,7 @@ workerLoop:
 			if !ok {
 				break workerLoop
 			}
-			switch r.op {
-			case regionRouterGetModDate:
-				x, z := region.In(r.cx1, r.cz1)
-				r.result <- reg.Timestamps[x][z]
-			case regionRouterSetChunk:
-				x, z := region.In(r.cx1, r.cz1)
-				err = reg.WriteSector(x, z, r.data)
-				if err != nil {
-					sendClose(err)
-					return
-				} else {
-					r.result <- nil
-				}
-			case regionRouterGetChunk:
-				x, z := region.In(r.cx1, r.cz1)
-				d, err := reg.ReadSector(x, z)
-				if err != nil {
-					if errors.Is(err, region.ErrNoData) || errors.Is(err, region.ErrNoSector) || errors.Is(err, region.ErrSectorNegativeLength) {
-						r.result <- nil
-					} else if errors.Is(err, region.ErrTooLarge) {
-						r.result <- nil //TODO: read c.x.z.mcc data
-					} else {
-						sendClose(err)
-					}
-				} else {
-					r.result <- d
-				}
-			case regionRouterCountRegionChunks:
-				c := 0
-				for x := 0; x < 32; x++ {
-					for z := 0; z < 32; z++ {
-						if reg.ExistSector(x, z) {
-							c++
-						}
-					}
-				}
-				r.result <- c
-			case regionRouterCountIndividualChunks:
-				for rx := 0; rx < 32; rx++ {
-					for rz := 0; rz < 32; rz++ {
-						x := rx * loc.rx
-						z := rz * loc.rz
-						if x >= r.cx1 && x <= r.cx2 && z >= r.cz1 && z <= r.cz2 {
-							if reg.ExistSector(rx, rz) {
-								r.result <- chunkStorage.ChunkData{
-									X:    x,
-									Z:    z,
-									Data: int(1),
-								}
-							} else {
-								r.result <- chunkStorage.ChunkData{
-									X:    x,
-									Z:    z,
-									Data: int(1),
-								}
-							}
-						}
-					}
-				}
-			}
+			processRequest(r)
 		case <-refresher.C:
 		}
 	}
