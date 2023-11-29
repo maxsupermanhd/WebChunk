@@ -43,11 +43,13 @@ func readSaveLevel(path string) (*save.LevelData, error) {
 		return nil, err
 	}
 	defer gf.Close()
-	d, err := save.ReadLevel(gf)
+	var r save.Level
+	c := nbt.NewDecoder(gf)
+	_, err = c.Decode(&r)
 	if err != nil {
 		return nil, err
 	}
-	return &d.Data, err
+	return &r.Data, err
 }
 
 func writeSaveLevel(dir string, d save.LevelData) error {
