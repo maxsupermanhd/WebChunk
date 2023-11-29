@@ -1,1 +1,2 @@
-static/leaflet* linguist-vendored
+static/leaflet/* linguist-vendored
+static/leaflet-plugins/* linguist-vendored
