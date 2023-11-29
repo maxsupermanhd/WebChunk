@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	JARpath = flag.String("jar", "~/.minecraft/versions/1.19.4.jar", "path to jar")
+	JARpath = flag.String("jar", "~/.minecraft/versions/1.20.2.jar", "path to jar")
 )
 
 func must(e error) {
