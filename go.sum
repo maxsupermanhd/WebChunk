@@ -105,8 +105,8 @@ github.com/mattn/go-isatty v0.0.7/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hd
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230820124233-224c486a58d7 h1:Q1HwqGqJz9OYfJJKq4dSM1gthaYz30xv0CtXYwo94jI=
 github.com/maxsupermanhd/go-mc-ms-auth v0.0.0-20230820124233-224c486a58d7/go.mod h1:nUJqyBOVWiWm1XHwFpvFhLewsX2vKpp3zEFYpcIbQIc=
-github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc h1:ib2jqemeYjB2F4SJi9nU7uhr9vML4sUf63mpOIYU2sY=
-github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc/go.mod h1:LUlOdIlnkyFBf/Hm3SjCoanrORKe2ZqduVtweorqFkc=
+github.com/maxsupermanhd/go-vmc/v764 v764.0.0-20231128214918-0e72a4850666 h1:hcC1CugvzmuwDViuCX+3PlSij9MhzV296i05Zi841Zo=
+github.com/maxsupermanhd/go-vmc/v764 v764.0.0-20231128214918-0e72a4850666/go.mod h1:NmRZrun7mFL7zc3v0Aw/Q5+iBng4dPq5pW75xMBjp+k=
 github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf h1:V2EuMRfFjjAMaDWLqB9I2sPpfkL+uOLZHHbO7DOeY64=
 github.com/maxsupermanhd/lac v0.0.0-20230313211855-15c94b6cdccf/go.mod h1:xQezeA7Tf0qvyr6DuOjmBJTcAyM9RS7cUKxOlnQLZKo=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=

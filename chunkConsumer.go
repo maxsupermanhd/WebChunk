@@ -11,9 +11,9 @@ import (
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	"github.com/maxsupermanhd/WebChunk/proxy"
-	"github.com/maxsupermanhd/go-vmc/v762/level"
-	"github.com/maxsupermanhd/go-vmc/v762/nbt"
-	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v764/level"
+	"github.com/maxsupermanhd/go-vmc/v764/nbt"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
 )
 
 func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {

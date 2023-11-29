@@ -4,7 +4,7 @@ import (
 	"log"
 	"sort"
 
-	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
 )
 
 func genHeightmap(chunk *save.Chunk) []int {

@@ -20,7 +20,7 @@
 
 package viewer
 
-import "github.com/maxsupermanhd/go-vmc/v762/server"
+import "github.com/maxsupermanhd/go-vmc/v764/server"
 
 type dimensionProvider struct {
 	dbDimName  string

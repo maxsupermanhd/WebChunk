@@ -42,9 +42,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
 	biomes "github.com/maxsupermanhd/WebChunk/data/biomes"
-	"github.com/maxsupermanhd/go-vmc/v762/level"
-	"github.com/maxsupermanhd/go-vmc/v762/level/block"
-	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v764/level"
+	"github.com/maxsupermanhd/go-vmc/v764/level/block"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
 )
 
 type metricsCollect struct {

@@ -1,6 +1,6 @@
 module github.com/maxsupermanhd/WebChunk
 
-go 1.18
+go 1.20
 
 replace github.com/maxsupermanhd/WebChunk/chunkStorage => ./chunkStorage
 
@@ -23,7 +23,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/joho/godotenv v1.4.0
-	github.com/maxsupermanhd/go-vmc/v762 v762.0.0-20230819215151-b754dd9e4bdc
+	github.com/maxsupermanhd/go-vmc/v764 v764.0.0-20231128214918-0e72a4850666
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646

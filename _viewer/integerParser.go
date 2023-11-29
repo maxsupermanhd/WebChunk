@@ -25,8 +25,8 @@ import (
 	"regexp"
 	"strconv"
 
-	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
-	"github.com/maxsupermanhd/go-vmc/v762/server/command"
+	pk "github.com/maxsupermanhd/go-vmc/v764/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v764/server/command"
 )
 
 type IntegerParser struct {

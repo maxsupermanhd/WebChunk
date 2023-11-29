@@ -13,10 +13,10 @@ import (
 	"syscall"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage/filesystemChunkStorage"
-	"github.com/maxsupermanhd/go-vmc/v762/level"
-	"github.com/maxsupermanhd/go-vmc/v762/level/block"
-	"github.com/maxsupermanhd/go-vmc/v762/save"
-	"github.com/maxsupermanhd/go-vmc/v762/save/region"
+	"github.com/maxsupermanhd/go-vmc/v764/level"
+	"github.com/maxsupermanhd/go-vmc/v764/level/block"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
+	"github.com/maxsupermanhd/go-vmc/v764/save/region"
 )
 
 var (

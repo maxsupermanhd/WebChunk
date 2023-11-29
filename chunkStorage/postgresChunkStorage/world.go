@@ -25,7 +25,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
 )
 
 func (s *PostgresChunkStorage) ListWorlds() ([]chunkStorage.SWorld, error) {

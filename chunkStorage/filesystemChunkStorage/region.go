@@ -36,8 +36,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/go-vmc/v762/save"
-	"github.com/maxsupermanhd/go-vmc/v762/save/region"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
+	"github.com/maxsupermanhd/go-vmc/v764/save/region"
 )
 
 type regionLocator struct {

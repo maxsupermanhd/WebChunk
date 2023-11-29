@@ -26,13 +26,13 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/maxsupermanhd/go-vmc/v762/chat"
-	"github.com/maxsupermanhd/go-vmc/v762/data/packetid"
-	"github.com/maxsupermanhd/go-vmc/v762/level"
-	"github.com/maxsupermanhd/go-vmc/v762/level/block"
-	"github.com/maxsupermanhd/go-vmc/v762/nbt"
-	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
-	"github.com/maxsupermanhd/go-vmc/v762/server"
+	"github.com/maxsupermanhd/go-vmc/v764/chat"
+	"github.com/maxsupermanhd/go-vmc/v764/data/packetid"
+	"github.com/maxsupermanhd/go-vmc/v764/level"
+	"github.com/maxsupermanhd/go-vmc/v764/level/block"
+	"github.com/maxsupermanhd/go-vmc/v764/nbt"
+	pk "github.com/maxsupermanhd/go-vmc/v764/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v764/server"
 )
 
 // 4 bits for x, 4 bits for z

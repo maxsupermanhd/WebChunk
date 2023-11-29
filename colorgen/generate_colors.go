@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/maxsupermanhd/go-vmc/v762/level/block"
+	"github.com/maxsupermanhd/go-vmc/v764/level/block"
 )
 
 var (

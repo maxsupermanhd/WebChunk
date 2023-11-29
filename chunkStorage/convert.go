@@ -3,7 +3,7 @@ package chunkStorage
 import (
 	"log"
 
-	"github.com/maxsupermanhd/go-vmc/v762/save"
+	"github.com/maxsupermanhd/go-vmc/v764/save"
 )
 
 func ConvFlexibleNBTtoSave(d []byte) (ret *save.Chunk, err error) {

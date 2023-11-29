@@ -32,11 +32,11 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/go-vmc/v762/chat"
-	"github.com/maxsupermanhd/go-vmc/v762/data/packetid"
-	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
-	"github.com/maxsupermanhd/go-vmc/v762/server"
-	"github.com/maxsupermanhd/go-vmc/v762/server/command"
+	"github.com/maxsupermanhd/go-vmc/v764/chat"
+	"github.com/maxsupermanhd/go-vmc/v764/data/packetid"
+	pk "github.com/maxsupermanhd/go-vmc/v764/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v764/server"
+	"github.com/maxsupermanhd/go-vmc/v764/server/command"
 )
 
 type timeUpdater struct {

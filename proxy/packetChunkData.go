@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 
-	"github.com/maxsupermanhd/go-vmc/v762/level"
-	pk "github.com/maxsupermanhd/go-vmc/v762/net/packet"
+	"github.com/maxsupermanhd/go-vmc/v764/level"
+	pk "github.com/maxsupermanhd/go-vmc/v764/net/packet"
 )
 
 // and now we need to guess how long is sections array in this packet...
