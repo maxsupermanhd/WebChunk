@@ -24,7 +24,8 @@ import (
 )
 
 var (
-	JARpath = flag.String("jar", "~/.minecraft/versions/1.20.2.jar", "path to jar")
+	JARpath       = flag.String("jar", "~/.minecraft/versions/1.20.2.jar", "path to jar")
+	ColordumpPath = flag.String("colordump", "colordump.txt", "where to dump blockstate-rgba")
 )
 
 func must(e error) {
@@ -382,14 +383,15 @@ func main() {
 	}
 	log.Printf("Loaded %v/%v models (should be %v total)", len(statetextures), len(statemodel), len(block.StateList))
 
+	paths := map[int][]string{}
 	colors := map[int]color.RGBA64{}
 	cachedcolors := map[string]color.RGBA64{}
 	colornotfound := 0
 	for i, j := range block.StateList {
 		texturename, ok := statetextures[j]
-		avgcolor := color.RGBA64{R: 0, G: 0, B: 0, A: 0}
-		avgcolorc := uint16(0)
+		var aR, aG, aB, aA, aC float64
 		if ok {
+			paths[i] = texturename
 			for _, tex := range texturename {
 				tex = strings.TrimPrefix(tex, "minecraft:")
 				fp := "assets/minecraft/textures/" + tex + ".png"
@@ -409,18 +411,23 @@ func main() {
 					r.Close()
 					cachedcolors[fp] = readedcolor
 				}
-				avgcolor.R += readedcolor.R
-				avgcolor.G += readedcolor.G
-				avgcolor.B += readedcolor.B
-				avgcolor.A += readedcolor.A
-				avgcolorc++
+				aR += float64(readedcolor.R)
+				aG += float64(readedcolor.G)
+				aB += float64(readedcolor.B)
+				aA += float64(readedcolor.A)
+				aC++
 			}
 		}
-		if avgcolorc == 0 {
-			colors[i] = avgcolor
+		if aC == 0 {
+			colors[i] = color.RGBA64{}
 			colornotfound++
 		} else {
-			colors[i] = color.RGBA64{R: avgcolor.R / avgcolorc, G: avgcolor.G / avgcolorc, B: avgcolor.B / avgcolorc, A: avgcolor.A / avgcolorc}
+			colors[i] = color.RGBA64{
+				R: uint16(aR / aC),
+				G: uint16(aG / aC),
+				B: uint16(aB / aC),
+				A: uint16(aA / aC),
+			}
 		}
 	}
 
@@ -442,11 +449,23 @@ func main() {
 	}
 
 	towrite := []color.RGBA64{}
+	dump := ""
 	for i := 0; i < len(block.StateList); i++ {
 		towrite = append(towrite, colors[i])
+		dump += fmt.Sprintf("%09d %v %v %v\n", i, block.StateList[i].ID(), hexColor(colors[i]), paths[i])
+	}
+
+	err = os.WriteFile(*ColordumpPath, []byte(dump), 0644)
+	if err != nil {
+		log.Printf("Err writing dump: %v", err)
 	}
 
 	output(towrite)
+}
+
+func hexColor(c color.Color) string {
+	rgba := color.RGBAModel.Convert(c).(color.RGBA)
+	return fmt.Sprintf("%.2x%.2x%.2x%.2x", rgba.R, rgba.G, rgba.B, rgba.A)
 }
 
 func findColor(f io.ReadCloser) *color.RGBA64 {
