@@ -141,11 +141,18 @@ processorLoop:
 
 func (c *ImageCache) processUnload() {
 	interval := time.Duration(c.cfg.GetDSInt(30, "unusedUnload")) * time.Second
+	notsynced := int64(0)
 	for k, v := range c.cache {
-		if v.SyncedToDisk && time.Since(v.lastUse) > interval {
-			delete(c.cache, k)
+		if v.SyncedToDisk {
+			if time.Since(v.lastUse) > interval {
+				delete(c.cache, k)
+			}
+		} else {
+			notsynced++
 		}
 	}
+	c.cacheStatLen.Store(int64(len(c.cache)))
+	c.cacheStatUncommited.Store(notsynced)
 }
 
 func (c *ImageCache) processTask(task *cacheTask) {
@@ -292,6 +299,8 @@ func (c *ImageCache) processImageSet(task *cacheTask) {
 			imageUnloaded: true,
 		}
 		c.cache[task.loc] = t
+		c.cacheStatUncommited.Add(1)
+		c.cacheStatLen.Add(1)
 	}
 	t.SyncedToDisk = false
 	if t.Img == nil {
@@ -314,6 +323,8 @@ func (c *ImageCache) processReturn(task *cacheTaskIO) {
 	t, ok := c.cache[task.loc]
 	if !ok {
 		c.cache[task.loc] = task.img
+		c.cacheStatUncommited.Add(1)
+		c.cacheStatLen.Add(1)
 	} else {
 		c.processCacheLoad(t, task)
 	}
