@@ -121,6 +121,23 @@ func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.St
 	return level.NewStatesPaletteContainerWithData(16*16*16, s.BlockStates.Data, stateRawPalette)
 }
 
+func prepareSectionBlockIDs(s *save.Section) *level.PaletteContainer[block.StateID] {
+	statePalette := s.BlockStates.Palette
+	stateRawPalette := make([]block.StateID, len(statePalette))
+	for i, v := range statePalette {
+		b, ok := block.FromID[v.Name]
+		if !ok {
+			b, ok = block.FromID["minecraft:"+v.Name]
+			if !ok {
+				log.Printf("Can not find block from id [%v]", v.Name)
+				return nil
+			}
+		}
+		stateRawPalette[i] = block.ToStateID[b]
+	}
+	return level.NewStatesPaletteContainerWithData(16*16*16, s.BlockStates.Data, stateRawPalette)
+}
+
 func prepareSectionBiomes(s *save.Section) *level.PaletteContainer[level.BiomesState] {
 	rawp := []level.BiomesState{}
 	for _, vv := range s.Biomes.Palette {
@@ -137,29 +154,22 @@ func prepareSectionBiomes(s *save.Section) *level.PaletteContainer[level.BiomesS
 
 func drawChunkBiomes(chunk *save.Chunk) (img *image.RGBA) {
 	img = image.NewRGBA(image.Rect(0, 0, 4, 4))
-	sort.Slice(chunk.Sections, func(i, j int) bool {
-		return int8(chunk.Sections[i].Y) > int8(chunk.Sections[j].Y)
-	})
-	var colored [4 * 4]bool
-	for _, s := range chunk.Sections {
-		c := prepareSectionBiomes(&s)
-		for i := 0; i < 4*4; i++ {
-			biomeid := int(c.Get(i))
-			if biomeid >= 0 && biomeid < len(biomes.BiomeColors) {
-				img.Set(i%4, i/4, biomes.BiomeColors[biomeid])
-				colored[i] = true
-			} else {
-				log.Println("Unknown biome!")
-			}
+	topY := 0
+	topI := 0
+	for i, v := range chunk.Sections {
+		if v.Y > int8(topY) {
+			topI = i
+			topY = int(v.Y)
 		}
-		fullyColored := true
-		for i := 0; i < 4*4; i++ {
-			if !colored[i] {
-				fullyColored = false
-			}
-		}
-		if fullyColored {
-			break
+	}
+	s := chunk.Sections[topI]
+	c := prepareSectionBiomes(&s)
+	for i := 0; i < 4*4; i++ {
+		biomeid := int(c.Get(i))
+		if biomeid >= 0 && biomeid < len(biomes.BiomeColors) {
+			img.Set(i%4, i/4, biomes.BiomeColors[biomeid])
+		} else {
+			log.Println("Unknown biome!")
 		}
 	}
 	return img

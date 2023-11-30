@@ -18,7 +18,7 @@ func genHeightmap(chunk *save.Chunk) []int {
 		if len(s.BlockStates.Data) == 0 {
 			continue
 		}
-		states := prepareSectionBlockstates(&s)
+		states := prepareSectionBlockIDs(&s)
 		if states == nil {
 			log.Printf("Chunk %d:%d section %d has broken pallete", chunk.XPos, chunk.YPos, s.Y)
 			continue
