@@ -113,8 +113,8 @@ func (c *ImageCache) WaitExit() {
 }
 
 func (c *ImageCache) processor() {
-	autosaveInterval := c.cfg.GetDSInt(15, "autosaveInterval")
-	autosaveTimer := time.NewTicker(time.Duration(autosaveInterval) * time.Second)
+	autosaveTimer := time.NewTicker(time.Duration(c.cfg.GetDSInt(15, "autosaveInterval")) * time.Second)
+	unloadTimer := time.NewTicker(time.Duration(c.cfg.GetDSInt(10, "unloadInterval")) * time.Second)
 
 processorLoop:
 	for {
@@ -127,6 +127,8 @@ processorLoop:
 			c.processReturn(ret)
 		case <-autosaveTimer.C:
 			c.processSave()
+		case <-unloadTimer.C:
+			c.processUnload()
 		}
 	}
 
@@ -135,6 +137,15 @@ processorLoop:
 	close(c.ioTasks)
 
 	c.wg.Wait()
+}
+
+func (c *ImageCache) processUnload() {
+	interval := time.Duration(c.cfg.GetDSInt(30, "unusedUnload")) * time.Second
+	for k, v := range c.cache {
+		if v.SyncedToDisk && time.Since(v.lastUse) > interval {
+			delete(c.cache, k)
+		}
+	}
 }
 
 func (c *ImageCache) processTask(task *cacheTask) {
@@ -263,6 +274,10 @@ func copyRGBA(from *image.RGBA) *image.RGBA {
 }
 
 func (c *ImageCache) processImageSet(task *cacheTask) {
+	if task.loc.S != StorageLevel && task.loc.S != 0 {
+		c.logger.Printf("Set of non-native and non-zero scaled image %s", task.loc.String())
+		return
+	}
 	t, ok := c.cache[task.loc]
 	if !ok {
 		c.ioTasks <- &cacheTaskIO{
@@ -272,7 +287,7 @@ func (c *ImageCache) processImageSet(task *cacheTask) {
 		}
 		t = &CachedImage{
 			Img:           image.NewRGBA(image.Rect(0, 0, 512, 512)),
-			Loc:           task.loc,
+			Loc:           getStorageLevelLoc(task.loc),
 			lastUse:       time.Now(),
 			imageUnloaded: true,
 		}
@@ -288,8 +303,6 @@ func (c *ImageCache) processImageSet(task *cacheTask) {
 		draw.Draw(t.Img, r, task.img, image.Point{}, draw.Src)
 	} else if task.loc.S == StorageLevel {
 		draw.Draw(t.Img, t.Img.Rect, task.img, image.Point{}, draw.Src)
-	} else {
-		c.logger.Printf("Set of non-native and non-zero scaled image %s", task.loc.String())
 	}
 }
 
