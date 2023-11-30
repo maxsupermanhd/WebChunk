@@ -25,10 +25,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
-	"runtime/pprof"
+	rpprof "runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -93,7 +95,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		pprof.StartCPUProfile(f)
+		rpprof.StartCPUProfile(f)
 	}
 
 	var wg sync.WaitGroup
@@ -162,7 +164,6 @@ func main() {
 		w.Write([]byte("Success"))
 	}).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}", dimensionHandler).Methods("GET")
-	router.HandleFunc("/worlds/{world}/{dim}/chunk/info/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
 	router.HandleFunc("/worlds/{world}/{dim}/tiles/{ttype}/{cs:[0-9]+}/{cx:-?[0-9]+}/{cz:-?[0-9]+}/{format}", tileRouterHandler).Methods("GET")
 	router.HandleFunc("/view", basicTemplateResponseHandler("view")).Methods("GET")
 	router.HandleFunc("/colors", colorsHandlerGET).Methods("GET")
@@ -188,6 +189,23 @@ func main() {
 	router.HandleFunc("/api/v1/dims", apiHandle(apiListDimensions)).Methods("GET")
 
 	router.HandleFunc("/api/v1/ws", wsClientHandlerWrapper(ctx))
+
+	router.HandleFunc("/debug/chunk/{world}/{dim}/{cx:-?[0-9]+}/{cz:-?[0-9]+}", terrainInfoHandler).Methods("GET")
+	router.HandleFunc("/debug/pprof/", pprof.Index)
+	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	router.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	router.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+	router.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
+	router.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	router.Handle("/debug/pprof/block", pprof.Handler("block"))
+	router.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
+	router.HandleFunc("/debug/gc", func(w http.ResponseWriter, r *http.Request) {
+		runtime.GC()
+		w.WriteHeader(200)
+		w.Write([]byte("ok"))
+	})
 
 	router1 := handlers.ProxyHeaders(router)
 	router2 := handlers.CompressHandler(router1)
@@ -259,7 +277,7 @@ func main() {
 	chunkStorage.CloseStorages(storages)
 	log.Println("Storages closed.")
 	if profileCPU {
-		pprof.StopCPUProfile()
+		rpprof.StopCPUProfile()
 	}
 	lg.Close()
 	log.Println("Shutdown complete, bye!")
