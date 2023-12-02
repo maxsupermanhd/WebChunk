@@ -207,23 +207,36 @@ func (c *ImageCache) processSmallerImageGet(task *cacheTask) {
 	loc := getStorageLevelLoc(task.loc)
 	l, ok := c.cache[loc]
 	if ok {
-		c.logger.Printf("Processing smaller image get, cache hit %s", task.loc.String())
-		task.ret <- copySmallerCachedImage(l, task.loc)
-		return
+		if l.imageUnloaded {
+			c.logger.Printf("Processing smaller image get, io waiting on %s for %s", loc.String(), task.loc.String())
+		} else {
+			c.logger.Printf("Processing smaller image get, cache hit %s", task.loc.String())
+			task.ret <- copySmallerCachedImage(l, task.loc)
+			return
+		}
+	} else {
+		c.logger.Printf("Processing smaller image get, not in cache, scheduling io %s for %s", loc.String(), task.loc.String())
+		c.ioTasks <- &cacheTaskIO{
+			loc: loc,
+			img: nil,
+			err: nil,
+		}
+		l = &CachedImage{
+			Img:           nil,
+			Loc:           loc,
+			lastUse:       time.Now(),
+			imageUnloaded: true,
+		}
+		c.cache[loc] = l
+		c.cacheStatLen.Add(1)
 	}
-	c.logger.Printf("Processing smaller image get, not in cache, scheduling io %s for %s", loc.String(), task.loc.String())
 	r, ok := c.cacheReturn[loc]
 	if ok {
 		r = append(r, task)
 	} else {
 		r = []*cacheTask{task}
 	}
-	c.cacheReturn[task.loc] = r
-	c.ioTasks <- &cacheTaskIO{
-		loc: loc,
-		img: nil,
-		err: nil,
-	}
+	c.cacheReturn[loc] = r
 }
 
 func getStorageLevelLoc(loc ImageLocation) ImageLocation {
@@ -349,11 +362,12 @@ func (c *ImageCache) processCacheLoad(t *CachedImage, task *cacheTaskIO) {
 		c.logger.Printf("IO return at %s but already have loaded image in cache", task.loc.String())
 		return
 	}
-	if t.Img == nil {
-		t.Img = image.NewRGBA(image.Rect(0, 0, 512, 512))
+	if t.Img != nil {
+		draw.Draw(task.img.Img, task.img.Img.Bounds(), t.Img, image.Point{}, draw.Src)
 	}
-	draw.Draw(task.img.Img, task.img.Img.Bounds(), t.Img, image.Point{}, draw.Src)
 	t.Img = task.img.Img
+	t.imageUnloaded = false
+	t.SyncedToDisk = true
 }
 
 func (c *ImageCache) SetCachedImage(loc ImageLocation, img *image.RGBA) {
