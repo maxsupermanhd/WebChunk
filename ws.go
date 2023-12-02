@@ -113,6 +113,9 @@ func wsClientHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 	subbedTiles := map[imagecache.ImageLocation]bool{}
 
 	asyncTileRequestor := func(loc imagecache.ImageLocation) {
+		if loc.Dimension == "" || loc.World == "" {
+			return
+		}
 		img, err := imageGetSync(loc, false)
 		if err != nil {
 			b, _ := json.Marshal(map[string]any{
