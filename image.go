@@ -7,11 +7,11 @@ import (
 	"runtime/debug"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	imagecache "github.com/maxsupermanhd/WebChunk/imageCache"
+	"github.com/maxsupermanhd/WebChunk/primitives"
 	"github.com/nfnt/resize"
 )
 
-func imageGetSync(loc imagecache.ImageLocation, ignoreCache bool) (*image.RGBA, error) {
+func imageGetSync(loc primitives.ImageLocation, ignoreCache bool) (*image.RGBA, error) {
 	if !ignoreCache {
 		i := imageCacheGetBlockingLoc(loc)
 		if i != nil {
@@ -28,7 +28,7 @@ func imageGetSync(loc imagecache.ImageLocation, ignoreCache bool) (*image.RGBA, 
 	return img, err
 }
 
-func renderTile(loc imagecache.ImageLocation) (*image.RGBA, error) {
+func renderTile(loc primitives.ImageLocation) (*image.RGBA, error) {
 
 	f := findTTypeProviderFunc(loc)
 	if f == nil {
@@ -92,7 +92,7 @@ func renderTile(loc imagecache.ImageLocation) (*image.RGBA, error) {
 	return img, nil
 }
 
-func findTTypeProviderFunc(loc imagecache.ImageLocation) *ttypeProviderFunc {
+func findTTypeProviderFunc(loc primitives.ImageLocation) *ttypeProviderFunc {
 	for tt := range ttypes {
 		if tt.Name == loc.Variant {
 			f := ttypes[tt]

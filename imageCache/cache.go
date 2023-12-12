@@ -3,7 +3,6 @@ package imagecache
 import (
 	"container/list"
 	"context"
-	"fmt"
 	"image"
 	"image/draw"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/maxsupermanhd/WebChunk/primitives"
 	"github.com/maxsupermanhd/lac"
 )
 
@@ -38,18 +38,9 @@ func IN(cx, cz int) (int, int) {
 	return cx & 31, cz & 31
 }
 
-type ImageLocation struct {
-	World, Dimension, Variant string
-	S, X, Z                   int
-}
-
-func (i ImageLocation) String() string {
-	return fmt.Sprintf("{%s:%s:%s at %ds %dx %dz}", i.World, i.Dimension, i.Variant, i.S, i.X, i.Z)
-}
-
 type CachedImage struct {
 	Img           *image.RGBA
-	Loc           ImageLocation
+	Loc           primitives.ImageLocation
 	SyncedToDisk  bool
 	lastUse       time.Time
 	ModTime       time.Time
@@ -57,7 +48,7 @@ type CachedImage struct {
 }
 
 type cacheTask struct {
-	loc ImageLocation
+	loc primitives.ImageLocation
 	img *image.RGBA
 	ret chan *CachedImage
 }
@@ -70,8 +61,8 @@ type ImageCache struct {
 	tasks               chan *cacheTask
 	ioTasks             chan *cacheTaskIO
 	ioReturn            chan *cacheTaskIO
-	cache               map[ImageLocation]*CachedImage
-	cacheReturn         map[ImageLocation][]*cacheTask
+	cache               map[primitives.ImageLocation]*CachedImage
+	cacheReturn         map[primitives.ImageLocation][]*cacheTask
 	backlog             *list.List
 	wg                  sync.WaitGroup
 	cacheStatLen        atomic.Int64
@@ -93,8 +84,8 @@ func NewImageCache(logger *log.Logger, cfg *lac.ConfSubtree, ctx context.Context
 		tasks:       make(chan *cacheTask, taskQueueLen),
 		ioTasks:     make(chan *cacheTaskIO, ioQueueLen),
 		ioReturn:    make(chan *cacheTaskIO, ioQueueLen),
-		cache:       map[ImageLocation]*CachedImage{},
-		cacheReturn: map[ImageLocation][]*cacheTask{},
+		cache:       map[primitives.ImageLocation]*CachedImage{},
+		cacheReturn: map[primitives.ImageLocation][]*cacheTask{},
 		backlog:     list.New(),
 	}
 	c.wg.Add(ioProcessors)
@@ -239,9 +230,9 @@ func (c *ImageCache) processSmallerImageGet(task *cacheTask) {
 	c.cacheReturn[loc] = r
 }
 
-func getStorageLevelLoc(loc ImageLocation) ImageLocation {
+func getStorageLevelLoc(loc primitives.ImageLocation) primitives.ImageLocation {
 	rx, rz := AT(loc.X*powarr[loc.S], loc.Z*powarr[loc.S])
-	return ImageLocation{
+	return primitives.ImageLocation{
 		World:     loc.World,
 		Dimension: loc.Dimension,
 		Variant:   loc.Variant,
@@ -251,7 +242,7 @@ func getStorageLevelLoc(loc ImageLocation) ImageLocation {
 	}
 }
 
-func copySmallerCachedImage(img *CachedImage, target ImageLocation) *CachedImage {
+func copySmallerCachedImage(img *CachedImage, target primitives.ImageLocation) *CachedImage {
 	return &CachedImage{
 		Img:           copyFragmentRGBA(img.Img, target),
 		Loc:           img.Loc,
@@ -262,7 +253,7 @@ func copySmallerCachedImage(img *CachedImage, target ImageLocation) *CachedImage
 	}
 }
 
-func copyFragmentRGBA(from *image.RGBA, target ImageLocation) *image.RGBA {
+func copyFragmentRGBA(from *image.RGBA, target primitives.ImageLocation) *image.RGBA {
 	if from == nil {
 		return nil
 	}
@@ -370,7 +361,7 @@ func (c *ImageCache) processCacheLoad(t *CachedImage, task *cacheTaskIO) {
 	t.SyncedToDisk = true
 }
 
-func (c *ImageCache) SetCachedImage(loc ImageLocation, img *image.RGBA) {
+func (c *ImageCache) SetCachedImage(loc primitives.ImageLocation, img *image.RGBA) {
 	if img == nil {
 		return // dumbass
 	}
@@ -381,7 +372,7 @@ func (c *ImageCache) SetCachedImage(loc ImageLocation, img *image.RGBA) {
 	}
 }
 
-func (c *ImageCache) GetCachedImageBlocking(loc ImageLocation) *CachedImage {
+func (c *ImageCache) GetCachedImageBlocking(loc primitives.ImageLocation) *CachedImage {
 	ret := make(chan *CachedImage)
 	c.tasks <- &cacheTask{
 		loc: loc,
@@ -391,7 +382,7 @@ func (c *ImageCache) GetCachedImageBlocking(loc ImageLocation) *CachedImage {
 	return <-ret
 }
 
-func (c *ImageCache) GetCachedImage(loc ImageLocation, ret chan *CachedImage) {
+func (c *ImageCache) GetCachedImage(loc primitives.ImageLocation, ret chan *CachedImage) {
 	if ret == nil {
 		return // wtf do you expect?
 	}
@@ -402,7 +393,7 @@ func (c *ImageCache) GetCachedImage(loc ImageLocation, ret chan *CachedImage) {
 	}
 }
 
-func (c *ImageCache) GetCachedImageModTime(loc ImageLocation) time.Time {
+func (c *ImageCache) GetCachedImageModTime(loc primitives.ImageLocation) time.Time {
 	return c.getModTimeLoc(loc)
 }
 

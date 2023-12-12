@@ -3,15 +3,15 @@ package main
 import (
 	"image"
 
-	imagecache "github.com/maxsupermanhd/WebChunk/imageCache"
+	"github.com/maxsupermanhd/WebChunk/primitives"
 )
 
-func imageCacheGetBlockingLoc(loc imagecache.ImageLocation) *image.RGBA {
+func imageCacheGetBlockingLoc(loc primitives.ImageLocation) *image.RGBA {
 	return ic.GetCachedImageBlocking(loc).Img
 }
 
 func imageCacheGetBlocking(wname, dname, variant string, cs, cx, cz int) *image.RGBA {
-	return ic.GetCachedImageBlocking(imagecache.ImageLocation{
+	return ic.GetCachedImageBlocking(primitives.ImageLocation{
 		World:     wname,
 		Dimension: dname,
 		Variant:   variant,
@@ -21,12 +21,12 @@ func imageCacheGetBlocking(wname, dname, variant string, cs, cx, cz int) *image.
 	}).Img
 }
 
-func imageCacheSaveLoc(img *image.RGBA, loc imagecache.ImageLocation) {
+func imageCacheSaveLoc(img *image.RGBA, loc primitives.ImageLocation) {
 	ic.SetCachedImage(loc, img)
 }
 
 func imageCacheSave(img *image.RGBA, wname, dname, variant string, cs, cx, cz int) {
-	imageCacheSaveLoc(img, imagecache.ImageLocation{
+	imageCacheSaveLoc(img, primitives.ImageLocation{
 		World:     wname,
 		Dimension: dname,
 		Variant:   variant,

@@ -35,7 +35,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	imagecache "github.com/maxsupermanhd/WebChunk/imageCache"
+	"github.com/maxsupermanhd/WebChunk/primitives"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -110,9 +110,9 @@ func wsClientHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 		wg.Done()
 	}()
 
-	subbedTiles := map[imagecache.ImageLocation]bool{}
+	subbedTiles := map[primitives.ImageLocation]bool{}
 
-	asyncTileRequestor := func(loc imagecache.ImageLocation) {
+	asyncTileRequestor := func(loc primitives.ImageLocation) {
 		if loc.Dimension == "" || loc.World == "" {
 			return
 		}
@@ -192,7 +192,7 @@ clientLoop:
 				}
 				switch msg.Action {
 				case "tileSubscribe":
-					var loc imagecache.ImageLocation
+					var loc primitives.ImageLocation
 					err := mapstructure.Decode(msg.Data, &loc)
 					if err != nil {
 						log.Printf("Websocket %s sent malformed tile sub: %s", r.RemoteAddr, err.Error())
@@ -207,7 +207,7 @@ clientLoop:
 					}
 					go asyncTileRequestor(loc)
 				case "tileUnsubscribe":
-					var loc imagecache.ImageLocation
+					var loc primitives.ImageLocation
 					err := mapstructure.Decode(msg.Data, &loc)
 					if err != nil {
 						log.Printf("Websocket %s sent malformed tile unsub: %s", r.RemoteAddr, err.Error())
@@ -237,7 +237,7 @@ clientLoop:
 						break
 					}
 					oldSubbed := subbedTiles
-					subbedTiles = map[imagecache.ImageLocation]bool{}
+					subbedTiles = map[primitives.ImageLocation]bool{}
 					for k := range oldSubbed {
 						k.World = nWorld
 						k.Dimension = nDimension
@@ -264,7 +264,7 @@ var (
 	}
 )
 
-func marshalBinaryTileUpdate(loc imagecache.ImageLocation, img *image.RGBA) []byte {
+func marshalBinaryTileUpdate(loc primitives.ImageLocation, img *image.RGBA) []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, uint8(0x01))
 	binary.Write(buf, binary.BigEndian, uint32(len(loc.World)))

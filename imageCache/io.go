@@ -8,10 +8,12 @@ import (
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/maxsupermanhd/WebChunk/primitives"
 )
 
 type cacheTaskIO struct {
-	loc ImageLocation
+	loc primitives.ImageLocation
 	img *CachedImage
 	err error
 }
@@ -50,11 +52,11 @@ func (c *ImageCache) cacheGetFilename(world, dim, variant string, s, x, z int) s
 	return path.Join(".", c.root, world, dim, variant, strconv.FormatInt(int64(s), 10), strconv.FormatInt(int64(x), 10)+"x"+strconv.FormatInt(int64(z), 10)+".png")
 }
 
-func (c *ImageCache) cacheGetFilenameLoc(loc ImageLocation) string {
+func (c *ImageCache) cacheGetFilenameLoc(loc primitives.ImageLocation) string {
 	return c.cacheGetFilename(loc.World, loc.Dimension, loc.Variant, loc.S, loc.X, loc.Z)
 }
 
-func (c *ImageCache) cacheSave(img *image.RGBA, loc ImageLocation) error {
+func (c *ImageCache) cacheSave(img *image.RGBA, loc primitives.ImageLocation) error {
 	storePath := c.cacheGetFilenameLoc(loc)
 	err := os.MkdirAll(path.Dir(storePath), 0764)
 	if err != nil {
@@ -71,7 +73,7 @@ func (c *ImageCache) cacheSave(img *image.RGBA, loc ImageLocation) error {
 	return file.Close()
 }
 
-func (c *ImageCache) cacheLoad(loc ImageLocation) (*CachedImage, error) {
+func (c *ImageCache) cacheLoad(loc primitives.ImageLocation) (*CachedImage, error) {
 	fp := c.cacheGetFilenameLoc(loc)
 	f, err := os.Open(fp)
 	if err != nil {
@@ -114,7 +116,7 @@ func (c *ImageCache) cacheLoad(loc ImageLocation) (*CachedImage, error) {
 	}, nil
 }
 
-func (c *ImageCache) getModTimeLoc(loc ImageLocation) time.Time {
+func (c *ImageCache) getModTimeLoc(loc primitives.ImageLocation) time.Time {
 	return c.getModTimeFp(c.cacheGetFilenameLoc(loc))
 }
 
