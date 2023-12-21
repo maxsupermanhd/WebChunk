@@ -41,7 +41,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	biomes "github.com/maxsupermanhd/WebChunk/data/biomes"
+	"github.com/maxsupermanhd/WebChunk/data/biomes"
 	"github.com/maxsupermanhd/go-vmc/v764/level"
 	"github.com/maxsupermanhd/go-vmc/v764/level/block"
 	"github.com/maxsupermanhd/go-vmc/v764/save"
@@ -104,14 +104,13 @@ func prepareSectionBlockstates(s *save.Section) *level.PaletteContainer[block.St
 		if !ok {
 			b, ok = block.FromID["minecraft:"+v.Name]
 			if !ok {
-				log.Printf("Can not find block from id [%v]", v.Name)
 				return nil
 			}
 		}
 		if v.Properties.Data != nil {
 			err := v.Properties.Unmarshal(&b)
 			if err != nil {
-				log.Printf("Error unmarshling properties of block [%v] from [%v]: %v", v.Name, v.Properties.String(), err.Error())
+				// log.Printf("Error unmarshling properties of block [%v] from [%v]: %v", v.Name, v.Properties.String(), err.Error())
 				return nil
 			}
 		}
@@ -129,7 +128,7 @@ func prepareSectionBlockIDs(s *save.Section) *level.PaletteContainer[block.State
 		if !ok {
 			b, ok = block.FromID["minecraft:"+v.Name]
 			if !ok {
-				log.Printf("Can not find block from id [%v]", v.Name)
+				// log.Printf("Can not find block from id [%v]", v.Name)
 				return nil
 			}
 		}
@@ -139,15 +138,14 @@ func prepareSectionBlockIDs(s *save.Section) *level.PaletteContainer[block.State
 }
 
 func prepareSectionBiomes(s *save.Section) *level.PaletteContainer[level.BiomesState] {
-	rawp := []level.BiomesState{}
-	for _, vv := range s.Biomes.Palette {
+	rawp := make([]level.BiomesState, len(s.Biomes.Palette))
+	for pi, vv := range s.Biomes.Palette {
 		v := strings.TrimPrefix(string(vv), "minecraft:")
 		i, ok := biomes.BiomeID[v]
-		if !ok && os.Getenv("REPORT_CHUNK_PROBLEMS") == "all" {
-			log.Printf("Failed to find id of biome [%s], fallback to plains", v)
-			i = 1
+		if !ok {
+			i = 127
 		}
-		rawp = append(rawp, level.BiomesState(i))
+		rawp[pi] = level.BiomesState(i)
 	}
 	return level.NewBiomesPaletteContainerWithData(4*4*4, s.Biomes.Data, rawp)
 }
