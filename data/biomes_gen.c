@@ -1,13 +1,13 @@
 // generates biome mappings
 // 
-// git submodule update --init --recursive
-// cd cubiomes && make libcubiomes && cd ..
-// gcc biomes_gen.c cubiomes/libcubiomes.a -fwrapv -lm -o biomes_gen && ./biomes_gen > biomes/colors.go
+// Make sure to init submodules and build cubiomes.a first
+// 
+// gcc biomes_gen.c ../lib/cubiomes/libcubiomes.a -fwrapv -lm -o biomes_gen && ./biomes_gen > biomes/colors.go
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "cubiomes/util.h"
-#include "cubiomes/layers.h"
+#include "../lib/cubiomes/util.h"
+#include "../lib/cubiomes/layers.h"
 
 int main() {
 	unsigned char b[256][3];
