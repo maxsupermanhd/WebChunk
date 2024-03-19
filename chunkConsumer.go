@@ -3,25 +3,23 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"errors"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/maxsupermanhd/WebChunk/chunkStorage"
-	"github.com/maxsupermanhd/WebChunk/proxy"
 	"github.com/maxsupermanhd/go-vmc/v764/level"
 	"github.com/maxsupermanhd/go-vmc/v764/nbt"
 	"github.com/maxsupermanhd/go-vmc/v764/save"
 )
 
-func chunkConsumer(ctx context.Context, c chan *proxy.ProxiedChunk) {
+func chunkConsumer(exitchan <-chan struct{}) {
 	for {
 		select {
-		case <-ctx.Done():
+		case <-exitchan:
 			return
-		case r := <-c:
+		case r := <-chunkChannel:
 			if r.Dimension == "" || r.Server == "" {
 				log.Printf("Got chunk [%v](%v) from [%v] by [%v] with empty params, DROPPING", r.Pos, r.Dimension, r.Server, r.Username)
 				continue

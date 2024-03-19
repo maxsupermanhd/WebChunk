@@ -85,6 +85,11 @@ var collectPackets = []packetid.ClientboundPacketID{
 }
 
 func RunProxy(ctx context.Context, cfg *lac.ConfSubtree, dump chan *ProxiedChunk) {
+	listenAddr := cfg.GetDSString("localhost:25566", "listen_addr")
+	if listenAddr == "" {
+		log.Println("Proxy disabled")
+		return
+	}
 	var icon image.Image
 	if iconpath := cfg.GetDSString("", "icon_path"); iconpath != "" {
 		f, err := os.Open(iconpath)
@@ -128,12 +133,12 @@ func RunProxy(ctx context.Context, cfg *lac.ConfSubtree, dump chan *ProxiedChunk
 			Ctx:         ctx,
 		},
 	}
-	listener, err := net.ListenMC(cfg.GetDSString("localhost:25566", "listen_addr"))
+	listener, err := net.ListenMC(listenAddr)
 	if err != nil {
 		log.Println("Proxy startup error: ", err)
 		return
 	}
-	log.Println("Proxy started on " + cfg.GetDSString("localhost:25566", "listen_addr"))
+	log.Println("Proxy started on " + listenAddr)
 	var wg sync.WaitGroup
 	lstCloseChan := make(chan struct{})
 	wg.Add(1)

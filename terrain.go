@@ -62,29 +62,33 @@ var (
 	metrics     = map[string]metricsMeasure{}
 )
 
-func metricsDispatcher() {
-	for m := range metricsSend {
-		d, ok := metrics[m.m]
-		if ok {
-			d.count++
-			d.sum += m.t
-			metrics[m.m] = d
-		} else {
-			metrics[m.m] = metricsMeasure{sum: m.t, count: 1}
-		}
-		if ok && d.count%200 == 0 {
-			log.Println("Chunk", m.m, "rendering metrics", time.Duration(d.sum.Nanoseconds()/d.count).String(), "per chunk (total", d.count, ")")
+func metricsDispatcher(exitchan <-chan struct{}) {
+	for {
+		select {
+		case <-exitchan:
+			return
+		case m, ok := <-metricsSend:
+			if !ok {
+				log.Println("Metrix send channel closed!")
+				return
+			}
+			d, ok := metrics[m.m]
+			if ok {
+				d.count++
+				d.sum += m.t
+				metrics[m.m] = d
+			} else {
+				metrics[m.m] = metricsMeasure{sum: m.t, count: 1}
+			}
+			if ok && d.count%200 == 0 {
+				log.Println("Chunk", m.m, "rendering metrics", time.Duration(d.sum.Nanoseconds()/d.count).String(), "per chunk (total", d.count, ")")
+			}
 		}
 	}
-	log.Println("Metrix dispatcher stopped")
 }
 
 func appendMetrics(t time.Duration, m string) {
 	metricsSend <- metricsCollect{t: t, m: m}
-}
-
-func closeMetrics() {
-	close(metricsSend)
 }
 
 func isAirState(s block.StateID) bool {

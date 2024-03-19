@@ -12,6 +12,7 @@ Path to load config from is taken from environment variable `WEBCHUNK_CONFIG` an
 | --- | --- | --- | --- | --- |
 | `logs_path` | string | No | `./logs/WebChunk.log` | Path to log file (will create files and directories if needed) |
 | `colors_path` | string | Yes 🔧 |`./colors.gob` | Path to GOB-encoded block color palette |
+| `ignore_failed_storages` | bool | No | `false` | Continue to start webchunk if errors occur on storages init |
 | `storages` | object | No | `{}` | Contains defined storages, see [Storage object](#storage-object) |
 | `render_received` | bool | Yes | `true` | Do render chunks immediately when received |
 | `imaging_workers` | int | No | `4` | Essentially number of IO threads that read/write from cache |
@@ -39,8 +40,8 @@ Storage object contains 2 fields: `type` and `address`.
 
 Storage types:
 
-- `postgres` PostgreSQL database, address field is a URI or DSN connection string to the database
-- `filesystem` Mojang-compatible anvil region format storage, address filed is a path to the directory (will not be created automatically)
+- `postgres` PostgreSQL database, address is a URI or DSN connection string to the database
+- `filesystem` Mojang-compatible anvil region format storage, address is a path to the directory (will not be created automatically)
 
 Example of storage objects:
 

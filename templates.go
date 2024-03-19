@@ -21,7 +21,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"log"
@@ -89,7 +88,7 @@ func plainmsg(w http.ResponseWriter, r *http.Request, color int, msg string) {
 		"msg":      msg})
 }
 
-func templateManager(ctx context.Context, cfg *lac.ConfSubtree) {
+func templateManager(exitchan <-chan struct{}, cfg *lac.ConfSubtree) {
 	log.Println("Loading web templates")
 	templatesGlob := cfg.GetDSString("templates/*.gohtml", "templates_glob")
 	var err error
@@ -133,7 +132,7 @@ func templateManager(ctx context.Context, cfg *lac.ConfSubtree) {
 				return
 			}
 			log.Println("Layouts watcher error:", err)
-		case <-ctx.Done():
+		case <-exitchan:
 			watcher.Close()
 			log.Println("Layouts watcher stopped")
 			return

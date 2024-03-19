@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 )
 
@@ -28,12 +27,11 @@ func newMapEventRouter() *mapEventRouter {
 	}
 }
 
-func (router *mapEventRouter) Run(ctx context.Context) {
+func (router *mapEventRouter) Run(exitchan <-chan struct{}) {
 	clients := map[chan mapEvent]bool{}
-	log.Println("Event router started")
 	for {
 		select {
-		case <-ctx.Done():
+		case <-exitchan:
 			for c := range clients {
 				close(c)
 			}

@@ -22,7 +22,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -62,13 +61,13 @@ type wsmessage struct {
 	msgData []byte
 }
 
-func wsClientHandlerWrapper(ctx context.Context) http.HandlerFunc {
+func wsClientHandlerWrapper(exitchan <-chan struct{}) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wsClientHandler(w, r, ctx)
+		wsClientHandler(w, r, exitchan)
 	}
 }
 
-func wsClientHandler(w http.ResponseWriter, r *http.Request, ctx context.Context) {
+func wsClientHandler(w http.ResponseWriter, r *http.Request, exitchan <-chan struct{}) {
 	c, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Websocket upgrade error: %s", err)
@@ -172,7 +171,7 @@ clientLoop:
 				}
 			}
 			break clientLoop
-		case <-ctx.Done():
+		case <-exitchan:
 			log.Printf("Shutting down websocket %s", r.RemoteAddr)
 			wQ <- wsmessage{
 				msgType: websocket.TextMessage,
